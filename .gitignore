@@ -1,2 +1,48 @@
 **/target
 **/node_modules
+**/.next
+**/.vinext
+
+# Bun
+bun.lockb
+bun.lock
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+.playwright/
+
+# Turbo
+.turbo
+
+# Misc
+.DS_Store
+*.pem
+
+# Local env files
+.env*.local
+.env
+
+# Next.js
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# Build outputs
+dist/
+build/
+
+# Old Vinext client (deprecated - use apps/web instead)
+/client/node_modules/
+/client/dist/
+/client/.next/
+/client/.vinext/

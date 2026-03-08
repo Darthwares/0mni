@@ -155,6 +155,7 @@ export default function MessagesPage() {
   const [dmsCollapsed, setDmsCollapsed] = useState(false)
   const [hoveredMsgId, setHoveredMsgId] = useState<bigint | null>(null)
   const [showEmojiFor, setShowEmojiFor] = useState<bigint | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const threadEndRef = useRef<HTMLDivElement>(null)
@@ -289,18 +290,24 @@ export default function MessagesPage() {
   const handleSend = useCallback(async () => {
     if (!messageText.trim() || !view) return
     const channelId = view.kind === 'channel' ? view.channelId : view.channelId
+    setSendError(null)
     setIsSending(true)
     try {
+      console.log('[Omni] Sending message to channel', channelId.toString(), ':', messageText.trim().slice(0, 50))
       await sendMessage({
         contextType: { tag: 'Channel' },
         contextId: channelId,
         content: messageText.trim(),
         messageType: { tag: 'Chat' },
       })
+      console.log('[Omni] Message sent successfully')
       setMessageText('')
       composerRef.current?.focus()
-    } catch (err) {
-      console.error('Failed to send:', err)
+    } catch (err: any) {
+      const errorMsg = err?.message || String(err)
+      console.error('[Omni] Failed to send message:', errorMsg, err)
+      setSendError(errorMsg)
+      setTimeout(() => setSendError(null), 5000)
     } finally {
       setIsSending(false)
     }
@@ -807,6 +814,11 @@ export default function MessagesPage() {
                 </ScrollArea>
 
                 {/* Composer */}
+                {sendError && (
+                  <div className="px-5 py-2 bg-red-500/10 border-t border-red-500/30">
+                    <p className="text-xs text-red-400">Failed to send: {sendError}</p>
+                  </div>
+                )}
                 <div className="shrink-0 px-5 py-3 border-t border-neutral-800">
                   <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
                     <Textarea

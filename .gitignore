@@ -52,3 +52,4 @@ build/
 
 # Old Vinext client (deprecated - use apps/web instead)
 /client/
+.vercel

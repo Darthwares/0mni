@@ -4,16 +4,20 @@ import { AuthProvider, type AuthProviderProps } from 'react-oidc-context'
 import { WebStorageStateStore } from 'oidc-client-ts'
 import { useEffect, useState } from 'react'
 
-const oidcConfig: AuthProviderProps = {
-  authority: process.env.NEXT_PUBLIC_OIDC_AUTHORITY!,
-  client_id: process.env.NEXT_PUBLIC_OIDC_CLIENT_ID!,
-  redirect_uri: process.env.NEXT_PUBLIC_OIDC_REDIRECT_URI!,
-  post_logout_redirect_uri: process.env.NEXT_PUBLIC_OIDC_POST_LOGOUT_REDIRECT_URI!,
-  scope: 'openid email profile',
-  response_type: 'code',
-  onSigninCallback: () => {
-    window.history.replaceState({}, document.title, window.location.pathname)
-  },
+function getOidcConfig(): AuthProviderProps {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+  return {
+    authority: process.env.NEXT_PUBLIC_OIDC_AUTHORITY!,
+    client_id: process.env.NEXT_PUBLIC_OIDC_CLIENT_ID!,
+    redirect_uri: `${origin}/callback`,
+    post_logout_redirect_uri: `${origin}/login`,
+    scope: 'openid email profile',
+    response_type: 'code',
+    onSigninCallback: () => {
+      window.history.replaceState({}, document.title, window.location.pathname)
+    },
+  }
 }
 
 export function OidcAuthProvider({ children }: { children: React.ReactNode }) {
@@ -40,9 +44,11 @@ export function OidcAuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const config = getOidcConfig()
+
   return (
     <AuthProvider
-      {...oidcConfig}
+      {...config}
       userStore={new WebStorageStateStore({ store: window.localStorage })}
     >
       {children}

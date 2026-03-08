@@ -553,6 +553,34 @@ pub struct Channel {
     pub created_at: Timestamp,
 }
 
+// Message Reactions (emoji reactions on messages)
+#[spacetimedb::table(accessor = reaction, public)]
+#[derive(Clone)]
+pub struct Reaction {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub message_id: u64,
+    pub user_id: Identity,
+    pub emoji: String, // "thumbsup", "heart", "eyes", etc.
+    pub created_at: Timestamp,
+}
+
+// Pinned messages
+#[spacetimedb::table(accessor = pinned_message, public)]
+#[derive(Clone)]
+pub struct PinnedMessage {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub channel_id: u64,
+    pub message_id: u64,
+    pub pinned_by: Identity,
+    pub pinned_at: Timestamp,
+}
+
 #[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
 pub enum DocumentType {
     Wiki,
@@ -945,6 +973,44 @@ pub fn init(ctx: &ReducerContext) {
             video_max_frame_bytes: 512000,
         });
     }
+
+    // Seed default channels if none exist
+    let has_channels = ctx.db.channel().iter().next().is_some();
+    if !has_channels {
+        let now = ctx.timestamp;
+        let system = ctx.sender();
+
+        ctx.db.channel().insert(Channel {
+            id: 0, name: "general".to_string(),
+            description: Some("Company-wide announcements and discussion".to_string()),
+            is_private: false, members: vec![], ai_participants: vec![],
+            created_by: system, created_at: now,
+        });
+        ctx.db.channel().insert(Channel {
+            id: 0, name: "random".to_string(),
+            description: Some("Non-work banter and water cooler conversation".to_string()),
+            is_private: false, members: vec![], ai_participants: vec![],
+            created_by: system, created_at: now,
+        });
+        ctx.db.channel().insert(Channel {
+            id: 0, name: "engineering".to_string(),
+            description: Some("Engineering team discussions".to_string()),
+            is_private: false, members: vec![], ai_participants: vec![],
+            created_by: system, created_at: now,
+        });
+        ctx.db.channel().insert(Channel {
+            id: 0, name: "support".to_string(),
+            description: Some("Customer support coordination".to_string()),
+            is_private: false, members: vec![], ai_participants: vec![],
+            created_by: system, created_at: now,
+        });
+        ctx.db.channel().insert(Channel {
+            id: 0, name: "sales".to_string(),
+            description: Some("Sales team pipeline and updates".to_string()),
+            is_private: false, members: vec![], ai_participants: vec![],
+            created_by: system, created_at: now,
+        });
+    }
 }
 
 // ============================================================================
@@ -1263,6 +1329,249 @@ pub fn send_message(
         ai_generated: is_ai,
         ai_confidence: None,
         sent_at: now,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn send_thread_reply(
+    ctx: &ReducerContext,
+    context_type: ContextType,
+    context_id: u64,
+    content: String,
+    thread_id: u64,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    if content.trim().is_empty() {
+        return Err("Reply cannot be empty".to_string());
+    }
+
+    // Verify parent message exists
+    if ctx.db.message().id().find(&thread_id).is_none() {
+        return Err("Thread parent message not found".to_string());
+    }
+
+    let is_ai = ctx.db.employee().id().find(&who)
+        .map(|e| e.employee_type == EmployeeType::AIAgent)
+        .unwrap_or(false);
+
+    ctx.db.message().insert(Message {
+        id: 0,
+        sender: who,
+        context_type,
+        context_id,
+        message_type: MessageType::Chat,
+        content,
+        attachments: vec![],
+        thread_id: Some(thread_id),
+        in_reply_to: Some(thread_id),
+        ai_generated: is_ai,
+        ai_confidence: None,
+        sent_at: now,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - CHANNEL MANAGEMENT
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_channel(
+    ctx: &ReducerContext,
+    name: String,
+    description: Option<String>,
+    is_private: bool,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    let clean_name = name.trim().to_lowercase().replace(' ', "-");
+    if clean_name.is_empty() {
+        return Err("Channel name cannot be empty".to_string());
+    }
+
+    // Check for duplicate channel name
+    for ch in ctx.db.channel().iter() {
+        if ch.name == clean_name {
+            return Err(format!("Channel #{} already exists", clean_name));
+        }
+    }
+
+    ctx.db.channel().insert(Channel {
+        id: 0,
+        name: clean_name,
+        description,
+        is_private,
+        members: vec![who.to_hex().to_string()],
+        ai_participants: vec![],
+        created_by: who,
+        created_at: now,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn join_channel(
+    ctx: &ReducerContext,
+    channel_id: u64,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let hex = who.to_hex().to_string();
+
+    let channel = ctx.db.channel().id().find(&channel_id)
+        .ok_or("Channel not found")?;
+
+    if channel.members.contains(&hex) {
+        return Ok(()); // Already a member
+    }
+
+    let mut updated = channel.clone();
+    updated.members.push(hex);
+    ctx.db.channel().id().update(updated);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn leave_channel(
+    ctx: &ReducerContext,
+    channel_id: u64,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let hex = who.to_hex().to_string();
+
+    let channel = ctx.db.channel().id().find(&channel_id)
+        .ok_or("Channel not found")?;
+
+    let mut updated = channel.clone();
+    updated.members.retain(|m| m != &hex);
+    ctx.db.channel().id().update(updated);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_channel_topic(
+    ctx: &ReducerContext,
+    channel_id: u64,
+    description: Option<String>,
+) -> Result<(), String> {
+    let channel = ctx.db.channel().id().find(&channel_id)
+        .ok_or("Channel not found")?;
+
+    let mut updated = channel.clone();
+    updated.description = description;
+    ctx.db.channel().id().update(updated);
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - REACTIONS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn add_reaction(
+    ctx: &ReducerContext,
+    message_id: u64,
+    emoji: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    // Verify message exists
+    if ctx.db.message().id().find(&message_id).is_none() {
+        return Err("Message not found".to_string());
+    }
+
+    // Check for duplicate reaction
+    for r in ctx.db.reaction().iter() {
+        if r.message_id == message_id
+            && r.user_id == who
+            && r.emoji == emoji
+        {
+            return Ok(()); // Already reacted
+        }
+    }
+
+    ctx.db.reaction().insert(Reaction {
+        id: 0,
+        message_id,
+        user_id: who,
+        emoji,
+        created_at: now,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_reaction(
+    ctx: &ReducerContext,
+    message_id: u64,
+    emoji: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+
+    let mut to_delete: Option<u64> = None;
+    for r in ctx.db.reaction().iter() {
+        if r.message_id == message_id
+            && r.user_id == who
+            && r.emoji == emoji
+        {
+            to_delete = Some(r.id);
+            break;
+        }
+    }
+
+    if let Some(id) = to_delete {
+        ctx.db.reaction().id().delete(&id);
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DM CHANNELS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_dm_channel(
+    ctx: &ReducerContext,
+    target_identity_hex: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    let my_hex = who.to_hex().to_string();
+
+    // Check if DM channel already exists between these two users
+    for ch in ctx.db.channel().iter() {
+        if ch.is_private && ch.members.len() == 2 {
+            if ch.members.contains(&my_hex) && ch.members.contains(&target_identity_hex) {
+                // Already exists, return OK (client will find it)
+                return Ok(());
+            }
+        }
+    }
+
+    // Create the DM channel (named with both users' hex, prefixed with dm-)
+    let dm_name = format!("dm-{}-{}", &my_hex[..8], &target_identity_hex[..8.min(target_identity_hex.len())]);
+
+    ctx.db.channel().insert(Channel {
+        id: 0,
+        name: dm_name,
+        description: None,
+        is_private: true,
+        members: vec![my_hex, target_identity_hex],
+        ai_participants: vec![],
+        created_by: who,
+        created_at: now,
     });
 
     Ok(())

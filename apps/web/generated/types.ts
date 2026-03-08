@@ -618,6 +618,15 @@ export const MessageType = __t.enum("MessageType", {
 });
 export type MessageType = __Infer<typeof MessageType>;
 
+export const PinnedMessage = __t.object("PinnedMessage", {
+  id: __t.u64(),
+  channelId: __t.u64(),
+  messageId: __t.u64(),
+  pinnedBy: __t.identity(),
+  pinnedAt: __t.timestamp(),
+});
+export type PinnedMessage = __Infer<typeof PinnedMessage>;
+
 // The tagged union or sum type for the algebraic type `PrStatus`.
 export const PrStatus = __t.enum("PrStatus", {
   Open: __t.unit(),
@@ -657,6 +666,15 @@ export const PullRequest = __t.object("PullRequest", {
   mergedAt: __t.option(__t.timestamp()),
 });
 export type PullRequest = __Infer<typeof PullRequest>;
+
+export const Reaction = __t.object("Reaction", {
+  id: __t.u64(),
+  messageId: __t.u64(),
+  userId: __t.identity(),
+  emoji: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type Reaction = __Infer<typeof Reaction>;
 
 // The tagged union or sum type for the algebraic type `Recommendation`.
 export const Recommendation = __t.enum("Recommendation", {

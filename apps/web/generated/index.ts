@@ -35,19 +35,27 @@ import {
 
 // Import all reducer arg schemas
 import AcceptCallReducer from "./accept_call_reducer";
+import AddReactionReducer from "./add_reaction_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
+import CreateChannelReducer from "./create_channel_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
+import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
+import JoinChannelReducer from "./join_channel_reducer";
+import LeaveChannelReducer from "./leave_channel_reducer";
+import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
+import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
+import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 
 // Import all procedure arg schemas
@@ -71,7 +79,9 @@ import LeadRow from "./lead_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
+import PinnedMessageRow from "./pinned_message_table";
 import PullRequestRow from "./pull_request_table";
+import ReactionRow from "./reaction_table";
 import TaskRow from "./task_table";
 import TicketRow from "./ticket_table";
 import VideoFrameEventRow from "./video_frame_event_table";
@@ -272,6 +282,17 @@ const tablesSchema = __schema({
       { name: 'message_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MessageRow),
+  pinned_message: __table({
+    name: 'pinned_message',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'pinned_message_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PinnedMessageRow),
   pull_request: __table({
     name: 'pull_request',
     indexes: [
@@ -283,6 +304,17 @@ const tablesSchema = __schema({
       { name: 'pull_request_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, PullRequestRow),
+  reaction: __table({
+    name: 'reaction',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'reaction_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ReactionRow),
   task: __table({
     name: 'task',
     indexes: [
@@ -318,19 +350,27 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
+  __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
+  __reducerSchema("create_channel", CreateChannelReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
+  __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
+  __reducerSchema("join_channel", JoinChannelReducer),
+  __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
   __reducerSchema("send_message", SendMessageReducer),
+  __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
+  __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
 );
 

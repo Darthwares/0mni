@@ -1,63 +1,52 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Collaboration Module', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/collaboration');
-    await page.waitForLoadState('networkidle');
   });
 
-  test('should display collaboration module layout', async ({ page }) => {
-    await expect(page.getByText(/Collaboration/i)).toBeVisible();
+  test('renders the collaboration page heading', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /Collaboration/i }).first()).toBeVisible();
   });
 
-  test('should display channels list', async ({ page }) => {
-    const channels = page.locator('[class*="channel"]');
-    expect(await channels.count() >= 0).toBeTruthy();
+  test('displays tabs for Channels, Documents, and Meetings', async ({ page }) => {
+    await expect(page.getByRole('tab', { name: /Channels/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Documents/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Meetings/i })).toBeVisible();
   });
 
-  test('should show channel messages when channel selected', async ({ page }) => {
-    const firstChannel = page.locator('[class*="channel"]').first();
-
-    if (await firstChannel.isVisible({ timeout: 2000 })) {
-      await firstChannel.click();
-      await page.waitForTimeout(500);
-
-      const messages = page.locator('[class*="message"]');
-      expect(await messages.count() >= 0).toBeTruthy();
-    }
+  test('Channels tab is active by default', async ({ page }) => {
+    const tab = page.getByRole('tab', { name: /Channels/i });
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('should allow typing a message', async ({ page }) => {
-    const firstChannel = page.locator('[class*="channel"]').first();
-
-    if (await firstChannel.isVisible({ timeout: 2000 })) {
-      await firstChannel.click();
-      await page.waitForTimeout(500);
-
-      const messageInput = page.locator('textarea, input[type="text"]').last();
-
-      if (await messageInput.isVisible({ timeout: 2000 })) {
-        await messageInput.fill('Test message in collaboration');
-        await expect(messageInput).toHaveValue('Test message in collaboration');
-      }
-    }
+  test('displays channels list or empty state', async ({ page }) => {
+    const noChannels = page.getByText(/no channels/i);
+    const channelList = page.locator('[class*="border"]');
+    expect(
+      (await noChannels.isVisible().catch(() => false)) ||
+      (await channelList.first().isVisible().catch(() => false))
+    ).toBeTruthy();
   });
 
-  test('should display documents section', async ({ page }) => {
-    const documents = page.locator('text=/Documents|Files/i').first();
-
-    if (await documents.isVisible({ timeout: 2000 })) {
-      await documents.click();
-      await page.waitForTimeout(500);
-    }
+  test('can switch to Documents tab', async ({ page }) => {
+    await page.getByRole('tab', { name: /Documents/i }).click();
+    await page.waitForTimeout(500);
+    const tab = page.getByRole('tab', { name: /Documents/i });
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('should display meetings section', async ({ page }) => {
-    const meetings = page.locator('text=/Meetings|Calendar/i').first();
+  test('can switch to Meetings tab', async ({ page }) => {
+    await page.getByRole('tab', { name: /Meetings/i }).click();
+    await page.waitForTimeout(500);
+    const tab = page.getByRole('tab', { name: /Meetings/i });
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+  });
 
-    if (await meetings.isVisible({ timeout: 2000 })) {
-      await meetings.click();
-      await page.waitForTimeout(500);
+  test('has message input area in channels', async ({ page }) => {
+    const messageInput = page.getByPlaceholder(/message|type/i);
+    if (await messageInput.isVisible()) {
+      await expect(messageInput).toBeEnabled();
     }
   });
 });

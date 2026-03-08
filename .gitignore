@@ -12,6 +12,11 @@ test-results/
 playwright-report/
 playwright/.cache/
 .playwright/
+.playwright-mcp/
+**/tests/e2e/.auth/
+
+# Auth state
+**/auth.json
 
 # Turbo
 .turbo
@@ -19,6 +24,10 @@ playwright/.cache/
 # Misc
 .DS_Store
 *.pem
+*.png
+
+# Debug logs
+firebase-debug.log
 
 # Local env files
 .env*.local
@@ -42,7 +51,4 @@ dist/
 build/
 
 # Old Vinext client (deprecated - use apps/web instead)
-/client/node_modules/
-/client/dist/
-/client/.next/
-/client/.vinext/
+/client/

@@ -128,7 +128,7 @@ function emojiForName(name: string): string {
 // ---- Main Component ---------------------------------------------------------
 
 export default function MessagesPage() {
-  const { identity } = useSpacetimeDB()
+  const { identity, isActive, connectionError } = useSpacetimeDB()
   const sendMessage = useReducer(reducers.sendMessage)
   const sendThreadReply = useReducer(reducers.sendThreadReply)
   const createChannel = useReducer(reducers.createChannel)
@@ -137,10 +137,12 @@ export default function MessagesPage() {
   const addReaction = useReducer(reducers.addReaction)
   const removeReaction = useReducer(reducers.removeReaction)
 
-  const [allChannels] = useTable(tables.channel)
-  const [allMessages] = useTable(tables.message)
-  const [allEmployees] = useTable(tables.employee)
-  const [allReactions] = useTable(tables.reaction)
+  const [allChannels, channelsReady] = useTable(tables.channel)
+  const [allMessages, messagesReady] = useTable(tables.message)
+  const [allEmployees, employeesReady] = useTable(tables.employee)
+  const [allReactions, reactionsReady] = useTable(tables.reaction)
+
+  const isReady = channelsReady && messagesReady && employeesReady && reactionsReady
 
   const [view, setView] = useState<ViewMode>(null)
   const [thread, setThread] = useState<ThreadView>(null)
@@ -395,6 +397,35 @@ export default function MessagesPage() {
 
   // ---- Render ---------------------------------------------------------------
 
+  if (connectionError) {
+    return (
+      <div className="flex h-full items-center justify-center bg-neutral-950 text-neutral-300">
+        <div className="text-center max-w-md px-8">
+          <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-400 text-xl">!</span>
+          </div>
+          <p className="text-sm font-medium mb-2">Connection Error</p>
+          <p className="text-xs text-neutral-500">{connectionError.message || 'Failed to connect to SpacetimeDB'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isActive) {
+    return (
+      <div className="flex h-full items-center justify-center bg-neutral-950 text-neutral-300">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-lg">Ω</span>
+          </div>
+          <div className="animate-pulse">
+            <p className="text-sm font-medium">Connecting to SpacetimeDB...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full overflow-hidden bg-neutral-950">
       {/* ================================================================== */}
@@ -408,6 +439,7 @@ export default function MessagesPage() {
               <span className="text-white font-bold text-[10px]">Ω</span>
             </div>
             <span className="font-semibold text-sm text-neutral-100 truncate">Omni</span>
+            <Circle className={`h-2 w-2 shrink-0 ${isReady ? 'fill-green-400 text-green-400' : 'fill-yellow-400 text-yellow-400 animate-pulse'}`} />
           </div>
         </div>
 

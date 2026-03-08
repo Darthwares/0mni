@@ -1029,12 +1029,15 @@ pub fn client_connected(ctx: &ReducerContext) {
         updated.status = EmployeeStatus::Online;
         updated.last_active = now;
         ctx.db.employee().id().update(updated);
+        log::info!("Client reconnected: {} ({})", existing.name, who.to_abbreviated_hex());
     } else {
         // Create new human employee
+        let name = format!("user-{}", who.to_abbreviated_hex());
+        log::info!("New client connected, creating employee: {} ({})", name, who.to_abbreviated_hex());
         ctx.db.employee().insert(Employee {
             id: who,
             employee_type: EmployeeType::Human,
-            name: format!("user-{}", who.to_abbreviated_hex()),
+            name,
             email: None,
             avatar_url: None,
             role: "Team Member".to_string(),
@@ -1316,7 +1319,7 @@ pub fn send_message(
         .map(|e| e.employee_type == EmployeeType::AIAgent)
         .unwrap_or(false);
 
-    ctx.db.message().insert(Message {
+    let row = ctx.db.message().insert(Message {
         id: 0,
         sender: who,
         context_type,
@@ -1331,6 +1334,7 @@ pub fn send_message(
         sent_at: now,
     });
 
+    log::info!("Message {} sent by {} in context {}", row.id, who.to_abbreviated_hex(), context_id);
     Ok(())
 }
 

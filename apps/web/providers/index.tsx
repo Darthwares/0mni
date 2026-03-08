@@ -22,19 +22,24 @@ function SpacetimeDBWithAuth({ children }: { children: React.ReactNode }) {
 
     const idToken = auth.user.id_token
 
+    console.log('[Omni] Building SpacetimeDB connection to', DB_URI, '/', DB_NAME)
+
     const builder = DbConnection.builder()
       .withUri(DB_URI)
       .withDatabaseName(DB_NAME)
       .withToken(idToken)
       .onConnect((_conn, identity, _token) => {
-        console.log('Connected to SpacetimeDB with OIDC identity')
-        console.log('Identity:', identity.toHexString())
+        console.log('[Omni] Connected to SpacetimeDB! Identity:', identity.toHexString())
       })
-      .onDisconnect(() => {
-        console.warn('Disconnected from SpacetimeDB')
+      .onDisconnect((_ctx, error) => {
+        if (error) {
+          console.error('[Omni] Disconnected from SpacetimeDB with error:', error)
+        } else {
+          console.warn('[Omni] Disconnected from SpacetimeDB')
+        }
       })
-      .onConnectError((err) => {
-        console.error('SpacetimeDB connection error:', err)
+      .onConnectError((_ctx, error) => {
+        console.error('[Omni] SpacetimeDB connection error:', error)
       })
 
     setConnectionBuilder(builder)

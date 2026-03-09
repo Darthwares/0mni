@@ -25,6 +25,12 @@ import {
   Workflow,
   BarChart3,
   Globe,
+  Database,
+  Radio,
+  RefreshCw,
+  Lock,
+  Gauge,
+  Boxes,
 } from 'lucide-react'
 import Aurora from '@/components/reactbits/Aurora'
 import BlurText from '@/components/reactbits/BlurText'
@@ -57,7 +63,8 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8 text-sm text-neutral-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#consolidation" className="hover:text-white transition-colors">Why 0MNI</a>
+            <a href="#consolidation" className="hover:text-white transition-colors">Why <span className="font-mono">0</span>MNI</a>
+            <a href="#technology" className="hover:text-white transition-colors">Technology</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
           </div>
@@ -581,8 +588,8 @@ export default function LandingPage() {
               },
               {
                 icon: Shield,
-                title: 'Built on SpacetimeDB',
-                desc: 'Every action is real-time, consistent, and auditable. No sync delays. No stale data. No conflicts.',
+                title: 'Consistent & Auditable',
+                desc: 'Every action is transactional, real-time, and tamper-proof. No sync delays. No stale data. No conflicts.',
               },
             ].map((feat, i) => (
               <div key={i} className="rounded-xl border border-white/5 bg-neutral-900/40 p-5 hover:border-white/10 transition-colors">
@@ -591,6 +598,168 @@ export default function LandingPage() {
                 <p className="text-xs text-neutral-500 leading-relaxed">{feat.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Technology Differentiator Section ─── */}
+      <section id="technology" className="relative py-32 border-t border-white/5 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900/30 to-neutral-950" />
+        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] rounded-full bg-cyan-600/5 blur-[150px]" />
+        <div className="absolute bottom-1/4 right-0 w-[400px] h-[400px] rounded-full bg-violet-600/5 blur-[120px]" />
+
+        <div className="relative z-10 mx-auto max-w-6xl px-6">
+          <div className="text-center mb-16">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-1.5 text-sm text-cyan-300">
+              <Database className="size-3.5" />
+              Architecture Advantage
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
+              Not another{' '}
+              <span className="line-through text-neutral-600">REST API wrapper</span>
+              <br />
+              <GradientText colors={['#22D3EE', '#8B5CF6', '#A78BFA']} className="text-4xl sm:text-5xl font-bold">
+                A real-time operating engine
+              </GradientText>
+            </h2>
+            <p className="mx-auto max-w-2xl text-neutral-400 text-lg">
+              Most platforms poll for updates, batch-process data, and fight eventual consistency.{' '}
+              <span className="font-mono font-bold">0</span>MNI is built on a fundamentally different architecture
+              where your logic runs <em>inside</em> the database — delivering instant, consistent, conflict-free operations at any scale.
+            </p>
+          </div>
+
+          {/* Architecture feature grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            <SpotlightCard spotlightColor="rgba(34, 211, 238, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10">
+                <Radio className="size-5 text-cyan-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Instant Sync, Zero Polling</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                Every change pushes to every connected client in real time. No webhooks, no polling intervals,
+                no &ldquo;refresh to see updates.&rdquo; When an AI agent resolves a ticket, your dashboard updates <em>instantly</em>.
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-cyan-400/80">Live data streaming</span>
+              </div>
+            </SpotlightCard>
+
+            <SpotlightCard spotlightColor="rgba(139, 92, 246, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+                <Gauge className="size-5 text-violet-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Database-Speed Logic</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                Business logic executes inside the database engine itself — no API layer, no network hops, no serialization overhead.
+                Operations complete in <span className="text-white font-semibold">sub-milliseconds</span>, not seconds.
+              </p>
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="text-violet-400 font-mono font-bold">&lt;1ms</span>
+                <span>operation latency</span>
+              </div>
+            </SpotlightCard>
+
+            <SpotlightCard spotlightColor="rgba(52, 211, 153, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+                <Lock className="size-5 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Transactional Consistency</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                Every operation is atomic and isolated. Two AI agents working the same lead? No race condition.
+                Concurrent ticket updates? No data corruption. <em>Ever.</em>
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <Check className="size-3.5 text-emerald-400" />
+                <span className="text-emerald-400/80">ACID guarantees on every action</span>
+              </div>
+            </SpotlightCard>
+
+            <SpotlightCard spotlightColor="rgba(251, 191, 36, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
+                <RefreshCw className="size-5 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Automatic Client Sync</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                Clients subscribe to the data they need and receive live push updates. No REST calls, no GraphQL
+                queries, no cache invalidation headaches. Your UI is always current.
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-amber-400/80">Push-based subscriptions</span>
+              </div>
+            </SpotlightCard>
+
+            <SpotlightCard spotlightColor="rgba(244, 114, 182, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500/10">
+                <Shield className="size-5 text-pink-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Full Audit Trail</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                Every action by every human and AI employee is deterministic and reproducible.
+                Complete audit history with zero gaps — built for compliance, not bolted on.
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <Check className="size-3.5 text-pink-400" />
+                <span className="text-pink-400/80">Deterministic & reproducible</span>
+              </div>
+            </SpotlightCard>
+
+            <SpotlightCard spotlightColor="rgba(96, 165, 250, 0.12)">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                <Boxes className="size-5 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Zero Infrastructure Tax</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+                No microservices to orchestrate. No caching layers to tune. No message queues to manage.
+                One unified engine replaces an entire backend stack, so you ship faster and break less.
+              </p>
+              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <span className="text-blue-400 font-semibold">1 engine</span>
+                <span>replaces 6+ services</span>
+              </div>
+            </SpotlightCard>
+          </div>
+
+          {/* Architecture comparison callout */}
+          <div className="rounded-2xl border border-white/5 bg-neutral-900/60 p-8 md:p-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Traditional SaaS Architecture</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'API → Database → Cache → Client', status: '3+ network hops' },
+                    { label: 'Polling or webhook-based updates', status: '1-30s delay' },
+                    { label: 'Eventual consistency between services', status: 'Race conditions' },
+                    { label: 'Separate auth, storage, compute, messaging', status: 'High complexity' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg bg-neutral-800/40 px-4 py-2.5">
+                      <span className="text-sm text-neutral-400">{item.label}</span>
+                      <span className="text-xs text-red-400/80 font-medium">{item.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-3">
+                  <span className="font-mono">0</span>MNI Architecture
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Logic executes inside the database', status: '0 network hops' },
+                    { label: 'Push-based real-time subscriptions', status: '<1ms updates' },
+                    { label: 'Transactional consistency guaranteed', status: 'Zero conflicts' },
+                    { label: 'Single unified engine handles everything', status: 'Minimal complexity' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg bg-emerald-500/5 border border-emerald-500/10 px-4 py-2.5">
+                      <span className="text-sm text-neutral-300">{item.label}</span>
+                      <span className="text-xs text-emerald-400 font-medium">{item.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -777,7 +946,7 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-neutral-500">
-              <span>Powered by SpacetimeDB</span>
+              <span>Real-time AI Infrastructure</span>
               <span>&copy; {new Date().getFullYear()}</span>
             </div>
           </div>

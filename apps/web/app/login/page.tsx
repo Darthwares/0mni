@@ -115,7 +115,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-xs text-neutral-600 text-center mt-6">
-          Secured by SpacetimeDB &middot; No credit card required
+          Enterprise-grade real-time infrastructure &middot; No credit card required
         </p>
       </div>
     </div>

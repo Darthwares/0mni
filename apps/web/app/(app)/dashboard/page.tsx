@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Progress, ProgressTrack, ProgressIndicator } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
+import CountUp from '@/components/reactbits/CountUp'
 import {
   Ticket,
   Users,
@@ -273,7 +274,9 @@ export default function DashboardPage() {
                 <CardContent>
                   <div className="flex items-end justify-between">
                     <div>
-                      <p className="text-3xl font-bold tabular-nums">{kpi.value}</p>
+                      <p className="text-3xl font-bold tabular-nums">
+                        <CountUp to={kpi.value} duration={1.5} />
+                      </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         of {kpi.total} total
                       </p>
@@ -361,8 +364,8 @@ export default function DashboardPage() {
                     <Bot className="size-3" />
                     AI Agents
                   </p>
-                  <p className="text-xl font-bold tabular-nums">{aiEmployees.length}</p>
-                  <p className="text-xs text-emerald-500">{aiOnline.length} online</p>
+                  <p className="text-xl font-bold tabular-nums"><CountUp to={aiEmployees.length} duration={1.2} /></p>
+                  <p className="text-xs text-emerald-500"><CountUp to={aiOnline.length} duration={1} /> online</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -370,7 +373,7 @@ export default function DashboardPage() {
                     API Cost
                   </p>
                   <p className="text-xl font-bold tabular-nums">
-                    ${totalCostSaved.toFixed(2)}
+                    $<CountUp to={parseFloat(totalCostSaved.toFixed(2))} duration={2} />
                   </p>
                   <p className="text-xs text-muted-foreground">total incurred</p>
                 </div>
@@ -379,7 +382,7 @@ export default function DashboardPage() {
                     <CheckSquare className="size-3" />
                     Tasks Done
                   </p>
-                  <p className="text-xl font-bold tabular-nums">{completedTasks.length}</p>
+                  <p className="text-xl font-bold tabular-nums"><CountUp to={completedTasks.length} duration={1.5} /></p>
                   <p className="text-xs text-muted-foreground">completed</p>
                 </div>
                 <div className="space-y-1">

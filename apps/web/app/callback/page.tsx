@@ -19,13 +19,13 @@ export default function CallbackPage() {
   }, [auth.isAuthenticated, auth.error, router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+    <div className="flex min-h-screen items-center justify-center bg-neutral-950">
       <div className="text-center">
-        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-lg">Ω</span>
+        <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/25">
+          <span className="text-white font-mono font-black text-2xl">0</span>
         </div>
         <div className="animate-pulse">
-          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          <p className="text-sm font-medium text-neutral-400">
             Completing sign in...
           </p>
         </div>

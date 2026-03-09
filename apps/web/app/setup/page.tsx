@@ -122,19 +122,19 @@ function SetupContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-6">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">O</span>
+          <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/25">
+            <span className="text-white font-mono font-black text-3xl">0</span>
           </div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
+          <h1 className="text-2xl font-bold text-white mb-2">
             {step === 'pending' ? 'Waiting for Approval'
               : step === 'create-org' ? 'Create Organization'
               : step === 'join-code' ? 'Join Organization'
               : 'Welcome to Omni'}
           </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-sm text-neutral-400">
             {step === 'pending'
               ? 'Your request is pending admin approval'
               : step === 'choose'
@@ -155,20 +155,20 @@ function SetupContent() {
           <div className="space-y-3">
             <button
               onClick={() => setStep('create-org')}
-              className="w-full p-4 text-left bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-violet-400 dark:hover:border-violet-600 transition-colors"
+              className="w-full p-4 text-left bg-neutral-900 rounded-xl border border-neutral-800 hover:border-violet-400 dark:hover:border-violet-600 transition-colors"
             >
-              <p className="font-semibold text-neutral-900 dark:text-neutral-100">Create an Organization</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              <p className="font-semibold text-white">Create an Organization</p>
+              <p className="text-xs text-neutral-400 mt-1">
                 Start a new workspace and invite your team
               </p>
             </button>
 
             <button
               onClick={() => setStep('join-code')}
-              className="w-full p-4 text-left bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-violet-400 dark:hover:border-violet-600 transition-colors"
+              className="w-full p-4 text-left bg-neutral-900 rounded-xl border border-neutral-800 hover:border-violet-400 dark:hover:border-violet-600 transition-colors"
             >
-              <p className="font-semibold text-neutral-900 dark:text-neutral-100">Join with Invite Link</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              <p className="font-semibold text-white">Join with Invite Link</p>
+              <p className="text-xs text-neutral-400 mt-1">
                 Enter an invite code from your team
               </p>
             </button>
@@ -176,9 +176,9 @@ function SetupContent() {
         )}
 
         {step === 'create-org' && (
-          <form onSubmit={handleCreateOrg} className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-4">
+          <form onSubmit={handleCreateOrg} className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Your Name *
               </label>
               <input
@@ -186,13 +186,13 @@ function SetupContent() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="Your full name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Organization Name *
               </label>
               <input
@@ -200,20 +200,20 @@ function SetupContent() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="e.g., Darthwares"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Company Domain (optional)
               </label>
               <input
                 type="text"
                 value={orgDomain}
                 onChange={(e) => setOrgDomain(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="e.g., darthwares.com"
               />
             </div>
@@ -222,7 +222,7 @@ function SetupContent() {
               <button
                 type="button"
                 onClick={() => { setStep('choose'); setError('') }}
-                className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                className="px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
                 Back
               </button>
@@ -238,9 +238,9 @@ function SetupContent() {
         )}
 
         {step === 'join-code' && (
-          <form onSubmit={handleJoinWithCode} className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-4">
+          <form onSubmit={handleJoinWithCode} className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Your Name *
               </label>
               <input
@@ -248,13 +248,13 @@ function SetupContent() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="Your full name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Email *
               </label>
               <input
@@ -262,13 +262,13 @@ function SetupContent() {
                 value={joinEmail}
                 onChange={(e) => setJoinEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="you@company.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-sm font-medium text-neutral-300 mb-1">
                 Invite Code *
               </label>
               <input
@@ -276,7 +276,7 @@ function SetupContent() {
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono tracking-wider"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono tracking-wider"
                 placeholder="e.g., abc12345"
               />
             </div>
@@ -285,7 +285,7 @@ function SetupContent() {
               <button
                 type="button"
                 onClick={() => { setStep('choose'); setError('') }}
-                className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                className="px-4 py-2 rounded-lg border border-neutral-700 text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
                 Back
               </button>
@@ -301,16 +301,16 @@ function SetupContent() {
         )}
 
         {step === 'pending' && (
-          <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 text-center">
+          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 text-center">
             <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+            <h2 className="text-lg font-semibold text-white mb-2">
               Pending Approval
             </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+            <p className="text-sm text-neutral-400 mb-4">
               Your request to join has been submitted. An admin will review and approve your access shortly.
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-500">

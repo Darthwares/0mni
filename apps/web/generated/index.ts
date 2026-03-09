@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import AcceptCallReducer from "./accept_call_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
+import ApproveMembershipReducer from "./approve_membership_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
@@ -43,20 +44,28 @@ import CreateChannelReducer from "./create_channel_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
+import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
+import GenerateInviteLinkReducer from "./generate_invite_link_reducer";
+import InviteByEmailReducer from "./invite_by_email_reducer";
 import JoinChannelReducer from "./join_channel_reducer";
+import JoinOrgWithEmailReducer from "./join_org_with_email_reducer";
+import JoinOrgWithInviteCodeReducer from "./join_org_with_invite_code_reducer";
 import LeaveChannelReducer from "./leave_channel_reducer";
+import RejectMembershipReducer from "./reject_membership_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
+import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
+import UpdateMemberRoleReducer from "./update_member_role_reducer";
 
 // Import all procedure arg schemas
 
@@ -79,6 +88,9 @@ import LeadRow from "./lead_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
+import OrgInviteLinkRow from "./org_invite_link_table";
+import OrgMembershipRow from "./org_membership_table";
+import OrganizationRow from "./organization_table";
 import PinnedMessageRow from "./pinned_message_table";
 import PullRequestRow from "./pull_request_table";
 import ReactionRow from "./reaction_table";
@@ -282,6 +294,39 @@ const tablesSchema = __schema({
       { name: 'message_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MessageRow),
+  org_invite_link: __table({
+    name: 'org_invite_link',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'org_invite_link_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, OrgInviteLinkRow),
+  org_membership: __table({
+    name: 'org_membership',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'org_membership_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, OrgMembershipRow),
+  organization: __table({
+    name: 'organization',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'organization_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, OrganizationRow),
   pinned_message: __table({
     name: 'pinned_message',
     indexes: [
@@ -351,6 +396,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
+  __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
@@ -358,20 +404,28 @@ const reducersSchema = __reducers(
   __reducerSchema("create_customer", CreateCustomerReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
+  __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
+  __reducerSchema("generate_invite_link", GenerateInviteLinkReducer),
+  __reducerSchema("invite_by_email", InviteByEmailReducer),
   __reducerSchema("join_channel", JoinChannelReducer),
+  __reducerSchema("join_org_with_email", JoinOrgWithEmailReducer),
+  __reducerSchema("join_org_with_invite_code", JoinOrgWithInviteCodeReducer),
   __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
+  __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
   __reducerSchema("send_message", SendMessageReducer),
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
+  __reducerSchema("update_member_role", UpdateMemberRoleReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

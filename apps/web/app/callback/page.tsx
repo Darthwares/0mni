@@ -10,7 +10,7 @@ export default function CallbackPage() {
 
   useEffect(() => {
     if (auth.isAuthenticated) {
-      router.replace('/')
+      router.replace('/dashboard')
     }
     if (auth.error) {
       console.error('OIDC callback error:', auth.error)

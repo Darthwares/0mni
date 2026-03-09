@@ -41,4 +41,5 @@ export default __t.row({
   costIncurred: __t.option(__t.f32()).name("cost_incurred"),
   createdAt: __t.timestamp().name("created_at"),
   lastActive: __t.timestamp().name("last_active"),
+  orgId: __t.option(__t.u64()).name("org_id"),
 });

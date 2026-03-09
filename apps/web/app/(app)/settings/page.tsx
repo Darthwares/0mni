@@ -28,13 +28,35 @@ import {
   Globe,
   Key,
   Check,
+  Building2,
+  UserPlus,
+  Link2,
+  Copy,
+  CheckCircle,
+  XCircle,
+  Crown,
+  ShieldCheck,
+  Users as UsersIcon,
+  Mail,
+  Send,
 } from 'lucide-react'
 import { useAuth } from 'react-oidc-context'
+import { useOrg } from '@/components/org-context'
+import { useSpacetimeDB } from 'spacetimedb/react'
 
 export default function SettingsPage() {
   const auth = useAuth()
+  const { identity } = useSpacetimeDB()
+  const { currentOrgId: orgId, currentOrg, orgMembers: allOrgMembers, isAdminOrOwner, myRole } = useOrg()
   const [allEmployees] = useTable(tables.employee)
+  const [allInviteLinks] = useTable(tables.org_invite_link)
   const updateProfile = useSpacetimeReducer(reducers.updateEmployeeProfile)
+  const inviteByEmail = useSpacetimeReducer(reducers.inviteByEmail)
+  const generateInviteLink = useSpacetimeReducer(reducers.generateInviteLink)
+  const approveMembership = useSpacetimeReducer(reducers.approveMembership)
+  const rejectMembership = useSpacetimeReducer(reducers.rejectMembership)
+  const revokeInviteLink = useSpacetimeReducer(reducers.revokeInviteLink)
+  const updateMemberRole = useSpacetimeReducer(reducers.updateMemberRole)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [profileName, setProfileName] = useState('')
@@ -48,6 +70,130 @@ export default function SettingsPage() {
     aiAlerts: true,
     dealChanges: false,
   })
+
+  // Org management state
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteSent, setInviteSent] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
+  const [linkEmailTarget, setLinkEmailTarget] = useState<string | null>(null)
+  const [linkEmailAddress, setLinkEmailAddress] = useState('')
+  const [linkEmailSending, setLinkEmailSending] = useState(false)
+
+  const activeMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Active'), [allOrgMembers])
+  const pendingMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Pending'), [allOrgMembers])
+  const invitedMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Invited'), [allOrgMembers])
+
+  const orgInviteLinks = useMemo(() => {
+    if (orgId === null) return []
+    return allInviteLinks.filter((l) => Number(l.orgId) === orgId && l.active)
+  }, [allInviteLinks, orgId])
+
+  const handleInviteByEmail = async () => {
+    if (!inviteEmail.trim()) return
+    setInviteSending(true)
+    setInviteSent(false)
+    try {
+      if (!orgId) return
+      await inviteByEmail({ orgId: BigInt(orgId), email: inviteEmail.trim() })
+
+      // Send invite email via Resend
+      const currentEmployee = allEmployees.find(
+        (e) => identity && e.id.toHexString() === identity.toHexString()
+      )
+      await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invite-email',
+          email: inviteEmail.trim(),
+          orgName: currentOrg?.name || 'Omni',
+          inviterName: currentEmployee?.name || undefined,
+        }),
+      })
+
+      setInviteSent(true)
+      setInviteEmail('')
+      setTimeout(() => setInviteSent(false), 3000)
+    } catch (err) {
+      console.error('Failed to invite:', err)
+    } finally {
+      setInviteSending(false)
+    }
+  }
+
+  const handleGenerateLink = async () => {
+    try {
+      if (!orgId) return
+      await generateInviteLink({ orgId: BigInt(orgId), maxUses: undefined })
+    } catch (err) {
+      console.error('Failed to generate invite link:', err)
+    }
+  }
+
+  const handleSendLinkEmail = async (code: string) => {
+    if (!linkEmailAddress.trim()) return
+    setLinkEmailSending(true)
+    try {
+      const currentEmployee = allEmployees.find(
+        (e) => identity && e.id.toHexString() === identity.toHexString()
+      )
+      await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invite-link',
+          email: linkEmailAddress.trim(),
+          orgName: currentOrg?.name || 'Omni',
+          inviteCode: code,
+          inviterName: currentEmployee?.name || undefined,
+        }),
+      })
+      setLinkEmailTarget(null)
+      setLinkEmailAddress('')
+    } catch (err) {
+      console.error('Failed to send invite link email:', err)
+    } finally {
+      setLinkEmailSending(false)
+    }
+  }
+
+  const handleCopyInviteLink = (code: string) => {
+    const url = `${window.location.origin}/invite/${code}`
+    navigator.clipboard.writeText(url)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
+  }
+
+  const handleApprove = async (membershipId: bigint) => {
+    try {
+      await approveMembership({ membershipId })
+    } catch (err) {
+      console.error('Failed to approve:', err)
+    }
+  }
+
+  const handleReject = async (membershipId: bigint) => {
+    try {
+      await rejectMembership({ membershipId })
+    } catch (err) {
+      console.error('Failed to reject:', err)
+    }
+  }
+
+  const handleRevokeLink = async (linkId: bigint) => {
+    try {
+      await revokeInviteLink({ linkId })
+    } catch (err) {
+      console.error('Failed to revoke link:', err)
+    }
+  }
+
+  const roleIcon = (tag: string) => {
+    if (tag === 'Owner') return <Crown className="size-3.5 text-amber-500" />
+    if (tag === 'Admin') return <ShieldCheck className="size-3.5 text-blue-500" />
+    return <UsersIcon className="size-3.5 text-neutral-400" />
+  }
 
   // Find current user's employee record
   const currentEmployee = useMemo(() => {
@@ -99,6 +245,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="organization">Organization</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="platform">Platform</TabsTrigger>
@@ -158,6 +305,216 @@ export default function SettingsPage() {
               <Button onClick={handleSaveProfile} disabled={saving || !profileName.trim()}>
                 {saved ? <><Check className="mr-2 size-4" />Saved</> : saving ? 'Saving...' : 'Save Changes'}
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="organization" className="mt-4 space-y-4">
+          {currentOrg && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="size-4" />
+                  {currentOrg.name}
+                </CardTitle>
+                <CardDescription>
+                  {currentOrg.domain && <>Domain: {currentOrg.domain} &middot; </>}
+                  {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
+                  {currentOrg.autoApproveDomain && currentOrg.domain && (
+                    <> &middot; Auto-approve @{currentOrg.domain}</>
+                  )}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {/* Invite Members */}
+          {isAdminOrOwner && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <UserPlus className="size-4" />
+                  Invite Members
+                </CardTitle>
+                <CardDescription>Invite people by email or share an invite link</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="colleague@company.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleInviteByEmail()}
+                  />
+                  <Button onClick={handleInviteByEmail} disabled={inviteSending || !inviteEmail.trim()}>
+                    {inviteSent ? <><Check className="mr-1 size-4" />Sent</> : inviteSending ? 'Sending...' : 'Invite'}
+                  </Button>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <Link2 className="size-4" />
+                      Invite Links
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleGenerateLink}>
+                      Generate Link
+                    </Button>
+                  </div>
+
+                  {orgInviteLinks.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No active invite links</p>
+                  ) : (
+                    orgInviteLinks.map((link) => (
+                      <div key={link.id.toString()} className="text-sm bg-neutral-50 dark:bg-neutral-800 rounded-lg p-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <code className="font-mono text-xs">{link.code}</code>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              {link.useCount} use{Number(link.useCount) !== 1 ? 's' : ''}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => handleCopyInviteLink(link.code)}
+                            >
+                              {copiedLink ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => setLinkEmailTarget(linkEmailTarget === link.code ? null : link.code)}
+                            >
+                              <Mail className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-red-500 hover:text-red-600"
+                              onClick={() => handleRevokeLink(link.id)}
+                            >
+                              <XCircle className="size-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {linkEmailTarget === link.code && (
+                          <div className="flex gap-2">
+                            <Input
+                              type="email"
+                              placeholder="Send link to email..."
+                              value={linkEmailAddress}
+                              onChange={(e) => setLinkEmailAddress(e.target.value)}
+                              className="h-7 text-xs"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSendLinkEmail(link.code)}
+                            />
+                            <Button
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={linkEmailSending || !linkEmailAddress.trim()}
+                              onClick={() => handleSendLinkEmail(link.code)}
+                            >
+                              <Send className="size-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pending Requests */}
+          {isAdminOrOwner && pendingMembers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Pending Requests
+                  <Badge variant="secondary">{pendingMembers.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {pendingMembers.map((m) => (
+                  <div key={m.id.toString()} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                    <div>
+                      <p className="text-sm font-medium">{m.email}</p>
+                      <p className="text-xs text-muted-foreground">Requested access</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="default" className="h-7" onClick={() => handleApprove(m.id)}>
+                        <CheckCircle className="size-3.5 mr-1" />
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-red-500" onClick={() => handleReject(m.id)}>
+                        <XCircle className="size-3.5 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Member List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <UsersIcon className="size-4" />
+                Members ({activeMembers.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {activeMembers.map((m) => {
+                const employee = allEmployees.find(
+                  (e) => m.identity && e.id.toHexString() === m.identity.toHexString()
+                )
+                return (
+                  <div key={m.id.toString()} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-sm font-medium">
+                        {(employee?.name || m.email)?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{employee?.name || m.email}</p>
+                        <p className="text-xs text-muted-foreground">{m.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {roleIcon(m.role.tag)}
+                      <Badge variant="outline" className="text-xs">
+                        {m.role.tag}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {invitedMembers.length > 0 && (
+                <>
+                  <Separator className="my-2" />
+                  <p className="text-xs font-medium text-muted-foreground pt-2">Invited</p>
+                  {invitedMembers.map((m) => (
+                    <div key={m.id.toString()} className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-sm">
+                          <UserPlus className="size-3.5 text-neutral-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">{m.email}</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">Invited</Badge>
+                    </div>
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

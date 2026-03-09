@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { tables } from '@/generated'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Progress, ProgressTrack, ProgressIndicator } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -405,22 +405,22 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-4 space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2" render={<Link href="/support" />}>
+              <Link href="/support" className={buttonVariants({ variant: "outline", size: "sm", className: "w-full justify-start gap-2" })}>
                 <Ticket className="size-4 text-blue-500" />
                 Create Support Ticket
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2" render={<Link href="/sales" />}>
+              </Link>
+              <Link href="/sales" className={buttonVariants({ variant: "outline", size: "sm", className: "w-full justify-start gap-2" })}>
                 <TrendingUp className="size-4 text-emerald-500" />
                 Add Lead
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2" render={<Link href="/recruitment" />}>
+              </Link>
+              <Link href="/recruitment" className={buttonVariants({ variant: "outline", size: "sm", className: "w-full justify-start gap-2" })}>
                 <Briefcase className="size-4 text-violet-500" />
                 Post Job Opening
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2" render={<Link href="/recruitment" />}>
+              </Link>
+              <Link href="/recruitment" className={buttonVariants({ variant: "outline", size: "sm", className: "w-full justify-start gap-2" })}>
                 <UserPlus className="size-4 text-amber-500" />
                 Add Candidate
-              </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -12,8 +12,13 @@ import {
   Bot,
   Sparkles,
   Activity,
+  ChevronsUpDown,
+  Plus,
+  Check,
+  Link2,
+  Settings,
 } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Sidebar,
@@ -28,11 +33,21 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { NavUser } from "@/components/nav-user"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { useTable } from "spacetimedb/react"
 import { tables } from "@/generated"
+import { useOrg } from "@/components/org-context"
 
 const navSections = [
   {
@@ -106,25 +121,68 @@ function useCounts() {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const counts = useCounts()
+  const { currentOrg, allOrgs, switchOrg } = useOrg()
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/dashboard" />}
-            >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Sparkles className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-bold">OMNI</span>
-                <span className="truncate text-xs text-muted-foreground">AI Operating Platform</span>
-              </div>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <Sparkles className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                    <span className="truncate font-bold">{currentOrg?.name || 'OMNI'}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {allOrgs.length > 1 ? `${allOrgs.length} organizations` : 'AI Operating Platform'}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="bottom"
+                align="start"
+                sideOffset={4}
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Organizations
+                  </DropdownMenuLabel>
+                  {allOrgs.map((org) => {
+                    const isActive = Number(org.id) === (currentOrg ? Number(currentOrg.id) : -1)
+                    return (
+                      <DropdownMenuItem
+                        key={org.id.toString()}
+                        onClick={() => switchOrg(Number(org.id))}
+                        className="gap-2"
+                      >
+                        <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                          <span className="text-xs font-semibold">{org.name[0]?.toUpperCase()}</span>
+                        </div>
+                        <span className="flex-1 truncate">{org.name}</span>
+                        {isActive && <Check className="size-4 text-primary" />}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => router.push('/setup')}>
+                    <Plus className="mr-2 size-4" />
+                    Create Organization
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/setup?mode=join')}>
+                    <Link2 className="mr-2 size-4" />
+                    Join with Invite Link
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -164,6 +222,18 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Settings"
+              render={<Link href="/settings" />}
+              isActive={pathname === "/settings"}
+            >
+              <Settings className="size-4" />
+              <span>Settings</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <div className="flex items-center justify-between px-2 py-1 group-data-[collapsible=icon]:hidden">
           <ThemeToggle />
         </div>

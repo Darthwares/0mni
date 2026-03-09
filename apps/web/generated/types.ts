@@ -407,6 +407,7 @@ export const Employee = __t.object("Employee", {
   costIncurred: __t.option(__t.f32()),
   createdAt: __t.timestamp(),
   lastActive: __t.timestamp(),
+  orgId: __t.option(__t.u64()),
 });
 export type Employee = __Infer<typeof Employee>;
 
@@ -585,6 +586,14 @@ export const MeetingType = __t.enum("MeetingType", {
 });
 export type MeetingType = __Infer<typeof MeetingType>;
 
+// The tagged union or sum type for the algebraic type `MembershipStatus`.
+export const MembershipStatus = __t.enum("MembershipStatus", {
+  Active: __t.unit(),
+  Pending: __t.unit(),
+  Invited: __t.unit(),
+});
+export type MembershipStatus = __Infer<typeof MembershipStatus>;
+
 export const Message = __t.object("Message", {
   id: __t.u64(),
   sender: __t.identity(),
@@ -617,6 +626,54 @@ export const MessageType = __t.enum("MessageType", {
   AiThought: __t.unit(),
 });
 export type MessageType = __Infer<typeof MessageType>;
+
+export const OrgInviteLink = __t.object("OrgInviteLink", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  code: __t.string(),
+  createdBy: __t.identity(),
+  maxUses: __t.option(__t.u32()),
+  useCount: __t.u32(),
+  expiresAt: __t.option(__t.timestamp()),
+  active: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type OrgInviteLink = __Infer<typeof OrgInviteLink>;
+
+// The tagged union or sum type for the algebraic type `OrgMemberRole`.
+export const OrgMemberRole = __t.enum("OrgMemberRole", {
+  Owner: __t.unit(),
+  Admin: __t.unit(),
+  Member: __t.unit(),
+});
+export type OrgMemberRole = __Infer<typeof OrgMemberRole>;
+
+export const OrgMembership = __t.object("OrgMembership", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  identity: __t.option(__t.identity()),
+  email: __t.string(),
+  get role() {
+    return OrgMemberRole;
+  },
+  get status() {
+    return MembershipStatus;
+  },
+  invitedBy: __t.option(__t.identity()),
+  createdAt: __t.timestamp(),
+  acceptedAt: __t.option(__t.timestamp()),
+});
+export type OrgMembership = __Infer<typeof OrgMembership>;
+
+export const Organization = __t.object("Organization", {
+  id: __t.u64(),
+  name: __t.string(),
+  domain: __t.option(__t.string()),
+  autoApproveDomain: __t.bool(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type Organization = __Infer<typeof Organization>;
 
 export const PinnedMessage = __t.object("PinnedMessage", {
   id: __t.u64(),

@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -51,21 +50,16 @@ export function NavUser() {
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
+          <DropdownMenuTrigger className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2">
               <Avatar className="size-8 rounded-lg">
                 <AvatarImage src={me?.avatarUrl ?? undefined} alt={displayName} />
                 <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">{displayName}</span>
                 <span className="truncate text-xs text-muted-foreground">{email}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
+              <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
@@ -73,18 +67,20 @@ export function NavUser() {
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="size-8 rounded-lg">
-                  <AvatarImage src={me?.avatarUrl ?? undefined} alt={displayName} />
-                  <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{displayName}</span>
-                  <span className="truncate text-xs text-muted-foreground">{email}</span>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="size-8 rounded-lg">
+                    <AvatarImage src={me?.avatarUrl ?? undefined} alt={displayName} />
+                    <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{displayName}</span>
+                    <span className="truncate text-xs text-muted-foreground">{email}</span>
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuLabel>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
@@ -97,10 +93,12 @@ export function NavUser() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => auth.signoutRedirect()}>
-              <LogOut className="mr-2 size-4" />
-              Sign out
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => auth.signoutRedirect()}>
+                <LogOut className="mr-2 size-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

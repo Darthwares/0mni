@@ -2,6 +2,7 @@
 // Complete schema for human+AI collaboration across all business functions
 
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table, Timestamp, Uuid};
+use spacetimedb::rand::RngCore;
 
 // ============================================================================
 // CORE IDENTITY & ACCESS
@@ -70,6 +71,78 @@ pub struct Employee {
 
     pub created_at: Timestamp,
     pub last_active: Timestamp,
+
+    // Organization membership
+    pub org_id: Option<u64>,
+}
+
+// ============================================================================
+// ORGANIZATION & INVITES
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum OrgMemberRole {
+    Owner,
+    Admin,
+    Member,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum MembershipStatus {
+    Active,
+    Pending,
+    Invited,
+}
+
+#[spacetimedb::table(accessor = organization, public)]
+#[derive(Clone)]
+pub struct Organization {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub name: String,
+    pub domain: Option<String>,
+    pub auto_approve_domain: bool,
+
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = org_membership, public)]
+#[derive(Clone)]
+pub struct OrgMembership {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub identity: Option<Identity>,
+    pub email: String,
+    pub role: OrgMemberRole,
+    pub status: MembershipStatus,
+
+    pub invited_by: Option<Identity>,
+    pub created_at: Timestamp,
+    pub accepted_at: Option<Timestamp>,
+}
+
+#[spacetimedb::table(accessor = org_invite_link, public)]
+#[derive(Clone)]
+pub struct OrgInviteLink {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub code: String,
+    pub created_by: Identity,
+    pub max_uses: Option<u32>,
+    pub use_count: u32,
+    pub expires_at: Option<Timestamp>,
+    pub active: bool,
+
+    pub created_at: Timestamp,
 }
 
 // ============================================================================
@@ -1050,6 +1123,7 @@ pub fn client_connected(ctx: &ReducerContext) {
             cost_incurred: None,
             created_at: now,
             last_active: now,
+            org_id: None,
         });
     }
 }
@@ -1290,6 +1364,432 @@ pub fn escalate_task(
         content: reason,
         confidence: None,
         timestamp: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - ORGANIZATION & INVITES
+// ============================================================================
+
+fn get_membership_role_for_org(ctx: &ReducerContext, org_id: u64) -> Option<OrgMemberRole> {
+    let who = ctx.sender();
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == org_id && m.identity == Some(who) && m.status == MembershipStatus::Active {
+            return Some(m.role.clone());
+        }
+    }
+    None
+}
+
+fn is_admin_or_owner_for_org(ctx: &ReducerContext, org_id: u64) -> bool {
+    matches!(get_membership_role_for_org(ctx, org_id), Some(OrgMemberRole::Owner) | Some(OrgMemberRole::Admin))
+}
+
+#[spacetimedb::reducer]
+pub fn create_organization(
+    ctx: &ReducerContext,
+    name: String,
+    domain: Option<String>,
+    email: String,
+    display_name: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    if name.trim().is_empty() {
+        return Err("Organization name cannot be empty".to_string());
+    }
+
+    let auto_approve = domain.is_some();
+    let org = ctx.db.organization().insert(Organization {
+        id: 0,
+        name: name.trim().to_string(),
+        domain: domain.clone(),
+        auto_approve_domain: auto_approve,
+        created_by: who,
+        created_at: now,
+    });
+
+    // Create owner membership
+    ctx.db.org_membership().insert(OrgMembership {
+        id: 0,
+        org_id: org.id,
+        identity: Some(who),
+        email: email.clone(),
+        role: OrgMemberRole::Owner,
+        status: MembershipStatus::Active,
+        invited_by: None,
+        created_at: now,
+        accepted_at: Some(now),
+    });
+
+    // Update employee record
+    if let Some(emp) = ctx.db.employee().id().find(&who) {
+        ctx.db.employee().id().update(Employee {
+            name: display_name,
+            email: Some(email),
+            org_id: Some(org.id),
+            ..emp
+        });
+    }
+
+    log::info!("Organization '{}' created by {}", org.name, who.to_abbreviated_hex());
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn invite_by_email(
+    ctx: &ReducerContext,
+    org_id: u64,
+    email: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    if !is_admin_or_owner_for_org(ctx, org_id) {
+        return Err("Only admins can invite members".to_string());
+    }
+
+    let email = email.trim().to_lowercase();
+    if email.is_empty() || !email.contains('@') {
+        return Err("Invalid email address".to_string());
+    }
+
+    let org = ctx.db.organization().id().find(&org_id)
+        .ok_or("Organization not found")?;
+
+    // Check for existing membership with this email
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == org.id && m.email == email {
+            return Err(format!("{} already has a membership", email));
+        }
+    }
+
+    ctx.db.org_membership().insert(OrgMembership {
+        id: 0,
+        org_id: org.id,
+        identity: None,
+        email: email.clone(),
+        role: OrgMemberRole::Member,
+        status: MembershipStatus::Invited,
+        invited_by: Some(who),
+        created_at: now,
+        accepted_at: None,
+    });
+
+    log::info!("Invited {} by {}", email, who.to_abbreviated_hex());
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn generate_invite_link(
+    ctx: &ReducerContext,
+    org_id: u64,
+    max_uses: Option<u32>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    if !is_admin_or_owner_for_org(ctx, org_id) {
+        return Err("Only admins can generate invite links".to_string());
+    }
+
+    let org = ctx.db.organization().id().find(&org_id)
+        .ok_or("Organization not found")?;
+
+    // Generate random 8-char code using deterministic RNG
+    let mut rng = ctx.rng();
+    let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
+    let code: String = (0..8).map(|_| {
+        let idx = (rng.next_u32() as usize) % chars.len();
+        chars[idx]
+    }).collect();
+
+    ctx.db.org_invite_link().insert(OrgInviteLink {
+        id: 0,
+        org_id: org.id,
+        code: code.clone(),
+        created_by: who,
+        max_uses,
+        use_count: 0,
+        expires_at: None,
+        active: true,
+        created_at: now,
+    });
+
+    log::info!("Invite link '{}' generated by {}", code, who.to_abbreviated_hex());
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn join_org_with_email(
+    ctx: &ReducerContext,
+    org_id: u64,
+    email: String,
+    display_name: String,
+    avatar_url: Option<String>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    let email = email.trim().to_lowercase();
+
+    let org = ctx.db.organization().id().find(&org_id)
+        .ok_or("Organization not found")?;
+
+    // Check if already an active member
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == org.id && m.identity == Some(who) && m.status == MembershipStatus::Active {
+            // Already a member, just update employee info
+            if let Some(emp) = ctx.db.employee().id().find(&who) {
+                ctx.db.employee().id().update(Employee {
+                    name: display_name,
+                    email: Some(email),
+                    avatar_url,
+                    org_id: Some(org.id),
+                    ..emp
+                });
+            }
+            return Ok(());
+        }
+    }
+
+    // Check for existing invite by email
+    let mut matched_invite: Option<OrgMembership> = None;
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == org.id && m.email == email && m.status == MembershipStatus::Invited {
+            matched_invite = Some(m);
+            break;
+        }
+    }
+
+    if let Some(invite) = matched_invite {
+        // Accept the invite
+        ctx.db.org_membership().id().update(OrgMembership {
+            identity: Some(who),
+            status: MembershipStatus::Active,
+            accepted_at: Some(now),
+            ..invite
+        });
+        log::info!("{} accepted invite, joined org", email);
+    } else if org.auto_approve_domain {
+        // Check domain match
+        let email_domain = email.rsplit('@').next().unwrap_or("");
+        let org_domain = org.domain.as_deref().unwrap_or("");
+        if !org_domain.is_empty() && email_domain == org_domain {
+            ctx.db.org_membership().insert(OrgMembership {
+                id: 0,
+                org_id: org.id,
+                identity: Some(who),
+                email: email.clone(),
+                role: OrgMemberRole::Member,
+                status: MembershipStatus::Active,
+                invited_by: None,
+                created_at: now,
+                accepted_at: Some(now),
+            });
+            log::info!("{} auto-approved via domain match", email);
+        } else {
+            // No domain match — create pending request
+            ctx.db.org_membership().insert(OrgMembership {
+                id: 0,
+                org_id: org.id,
+                identity: Some(who),
+                email: email.clone(),
+                role: OrgMemberRole::Member,
+                status: MembershipStatus::Pending,
+                invited_by: None,
+                created_at: now,
+                accepted_at: None,
+            });
+            log::info!("{} requested access (pending)", email);
+        }
+    } else {
+        // No auto-approve — create pending request
+        ctx.db.org_membership().insert(OrgMembership {
+            id: 0,
+            org_id: org.id,
+            identity: Some(who),
+            email: email.clone(),
+            role: OrgMemberRole::Member,
+            status: MembershipStatus::Pending,
+            invited_by: None,
+            created_at: now,
+            accepted_at: None,
+        });
+        log::info!("{} requested access (pending)", email);
+    }
+
+    // Update employee record
+    if let Some(emp) = ctx.db.employee().id().find(&who) {
+        ctx.db.employee().id().update(Employee {
+            name: display_name,
+            email: Some(email),
+            avatar_url,
+            org_id: Some(org.id),
+            ..emp
+        });
+    }
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn join_org_with_invite_code(
+    ctx: &ReducerContext,
+    code: String,
+    email: String,
+    display_name: String,
+    avatar_url: Option<String>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    let email = email.trim().to_lowercase();
+
+    // Find the invite link
+    let mut found_link: Option<OrgInviteLink> = None;
+    for link in ctx.db.org_invite_link().iter() {
+        if link.code == code && link.active {
+            found_link = Some(link);
+            break;
+        }
+    }
+
+    let link = found_link.ok_or("Invalid or expired invite link")?;
+
+    // Check max uses
+    if let Some(max) = link.max_uses {
+        if link.use_count >= max {
+            return Err("This invite link has reached its maximum uses".to_string());
+        }
+    }
+
+    // Increment use count
+    ctx.db.org_invite_link().id().update(OrgInviteLink {
+        use_count: link.use_count + 1,
+        ..link.clone()
+    });
+
+    // Create active membership
+    ctx.db.org_membership().insert(OrgMembership {
+        id: 0,
+        org_id: link.org_id,
+        identity: Some(who),
+        email: email.clone(),
+        role: OrgMemberRole::Member,
+        status: MembershipStatus::Active,
+        invited_by: Some(link.created_by),
+        created_at: now,
+        accepted_at: Some(now),
+    });
+
+    // Update employee record
+    if let Some(emp) = ctx.db.employee().id().find(&who) {
+        ctx.db.employee().id().update(Employee {
+            name: display_name,
+            email: Some(email.clone()),
+            avatar_url,
+            org_id: Some(link.org_id),
+            ..emp
+        });
+    }
+
+    log::info!("{} joined via invite link '{}'", email, code);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn approve_membership(
+    ctx: &ReducerContext,
+    membership_id: u64,
+) -> Result<(), String> {
+    let now = ctx.timestamp;
+    let membership = ctx.db.org_membership().id().find(&membership_id)
+        .ok_or("Membership not found")?;
+
+    if !is_admin_or_owner_for_org(ctx, membership.org_id) {
+        return Err("Only admins can approve memberships".to_string());
+    }
+
+    if membership.status != MembershipStatus::Pending {
+        return Err("Membership is not pending".to_string());
+    }
+
+    ctx.db.org_membership().id().update(OrgMembership {
+        status: MembershipStatus::Active,
+        accepted_at: Some(now),
+        ..membership.clone()
+    });
+
+    // Update employee org_id if they have an identity
+    if let Some(identity) = membership.identity {
+        if let Some(emp) = ctx.db.employee().id().find(&identity) {
+            ctx.db.employee().id().update(Employee {
+                org_id: Some(membership.org_id),
+                ..emp
+            });
+        }
+    }
+
+    log::info!("Membership {} approved for {}", membership_id, membership.email);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn reject_membership(
+    ctx: &ReducerContext,
+    membership_id: u64,
+) -> Result<(), String> {
+    let membership = ctx.db.org_membership().id().find(&membership_id)
+        .ok_or("Membership not found")?;
+
+    if !is_admin_or_owner_for_org(ctx, membership.org_id) {
+        return Err("Only admins can reject memberships".to_string());
+    }
+
+    ctx.db.org_membership().id().delete(&membership_id);
+    log::info!("Membership rejected for {}", membership.email);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn revoke_invite_link(
+    ctx: &ReducerContext,
+    link_id: u64,
+) -> Result<(), String> {
+    let link = ctx.db.org_invite_link().id().find(&link_id)
+        .ok_or("Invite link not found")?;
+
+    if !is_admin_or_owner_for_org(ctx, link.org_id) {
+        return Err("Only admins can revoke invite links".to_string());
+    }
+
+    ctx.db.org_invite_link().id().update(OrgInviteLink {
+        active: false,
+        ..link
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_member_role(
+    ctx: &ReducerContext,
+    membership_id: u64,
+    new_role: OrgMemberRole,
+) -> Result<(), String> {
+    let membership = ctx.db.org_membership().id().find(&membership_id)
+        .ok_or("Membership not found")?;
+
+    // Only Owner can change roles
+    if !matches!(get_membership_role_for_org(ctx, membership.org_id), Some(OrgMemberRole::Owner)) {
+        return Err("Only the org owner can change roles".to_string());
+    }
+
+    ctx.db.org_membership().id().update(OrgMembership {
+        role: new_role,
+        ..membership
     });
 
     Ok(())

@@ -17,6 +17,14 @@ import {
   Sparkles,
   ChevronRight,
   Check,
+  Layers,
+  X,
+  Cpu,
+  UserCog,
+  Brain,
+  Workflow,
+  BarChart3,
+  Globe,
 } from 'lucide-react'
 import Aurora from '@/components/reactbits/Aurora'
 import BlurText from '@/components/reactbits/BlurText'
@@ -49,6 +57,7 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8 text-sm text-neutral-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#consolidation" className="hover:text-white transition-colors">Why 0MNI</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
           </div>
@@ -380,6 +389,208 @@ export default function LandingPage() {
                 <FeatureTag>AI context</FeatureTag>
               </div>
             </SpotlightCard>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Consolidation Section ─── */}
+      <section id="consolidation" className="relative py-32 border-t border-white/5 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900/30 to-neutral-950" />
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-violet-600/5 blur-[150px]" />
+
+        <div className="relative z-10 mx-auto max-w-6xl px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Left: Message */}
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300">
+                <Layers className="size-3.5" />
+                One Platform, Zero Bloat
+              </div>
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
+                Stop paying for{' '}
+                <GradientText colors={['#F87171', '#FB923C', '#FBBF24']} className="text-4xl sm:text-5xl font-bold">
+                  12 different tools
+                </GradientText>
+              </h2>
+              <p className="text-lg text-neutral-400 leading-relaxed mb-8">
+                The average company spends <span className="text-white font-semibold">$1,200/employee/month</span> on
+                SaaS subscriptions. Helpdesk, CRM, ATS, project management, chat, email, HR &mdash; each with its own
+                login, its own data silo, and its own monthly bill.
+              </p>
+              <p className="text-lg text-neutral-300 leading-relaxed mb-8">
+                <span className="font-mono font-bold">0</span>MNI consolidates everything into a single real-time,
+                AI-first operating system. One login. One source of truth. One bill.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border border-white/5 bg-neutral-900/60 p-4">
+                  <p className="text-2xl font-black text-red-400 line-through opacity-60">$1,200</p>
+                  <p className="text-xs text-neutral-500 mt-1">per employee / month (SaaS stack)</p>
+                </div>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="text-2xl font-black text-emerald-400">$99</p>
+                  <p className="text-xs text-neutral-500 mt-1">flat / month (<span className="font-mono">0</span>MNI)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Replaced tools visualization */}
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500/5 to-transparent" />
+              <div className="relative space-y-3">
+                {[
+                  { name: 'Zendesk', category: 'Support', cost: '$89/agent/mo', icon: Headset },
+                  { name: 'Salesforce', category: 'CRM', cost: '$150/user/mo', icon: TrendingUp },
+                  { name: 'Greenhouse', category: 'ATS', cost: '$6k/mo', icon: Users },
+                  { name: 'Jira', category: 'Project Mgmt', cost: '$8.15/user/mo', icon: Code2 },
+                  { name: 'Slack', category: 'Messaging', cost: '$12.50/user/mo', icon: MessageSquare },
+                  { name: 'Google Workspace', category: 'Email + Docs', cost: '$14/user/mo', icon: Globe },
+                ].map((tool, i) => (
+                  <div key={i} className="group relative flex items-center gap-4 rounded-xl border border-white/5 bg-neutral-900/60 p-4 transition-all hover:border-violet-500/20">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-800">
+                      <tool.icon className="size-5 text-neutral-500" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-neutral-300">{tool.name}</span>
+                        <span className="text-[10px] text-neutral-600">{tool.category}</span>
+                      </div>
+                      <span className="text-xs text-red-400/80">{tool.cost}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <X className="size-4 text-red-500/40 group-hover:text-red-400 transition-colors" />
+                      <ArrowRight className="size-4 text-neutral-600 group-hover:text-violet-400 transition-colors" />
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-600/20">
+                        <span className="text-[10px] font-mono font-bold text-violet-400">0</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Summary bar */}
+                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 text-center">
+                  <p className="text-sm text-neutral-400">
+                    All replaced by{' '}
+                    <span className="font-bold text-violet-300"><span className="font-mono">0</span>MNI</span>
+                    {' '}&mdash; real-time, AI-native, zero silos
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Human + AI Workforce Section ─── */}
+      <section className="relative py-32 border-t border-white/5">
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900/20 to-neutral-950" />
+        <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] rounded-full bg-violet-600/5 blur-[120px]" />
+        <div className="absolute bottom-1/3 right-1/4 w-[300px] h-[300px] rounded-full bg-blue-600/5 blur-[100px]" />
+
+        <div className="relative z-10 mx-auto max-w-6xl px-6">
+          <div className="text-center mb-16">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300">
+              <Cpu className="size-3.5" />
+              Hybrid Workforce Management
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
+              Humans and AI,{' '}
+              <GradientText colors={['#60A5FA', '#8B5CF6', '#A78BFA']} className="text-4xl sm:text-5xl font-bold">
+                working as one
+              </GradientText>
+            </h2>
+            <p className="mx-auto max-w-2xl text-neutral-400 text-lg">
+              <span className="font-mono">0</span>MNI is the first platform where human employees and AI employees
+              exist side-by-side in the same system. Same dashboards. Same workflows. Same accountability.
+            </p>
+          </div>
+
+          {/* Side-by-side comparison */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            {/* Human side */}
+            <SpotlightCard spotlightColor="rgba(96, 165, 250, 0.12)" className="border-blue-500/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10">
+                  <UserCog className="size-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Human Employees</h3>
+                  <p className="text-xs text-neutral-500">Strategy, creativity, relationships</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  'Own client relationships and high-touch sales',
+                  'Make strategic decisions and set company direction',
+                  'Handle complex, novel problems that need judgment',
+                  'Review AI work and approve critical actions',
+                  'Train and calibrate AI employees over time',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <Check className="size-4 text-blue-400 mt-0.5 shrink-0" />
+                    <span className="text-sm text-neutral-300">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </SpotlightCard>
+
+            {/* AI side */}
+            <SpotlightCard spotlightColor="rgba(139, 92, 246, 0.12)" className="border-violet-500/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10">
+                  <Brain className="size-6 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">AI Employees</h3>
+                  <p className="text-xs text-neutral-500">Speed, scale, consistency</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  'Resolve support tickets in milliseconds, 24/7/365',
+                  'Qualify and nurture thousands of leads simultaneously',
+                  'Screen resumes and rank candidates instantly',
+                  'Triage bugs, review code, and manage CI/CD',
+                  'Handle repetitive work with perfect consistency',
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <Check className="size-4 text-violet-400 mt-0.5 shrink-0" />
+                    <span className="text-sm text-neutral-300">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </SpotlightCard>
+          </div>
+
+          {/* Unified system features */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: Workflow,
+                title: 'Unified Workflows',
+                desc: 'Assign tasks to humans or AI from the same queue. The system routes work based on complexity and capacity.',
+              },
+              {
+                icon: BarChart3,
+                title: 'Single Dashboard',
+                desc: 'Track both human and AI performance in one view. Compare costs, output, and quality across your workforce.',
+              },
+              {
+                icon: Zap,
+                title: 'Real-time Handoffs',
+                desc: 'AI escalates to humans seamlessly when it hits its limits. Humans delegate back to AI for follow-up.',
+              },
+              {
+                icon: Shield,
+                title: 'Built on SpacetimeDB',
+                desc: 'Every action is real-time, consistent, and auditable. No sync delays. No stale data. No conflicts.',
+              },
+            ].map((feat, i) => (
+              <div key={i} className="rounded-xl border border-white/5 bg-neutral-900/40 p-5 hover:border-white/10 transition-colors">
+                <feat.icon className="size-5 text-violet-400 mb-3" />
+                <h4 className="text-sm font-bold mb-1">{feat.title}</h4>
+                <p className="text-xs text-neutral-500 leading-relaxed">{feat.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

@@ -24,6 +24,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import {
   Hash,
   Lock,
@@ -442,12 +444,14 @@ export default function MessagesPage() {
         {/* Workspace header */}
         <div className="h-12 flex items-center justify-between px-4 border-b border-neutral-800">
           <div className="flex items-center gap-2 min-w-0">
+            <SidebarTrigger className="-ml-1 text-neutral-400 hover:text-neutral-100" />
             <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-purple-600 rounded flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-[10px]">Ω</span>
+              <span className="text-white font-mono font-black text-[10px]">0</span>
             </div>
-            <span className="font-semibold text-sm text-neutral-100 truncate">Omni</span>
+            <span className="font-semibold text-sm text-neutral-100 truncate">Messages</span>
             <Circle className={`h-2 w-2 shrink-0 ${isReady ? 'fill-green-400 text-green-400' : 'fill-yellow-400 text-yellow-400 animate-pulse'}`} />
           </div>
+          <PresenceBar />
         </div>
 
         {/* Search */}

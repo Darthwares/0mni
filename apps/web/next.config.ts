@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
   transpilePackages: ['@omni/ui'],
   typescript: {
     ignoreBuildErrors: true,

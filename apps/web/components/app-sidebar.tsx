@@ -17,6 +17,8 @@ import {
   Check,
   Link2,
   Settings,
+  KanbanSquare,
+  PenTool,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -70,6 +72,13 @@ const navSections = [
       { title: "Support", href: "/support", icon: Headphones, countKey: "tickets" as const },
       { title: "Sales", href: "/sales", icon: TrendingUp, countKey: "leads" as const },
       { title: "Recruitment", href: "/recruitment", icon: Users, countKey: "candidates" as const },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
+      { title: "Canvas", href: "/canvas", icon: PenTool },
     ],
   },
   {

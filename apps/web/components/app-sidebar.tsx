@@ -69,6 +69,7 @@ import { useOrg } from "@/components/org-context"
 import { useAuth } from "react-oidc-context"
 import { ShareInviteDialog } from "@/components/share-invite-dialog"
 
+// globalHidden: true means hidden when in Za Warudo (global org)
 const navSections = [
   {
     label: "Overview",
@@ -81,11 +82,12 @@ const navSections = [
     label: "Communication",
     items: [
       { title: "Messages", href: "/messages", icon: MessageSquare, countKey: "messages" as const },
-      { title: "Email", href: "/email", icon: Mail },
+      { title: "Email", href: "/email", icon: Mail, globalHidden: true },
     ],
   },
   {
     label: "Business",
+    globalHidden: true,
     items: [
       { title: "Support", href: "/support", icon: Headphones, countKey: "tickets" as const },
       { title: "Sales", href: "/sales", icon: TrendingUp, countKey: "leads" as const },
@@ -101,6 +103,7 @@ const navSections = [
   },
   {
     label: "Development",
+    globalHidden: true,
     items: [
       { title: "Engineering", href: "/engineering", icon: Code2 },
       { title: "Collaboration", href: "/collaboration", icon: FileText },
@@ -329,37 +332,43 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent>
-          {navSections.map((section) => (
-            <SidebarGroup key={section.label}>
-              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {section.items.map((item) => {
-                    const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
-                    const count = item.countKey ? counts[item.countKey] : undefined
+          {navSections
+            .filter((section) => !(isGlobalOrg && 'globalHidden' in section && section.globalHidden))
+            .map((section) => {
+              const visibleItems = section.items.filter((item) => !(isGlobalOrg && 'globalHidden' in item && item.globalHidden))
+              if (visibleItems.length === 0) return null
+              return (
+                <SidebarGroup key={section.label}>
+                  <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {visibleItems.map((item) => {
+                        const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
+                        const count = ('countKey' in item && item.countKey) ? counts[item.countKey as keyof typeof counts] : undefined
 
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          isActive={isActive}
-                          tooltip={item.title}
-                          render={<Link href={item.href} />}
-                        >
-                          <item.icon className="size-4" />
-                          <span className="flex-1">{item.title}</span>
-                          {count !== undefined && count > 0 && (
-                            <Badge variant="secondary" className="ml-auto size-5 justify-center rounded-full p-0 text-[10px]">
-                              {count > 99 ? "99+" : count}
-                            </Badge>
-                          )}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
+                        return (
+                          <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton
+                              isActive={isActive}
+                              tooltip={item.title}
+                              render={<Link href={item.href} />}
+                            >
+                              <item.icon className="size-4" />
+                              <span className="flex-1">{item.title}</span>
+                              {count !== undefined && count > 0 && (
+                                <Badge variant="secondary" className="ml-auto size-5 justify-center rounded-full p-0 text-[10px]">
+                                  {count > 99 ? "99+" : count}
+                                </Badge>
+                              )}
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        )
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              )
+            })}
         </SidebarContent>
 
         <SidebarFooter>

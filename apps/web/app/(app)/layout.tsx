@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
+import { NotificationPrompt } from "@/components/notification-prompt"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -68,6 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {children}
               </main>
             </SidebarInset>
+            <NotificationPrompt />
           </SidebarProvider>
         </TooltipProvider>
       </OrgProvider>

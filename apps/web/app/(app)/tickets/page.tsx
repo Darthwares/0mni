@@ -12,6 +12,25 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
 import {
+  KanbanBoardProvider,
+  KanbanBoard,
+  KanbanBoardColumn,
+  KanbanBoardColumnHeader,
+  KanbanBoardColumnTitle,
+  KanbanBoardColumnList,
+  KanbanBoardColumnListItem,
+  KanbanBoardCard,
+  KanbanBoardCardTitle,
+  KanbanBoardCardDescription,
+  KanbanBoardCardButtonGroup,
+  KanbanBoardCardButton,
+  KanbanBoardColumnFooter,
+  KanbanBoardColumnButton,
+  KanbanColorCircle,
+  KanbanBoardExtraMargin,
+  type KanbanBoardCircleColor,
+} from '@/components/kanban'
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -53,6 +72,7 @@ import {
   Loader2,
   Eye,
   Flag,
+  GripVertical,
   MoreHorizontal,
 } from 'lucide-react'
 
@@ -60,20 +80,19 @@ import {
 
 type ViewMode = 'board' | 'list'
 
-interface KanbanColumn {
+interface ColumnDef {
   id: string
   label: string
   statusTags: string[]
-  color: string
-  dotColor: string
+  circleColor: KanbanBoardCircleColor
 }
 
-const COLUMNS: KanbanColumn[] = [
-  { id: 'backlog', label: 'Backlog', statusTags: ['Unclaimed'], color: 'text-neutral-400', dotColor: 'bg-neutral-400' },
-  { id: 'todo', label: 'To Do', statusTags: ['Claimed'], color: 'text-blue-400', dotColor: 'bg-blue-400' },
-  { id: 'in-progress', label: 'In Progress', statusTags: ['InProgress', 'SelfChecking'], color: 'text-amber-400', dotColor: 'bg-amber-400' },
-  { id: 'review', label: 'Review', statusTags: ['NeedsReview', 'Escalated'], color: 'text-violet-400', dotColor: 'bg-violet-400' },
-  { id: 'done', label: 'Done', statusTags: ['Completed'], color: 'text-emerald-400', dotColor: 'bg-emerald-400' },
+const COLUMNS: ColumnDef[] = [
+  { id: 'backlog', label: 'Backlog', statusTags: ['Unclaimed'], circleColor: 'gray' },
+  { id: 'todo', label: 'To Do', statusTags: ['Claimed'], circleColor: 'blue' },
+  { id: 'in-progress', label: 'In Progress', statusTags: ['InProgress', 'SelfChecking'], circleColor: 'yellow' },
+  { id: 'review', label: 'Review', statusTags: ['NeedsReview', 'Escalated'], circleColor: 'violet' },
+  { id: 'done', label: 'Done', statusTags: ['Completed'], circleColor: 'green' },
 ]
 
 // ---- Helpers ----------------------------------------------------------------
@@ -159,10 +178,7 @@ export default function TicketsPage() {
 
   const filteredTasks = useMemo(() => {
     let tasks = [...allTasks]
-
-    // Exclude cancelled and blocked from board
     tasks = tasks.filter((t) => t.status.tag !== 'Cancelled' && t.status.tag !== 'Blocked')
-
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       tasks = tasks.filter(
@@ -193,12 +209,6 @@ export default function TicketsPage() {
     })
     return map
   }, [filteredTasks])
-
-  const taskTypes = useMemo(() => {
-    const types = new Set<string>()
-    allTasks.forEach((t) => types.add(t.taskType.tag))
-    return Array.from(types).sort()
-  }, [allTasks])
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return
@@ -297,44 +307,119 @@ export default function TicketsPage() {
       {/* Board / List View */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'board' ? (
-          <div className="flex h-full gap-4 p-4 overflow-x-auto">
-            {COLUMNS.map((col) => {
-              const tasks = columnTasks.get(col.id) || []
-              return (
-                <div key={col.id} className="flex flex-col w-72 min-w-[288px] shrink-0">
-                  {/* Column header */}
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <div className={`size-2 rounded-full ${col.dotColor}`} />
-                    <span className={`text-sm font-semibold ${col.color}`}>{col.label}</span>
-                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 ml-auto">
-                      {tasks.length}
-                    </Badge>
-                  </div>
+          <KanbanBoardProvider>
+            <KanbanBoard className="p-4 h-full">
+              {COLUMNS.map((col) => {
+                const tasks = columnTasks.get(col.id) || []
+                return (
+                  <KanbanBoardColumn
+                    key={col.id}
+                    columnId={col.id}
+                    className="w-72 min-w-[288px]"
+                    onDropOverColumn={(data) => {
+                      // Handle drop: parse task data and move to this column
+                      try {
+                        const parsed = JSON.parse(data)
+                        // Could call a reducer here to change status
+                        console.log(`Dropped task ${parsed.id} on column ${col.id}`)
+                      } catch {}
+                    }}
+                  >
+                    <KanbanBoardColumnHeader>
+                      <KanbanBoardColumnTitle columnId={col.id}>
+                        <KanbanColorCircle color={col.circleColor} />
+                        {col.label}
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 ml-2">
+                          {tasks.length}
+                        </Badge>
+                      </KanbanBoardColumnTitle>
+                    </KanbanBoardColumnHeader>
 
-                  {/* Column body */}
-                  <ScrollArea className="flex-1">
-                    <div className="space-y-2 pr-2 pb-4">
+                    <KanbanBoardColumnList className="px-0">
                       {tasks.map((task) => (
-                        <TaskCard
+                        <KanbanBoardColumnListItem
                           key={task.id.toString()}
-                          task={task}
-                          employeeMap={employeeMap}
-                          onClick={() => setSelectedTask(task)}
-                          onClaim={() => handleClaim(task.id)}
-                          myIdentity={identity}
-                        />
+                          cardId={task.id.toString()}
+                        >
+                          <KanbanBoardCard
+                            data={{ id: task.id.toString(), taskId: task.id.toString() }}
+                            onClick={() => setSelectedTask(task)}
+                            className="w-full"
+                          >
+                            {/* Top: ID + Priority */}
+                            <div className="flex items-center justify-between w-full">
+                              <span className="font-mono text-[10px] text-muted-foreground">T-{task.id.toString()}</span>
+                              <div className="flex items-center gap-1.5">
+                                {task.aiConfidence != null && (
+                                  <Bot className="size-3 text-violet-400" />
+                                )}
+                                {priorityIcon(task.priority.tag)}
+                              </div>
+                            </div>
+
+                            {/* Title */}
+                            <KanbanBoardCardTitle className="line-clamp-2 text-left">
+                              {task.title}
+                            </KanbanBoardCardTitle>
+
+                            {/* Type badge */}
+                            <Badge variant="outline" className="text-[10px] h-5 w-fit">
+                              {taskTypeLabel(task.taskType.tag)}
+                            </Badge>
+
+                            {/* Bottom: Assignee + Time */}
+                            <div className="flex items-center justify-between w-full">
+                              <TaskAssignee
+                                task={task}
+                                employeeMap={employeeMap}
+                                onClaim={() => handleClaim(task.id)}
+                              />
+                              <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.createdAt)}</span>
+                            </div>
+
+                            {/* Hover action buttons */}
+                            <KanbanBoardCardButtonGroup>
+                              <KanbanBoardCardButton
+                                tooltip="View details"
+                                onClick={(e) => { e.stopPropagation(); setSelectedTask(task) }}
+                              >
+                                <Eye className="size-3.5" />
+                              </KanbanBoardCardButton>
+                              {!task.assignee && (
+                                <KanbanBoardCardButton
+                                  tooltip="Claim task"
+                                  onClick={(e) => { e.stopPropagation(); handleClaim(task.id) }}
+                                >
+                                  <User className="size-3.5" />
+                                </KanbanBoardCardButton>
+                              )}
+                            </KanbanBoardCardButtonGroup>
+                          </KanbanBoardCard>
+                        </KanbanBoardColumnListItem>
                       ))}
                       {tasks.length === 0 && (
-                        <div className="rounded-xl border border-dashed border-muted-foreground/20 p-8 text-center">
-                          <p className="text-xs text-muted-foreground">No tickets</p>
-                        </div>
+                        <li className="px-2 py-4">
+                          <div className="rounded-lg border border-dashed border-muted-foreground/20 p-6 text-center">
+                            <p className="text-xs text-muted-foreground">No tickets</p>
+                          </div>
+                        </li>
                       )}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )
-            })}
-          </div>
+                    </KanbanBoardColumnList>
+
+                    {col.id === 'backlog' && (
+                      <KanbanBoardColumnFooter>
+                        <KanbanBoardColumnButton onClick={() => setShowCreate(true)}>
+                          <Plus className="mr-1 size-3.5" />
+                          Add ticket
+                        </KanbanBoardColumnButton>
+                      </KanbanBoardColumnFooter>
+                    )}
+                  </KanbanBoardColumn>
+                )
+              })}
+              <KanbanBoardExtraMargin />
+            </KanbanBoard>
+          </KanbanBoardProvider>
         ) : (
           <ScrollArea className="h-full">
             <div className="p-4 max-w-5xl mx-auto">
@@ -491,76 +576,42 @@ export default function TicketsPage() {
 
 // ---- Sub-components ---------------------------------------------------------
 
-function TaskCard({
+function TaskAssignee({
   task,
   employeeMap,
-  onClick,
   onClaim,
-  myIdentity,
 }: {
   task: any
   employeeMap: Map<string, any>
-  onClick: () => void
   onClaim: () => void
-  myIdentity: any
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
   const isAI = assignee?.employeeType?.tag === 'Ai'
 
+  if (assignee) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Avatar className="size-5">
+          <AvatarFallback className={`${nameToColor(assignee.name)} text-[8px] text-white`}>
+            {getInitials(assignee.name)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">{assignee.name}</span>
+        {isAI && <Bot className="size-3 text-violet-400 shrink-0" />}
+      </div>
+    )
+  }
+
   return (
     <div
-      onClick={onClick}
-      className="group relative rounded-xl border bg-card p-3.5 cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5"
+      role="button"
+      tabIndex={0}
+      onClick={(e) => { e.stopPropagation(); onClaim() }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onClaim() } }}
+      className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
     >
-      {/* Top row: ID + Priority */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-[10px] text-muted-foreground">T-{task.id.toString()}</span>
-        <div className="flex items-center gap-1.5">
-          {task.aiConfidence != null && (
-            <Tooltip>
-              <TooltipTrigger>
-                <Bot className="size-3 text-violet-400" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                AI Confidence: {Math.round((task.aiConfidence ?? 0) * 100)}%
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {priorityIcon(task.priority.tag)}
-        </div>
-      </div>
-
-      {/* Title */}
-      <p className="text-sm font-medium leading-snug mb-2 line-clamp-2">{task.title}</p>
-
-      {/* Type badge */}
-      <Badge variant="outline" className="text-[10px] h-5 mb-3">
-        {taskTypeLabel(task.taskType.tag)}
-      </Badge>
-
-      {/* Bottom row: Assignee + Time */}
-      <div className="flex items-center justify-between">
-        {assignee ? (
-          <div className="flex items-center gap-1.5">
-            <Avatar className="size-5">
-              <AvatarFallback className={`${nameToColor(assignee.name)} text-[8px] text-white`}>
-                {getInitials(assignee.name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">{assignee.name}</span>
-            {isAI && <Bot className="size-3 text-violet-400 shrink-0" />}
-          </div>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); onClaim() }}
-            className="flex items-center gap-1 text-[11px] text-primary hover:underline"
-          >
-            <User className="size-3" />
-            Claim
-          </button>
-        )}
-        <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.createdAt)}</span>
-      </div>
+      <User className="size-3" />
+      Claim
     </div>
   )
 }

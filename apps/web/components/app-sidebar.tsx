@@ -223,15 +223,15 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0">
-                    <div className={
+                    <div className={`flex aspect-square items-center justify-center rounded-lg size-8 group-data-[collapsible=icon]:size-5 ${
                       isGlobalOrg
-                        ? "flex aspect-square size-8 items-center justify-center rounded-lg bg-amber-500 text-white"
-                        : "flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
-                    }>
+                        ? "bg-amber-500 text-white"
+                        : "bg-primary text-primary-foreground"
+                    }`}>
                       {isGlobalOrg ? (
-                        <Globe className="size-4" />
+                        <Globe className="size-4 group-data-[collapsible=icon]:size-3" />
                       ) : (
-                        <Sparkles className="size-4" />
+                        <Sparkles className="size-4 group-data-[collapsible=icon]:size-3" />
                       )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

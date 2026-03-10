@@ -420,6 +420,7 @@ export const Employee = __t.object("Employee", {
   createdAt: __t.timestamp(),
   lastActive: __t.timestamp(),
   orgId: __t.option(__t.u64()),
+  selectedOrgId: __t.option(__t.u64()),
   bio: __t.option(__t.string()),
   skills: __t.array(__t.string()),
   education: __t.array(__t.string()),

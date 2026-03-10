@@ -9,7 +9,8 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { useSpacetimeDB } from 'spacetimedb/react'
+import { useSpacetimeDB, useReducer } from 'spacetimedb/react'
+import { reducers } from '@/generated'
 import { useRouter } from 'next/navigation'
 
 type OrgStatus = 'loading' | 'ready' | 'no-org' | 'pending'
@@ -34,6 +35,12 @@ interface OrganizationRow {
   isGlobal: boolean
   createdBy: any
   createdAt: any
+}
+
+interface EmployeeRow {
+  id: any
+  selectedOrgId: bigint | null | undefined
+  [key: string]: any
 }
 
 interface OrgContextValue {
@@ -66,26 +73,17 @@ export function useOrg() {
   return useContext(OrgContext)
 }
 
-const STORAGE_KEY = 'omni-current-org-id'
-
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { identity, isActive, getConnection } = useSpacetimeDB()
+  const selectOrg = useReducer(reducers.selectOrg)
   const router = useRouter()
 
   const [memberships, setMemberships] = useState<OrgMembershipRow[]>([])
   const [organizations, setOrganizations] = useState<OrganizationRow[]>([])
+  const [employees, setEmployees] = useState<EmployeeRow[]>([])
   const [ready, setReady] = useState(false)
-  const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null)
 
-  // Load saved org from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) setSelectedOrgId(Number(saved))
-    } catch {}
-  }, [])
-
-  // Subscribe to org_membership and organization tables
+  // Subscribe to org_membership, organization, and employee tables
   useEffect(() => {
     if (!isActive || !identity) return
 
@@ -94,9 +92,10 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     let sub1Applied = false
     let sub2Applied = false
+    let sub3Applied = false
 
     const checkReady = () => {
-      if (sub1Applied && sub2Applied) setReady(true)
+      if (sub1Applied && sub2Applied && sub3Applied) setReady(true)
     }
 
     const refreshMemberships = () => {
@@ -108,6 +107,12 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     const refreshOrgs = () => {
       try {
         setOrganizations(Array.from(conn.db.organization.iter()) as any[])
+      } catch {}
+    }
+
+    const refreshEmployees = () => {
+      try {
+        setEmployees(Array.from(conn.db.employee.iter()) as any[])
       } catch {}
     }
 
@@ -129,18 +134,31 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       })
       .subscribe('SELECT * FROM organization')
 
+    const sub3 = conn
+      .subscriptionBuilder()
+      .onApplied(() => {
+        refreshEmployees()
+        sub3Applied = true
+        checkReady()
+      })
+      .subscribe('SELECT * FROM employee')
+
     conn.db.org_membership.onInsert(() => refreshMemberships())
     conn.db.org_membership.onUpdate(() => refreshMemberships())
     conn.db.org_membership.onDelete(() => refreshMemberships())
     conn.db.organization.onInsert(() => refreshOrgs())
     conn.db.organization.onUpdate(() => refreshOrgs())
     conn.db.organization.onDelete(() => refreshOrgs())
+    conn.db.employee.onInsert(() => refreshEmployees())
+    conn.db.employee.onUpdate(() => refreshEmployees())
+    conn.db.employee.onDelete(() => refreshEmployees())
 
     // Fallback timeout
     const timeout = setTimeout(() => {
       if (!ready) {
         refreshMemberships()
         refreshOrgs()
+        refreshEmployees()
         setReady(true)
       }
     }, 3000)
@@ -148,9 +166,22 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     return () => {
       sub1.unsubscribe()
       sub2.unsubscribe()
+      sub3.unsubscribe()
       clearTimeout(timeout)
     }
   }, [isActive, identity, getConnection])
+
+  // My employee record — read selected_org_id from DB
+  const myEmployee = useMemo(() => {
+    if (!identity) return null
+    const myHex = identity.toHexString()
+    return employees.find((e) => e.id && e.id.toHexString() === myHex) ?? null
+  }, [identity, employees])
+
+  const savedOrgId = useMemo(() => {
+    if (!myEmployee?.selectedOrgId) return null
+    return Number(myEmployee.selectedOrgId)
+  }, [myEmployee])
 
   // Derive my active memberships
   const myMemberships = useMemo(() => {
@@ -178,7 +209,6 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       return
     }
     if (myMemberships.length > 0 || myPendingMemberships.length > 0) {
-      // Already have memberships, no need for grace period
       setGraceExpired(true)
       return
     }
@@ -191,16 +221,18 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     if (!identity || !ready) return 'loading'
     if (myMemberships.length > 0) return 'ready'
     if (myPendingMemberships.length > 0) return 'pending'
-    // Wait for grace period before declaring no-org (auto-join may still be in flight)
     if (!graceExpired) return 'loading'
     return 'no-org'
   }, [identity, ready, myMemberships, myPendingMemberships, graceExpired])
 
-  // Auto-select org: prefer saved selection, then Za Warudo (global), then first
+  // Auto-select org: prefer DB-saved selection, then Za Warudo (global), then first
   const currentOrgId = useMemo(() => {
     if (myMemberships.length === 0) return null
-    const selectedExists = selectedOrgId !== null && myMemberships.some((m) => Number(m.orgId) === selectedOrgId)
-    if (selectedExists) return selectedOrgId
+    // Use saved selection from DB if it's a valid membership
+    if (savedOrgId !== null) {
+      const savedExists = myMemberships.some((m) => Number(m.orgId) === savedOrgId)
+      if (savedExists) return savedOrgId
+    }
     // Prefer global org (Za Warudo) as default
     const globalOrg = organizations.find((o) => o.isGlobal)
     if (globalOrg) {
@@ -208,7 +240,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       if (hasGlobal) return Number(globalOrg.id)
     }
     return Number(myMemberships[0].orgId)
-  }, [myMemberships, selectedOrgId, organizations])
+  }, [myMemberships, savedOrgId, organizations])
 
   // Current org object
   const currentOrg = useMemo(() => {
@@ -246,12 +278,12 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     return memberships.filter((m) => Number(m.orgId) === currentOrgId)
   }, [memberships, currentOrgId])
 
+  // Switch org — persists to DB via reducer
   const switchOrg = useCallback((orgId: number) => {
-    setSelectedOrgId(orgId)
-    try {
-      localStorage.setItem(STORAGE_KEY, String(orgId))
-    } catch {}
-  }, [])
+    selectOrg({ orgId: BigInt(orgId) }).catch((err) => {
+      console.error('Failed to switch org:', err)
+    })
+  }, [selectOrg])
 
   // Redirect if no org
   useEffect(() => {

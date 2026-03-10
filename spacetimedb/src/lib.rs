@@ -74,6 +74,7 @@ pub struct Employee {
 
     // Organization membership
     pub org_id: Option<u64>,
+    pub selected_org_id: Option<u64>,
 
     // Profile / Resume
     pub bio: Option<String>,
@@ -1190,6 +1191,9 @@ pub fn client_connected(ctx: &ReducerContext) {
     let who = ctx.sender();
     let now = ctx.timestamp;
 
+    // Find global org id for default selection
+    let global_org_id = ctx.db.organization().iter().find(|o| o.is_global).map(|o| o.id);
+
     // Check if employee exists
     if let Some(existing) = ctx.db.employee().id().find(&who) {
         // Update status to online
@@ -1199,7 +1203,7 @@ pub fn client_connected(ctx: &ReducerContext) {
         ctx.db.employee().id().update(updated);
         log::info!("Client reconnected: {} ({})", existing.name, who.to_abbreviated_hex());
     } else {
-        // Create new human employee
+        // Create new human employee — default selected org to Za Warudo
         let name = format!("user-{}", who.to_abbreviated_hex());
         log::info!("New client connected, creating employee: {} ({})", name, who.to_abbreviated_hex());
         ctx.db.employee().insert(Employee {
@@ -1219,6 +1223,7 @@ pub fn client_connected(ctx: &ReducerContext) {
             created_at: now,
             last_active: now,
             org_id: None,
+            selected_org_id: global_org_id,
             bio: None,
             skills: vec![],
             education: vec![],
@@ -1306,6 +1311,31 @@ pub fn update_employee_profile(
     };
 
     ctx.db.employee().id().update(updated);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn select_org(
+    ctx: &ReducerContext,
+    org_id: u64,
+) -> Result<(), String> {
+    let who = ctx.sender();
+
+    // Verify org exists
+    ctx.db.organization().id().find(&org_id)
+        .ok_or("Organization not found")?;
+
+    // Verify membership (global orgs allow all)
+    require_org_access(ctx, org_id)?;
+
+    let employee = ctx.db.employee().id().find(&who)
+        .ok_or("Employee not found")?;
+
+    ctx.db.employee().id().update(Employee {
+        selected_org_id: Some(org_id),
+        ..employee
+    });
+
     Ok(())
 }
 

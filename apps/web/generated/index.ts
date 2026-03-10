@@ -64,6 +64,7 @@ import RejectMembershipReducer from "./reject_membership_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
+import SelectOrgReducer from "./select_org_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
@@ -462,6 +463,7 @@ const reducersSchema = __reducers(
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
+  __reducerSchema("select_org", SelectOrgReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
   __reducerSchema("send_message", SendMessageReducer),
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),

@@ -42,6 +42,7 @@ export default __t.row({
   createdAt: __t.timestamp().name("created_at"),
   lastActive: __t.timestamp().name("last_active"),
   orgId: __t.option(__t.u64()).name("org_id"),
+  selectedOrgId: __t.option(__t.u64()).name("selected_org_id"),
   bio: __t.option(__t.string()),
   skills: __t.array(__t.string()),
   education: __t.array(__t.string()),

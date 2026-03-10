@@ -70,6 +70,7 @@ import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
 import SetTypingStatusReducer from "./set_typing_status_reducer";
+import SyncIdentityReducer from "./sync_identity_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
@@ -469,6 +470,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
   __reducerSchema("set_typing_status", SetTypingStatusReducer),
+  __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),

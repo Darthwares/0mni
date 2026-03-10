@@ -1288,6 +1288,38 @@ pub fn client_disconnected(ctx: &ReducerContext) {
     }
 }
 
+/// Sync OIDC profile (name, email, avatar) to employee record.
+/// Called automatically by the client after connecting.
+#[spacetimedb::reducer]
+pub fn sync_identity(
+    ctx: &ReducerContext,
+    name: String,
+    email: Option<String>,
+    avatar_url: Option<String>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let employee = ctx.db.employee().id().find(&who)
+        .ok_or("Employee not found")?;
+
+    // Only update if name is still the default hex placeholder or if profile data changed
+    let should_update = employee.name.starts_with("user-")
+        || employee.name != name
+        || employee.email != email
+        || employee.avatar_url != avatar_url;
+
+    if should_update {
+        ctx.db.employee().id().update(Employee {
+            name,
+            email,
+            avatar_url,
+            last_active: ctx.timestamp,
+            ..employee
+        });
+    }
+
+    Ok(())
+}
+
 #[spacetimedb::reducer]
 pub fn update_employee_profile(
     ctx: &ReducerContext,

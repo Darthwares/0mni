@@ -21,6 +21,7 @@ function SpacetimeDBWithAuth({ children }: { children: React.ReactNode }) {
     }
 
     const idToken = auth.user.id_token
+    const profile = auth.user.profile
 
     console.log('[Omni] Building SpacetimeDB connection to', DB_URI, '/', DB_NAME)
 
@@ -28,8 +29,17 @@ function SpacetimeDBWithAuth({ children }: { children: React.ReactNode }) {
       .withUri(DB_URI)
       .withDatabaseName(DB_NAME)
       .withToken(idToken)
-      .onConnect((_conn, identity, _token) => {
+      .onConnect((conn, identity, _token) => {
         console.log('[Omni] Connected to SpacetimeDB! Identity:', identity.toHexString())
+
+        // Sync OIDC profile (name, email, avatar) to employee record
+        if (profile?.name) {
+          conn.reducers.syncIdentity({
+            name: profile.name,
+            email: profile.email ?? undefined,
+            avatarUrl: profile.picture ?? undefined,
+          })
+        }
       })
       .onDisconnect((_ctx, error) => {
         if (error) {

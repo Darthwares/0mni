@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
 import { NotificationPrompt } from "@/components/notification-prompt"
+import { CommandPalette } from "@/components/command-palette"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,6 +16,9 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb"
 import { usePathname } from "next/navigation"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
+import { useNotificationManager } from "@/hooks/use-notification-manager"
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -38,6 +42,8 @@ const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { showHelp, setShowHelp } = useKeyboardShortcuts()
+  useNotificationManager()
   const pageTitle = routeNames[pathname] ?? (pathname?.startsWith("/profile/") ? "Profile" : "Omni")
   const isFullScreen = fullScreenRoutes.some(
     (r) => pathname === r || pathname?.startsWith(r + "/")
@@ -71,6 +77,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </main>
             </SidebarInset>
             <NotificationPrompt />
+            <CommandPalette />
+            <KeyboardShortcutsDialog open={showHelp} onOpenChange={setShowHelp} />
           </SidebarProvider>
         </TooltipProvider>
       </OrgProvider>

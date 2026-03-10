@@ -42,4 +42,12 @@ export default __t.row({
   createdAt: __t.timestamp().name("created_at"),
   lastActive: __t.timestamp().name("last_active"),
   orgId: __t.option(__t.u64()).name("org_id"),
+  bio: __t.option(__t.string()),
+  skills: __t.array(__t.string()),
+  education: __t.array(__t.string()),
+  certifications: __t.array(__t.string()),
+  employmentHistory: __t.array(__t.string()).name("employment_history"),
+  linkedinUrl: __t.option(__t.string()).name("linkedin_url"),
+  githubUrl: __t.option(__t.string()).name("github_url"),
+  timezone: __t.option(__t.string()),
 });

@@ -10,12 +10,13 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  id: __t.u64().primaryKey(),
-  name: __t.string(),
-  domain: __t.option(__t.string()),
-  autoApproveDomain: __t.bool().name("auto_approve_domain"),
-  isGlobal: __t.bool().name("is_global"),
-  createdBy: __t.identity().name("created_by"),
-  createdAt: __t.timestamp().name("created_at"),
-});
+export default {
+  bio: __t.option(__t.string()),
+  skills: __t.array(__t.string()),
+  education: __t.array(__t.string()),
+  certifications: __t.array(__t.string()),
+  employmentHistory: __t.array(__t.string()),
+  linkedinUrl: __t.option(__t.string()),
+  githubUrl: __t.option(__t.string()),
+  timezone: __t.option(__t.string()),
+};

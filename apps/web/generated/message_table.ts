@@ -35,4 +35,6 @@ export default __t.row({
   aiGenerated: __t.bool().name("ai_generated"),
   aiConfidence: __t.option(__t.f32()).name("ai_confidence"),
   sentAt: __t.timestamp().name("sent_at"),
+  editedAt: __t.option(__t.timestamp()).name("edited_at"),
+  deleted: __t.bool(),
 });

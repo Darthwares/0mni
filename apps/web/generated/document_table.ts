@@ -24,6 +24,7 @@ export default __t.row({
   },
   parentId: __t.option(__t.u64()).name("parent_id"),
   createdBy: __t.identity().name("created_by"),
+  lastEditedBy: __t.option(__t.identity()).name("last_edited_by"),
   editors: __t.array(__t.string()),
   aiGenerated: __t.bool().name("ai_generated"),
   aiMaintained: __t.bool().name("ai_maintained"),

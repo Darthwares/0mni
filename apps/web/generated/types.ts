@@ -361,6 +361,7 @@ export const Document = __t.object("Document", {
   },
   parentId: __t.option(__t.u64()),
   createdBy: __t.identity(),
+  lastEditedBy: __t.option(__t.identity()),
   editors: __t.array(__t.string()),
   aiGenerated: __t.bool(),
   aiMaintained: __t.bool(),
@@ -380,6 +381,9 @@ export const DocumentType = __t.enum("DocumentType", {
   PolicyDocument: __t.unit(),
   MeetingNotes: __t.unit(),
   TechnicalSpec: __t.unit(),
+  Canvas: __t.unit(),
+  Whiteboard: __t.unit(),
+  Folder: __t.unit(),
 });
 export type DocumentType = __Infer<typeof DocumentType>;
 
@@ -408,6 +412,14 @@ export const Employee = __t.object("Employee", {
   createdAt: __t.timestamp(),
   lastActive: __t.timestamp(),
   orgId: __t.option(__t.u64()),
+  bio: __t.option(__t.string()),
+  skills: __t.array(__t.string()),
+  education: __t.array(__t.string()),
+  certifications: __t.array(__t.string()),
+  employmentHistory: __t.array(__t.string()),
+  linkedinUrl: __t.option(__t.string()),
+  githubUrl: __t.option(__t.string()),
+  timezone: __t.option(__t.string()),
 });
 export type Employee = __Infer<typeof Employee>;
 
@@ -613,6 +625,8 @@ export const Message = __t.object("Message", {
   aiGenerated: __t.bool(),
   aiConfidence: __t.option(__t.f32()),
   sentAt: __t.timestamp(),
+  editedAt: __t.option(__t.timestamp()),
+  deleted: __t.bool(),
 });
 export type Message = __Infer<typeof Message>;
 
@@ -670,6 +684,7 @@ export const Organization = __t.object("Organization", {
   name: __t.string(),
   domain: __t.option(__t.string()),
   autoApproveDomain: __t.bool(),
+  isGlobal: __t.bool(),
   createdBy: __t.identity(),
   createdAt: __t.timestamp(),
 });
@@ -826,6 +841,14 @@ export const TaskType = __t.enum("TaskType", {
 });
 export type TaskType = __Infer<typeof TaskType>;
 
+export const TaskWatcher = __t.object("TaskWatcher", {
+  id: __t.u64(),
+  taskId: __t.u64(),
+  userId: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type TaskWatcher = __Infer<typeof TaskWatcher>;
+
 // The tagged union or sum type for the algebraic type `ThoughtType`.
 export const ThoughtType = __t.enum("ThoughtType", {
   Planning: __t.unit(),
@@ -866,6 +889,14 @@ export const TicketStatus = __t.enum("TicketStatus", {
   Closed: __t.unit(),
 });
 export type TicketStatus = __Infer<typeof TicketStatus>;
+
+export const TypingIndicator = __t.object("TypingIndicator", {
+  id: __t.u64(),
+  channelId: __t.u64(),
+  userId: __t.identity(),
+  startedAt: __t.timestamp(),
+});
+export type TypingIndicator = __Infer<typeof TypingIndicator>;
 
 export const VideoFrameEvent = __t.object("VideoFrameEvent", {
   sessionId: __t.uuid(),

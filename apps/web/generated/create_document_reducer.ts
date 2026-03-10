@@ -10,12 +10,15 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  id: __t.u64().primaryKey(),
-  name: __t.string(),
-  domain: __t.option(__t.string()),
-  autoApproveDomain: __t.bool().name("auto_approve_domain"),
-  isGlobal: __t.bool().name("is_global"),
-  createdBy: __t.identity().name("created_by"),
-  createdAt: __t.timestamp().name("created_at"),
-});
+import {
+  DocumentType,
+} from "./types";
+
+export default {
+  title: __t.string(),
+  content: __t.string(),
+  get docType() {
+    return DocumentType;
+  },
+  parentId: __t.option(__t.u64()),
+};

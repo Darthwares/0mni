@@ -74,6 +74,16 @@ pub struct Employee {
 
     // Organization membership
     pub org_id: Option<u64>,
+
+    // Profile / Resume
+    pub bio: Option<String>,
+    pub skills: Vec<String>,
+    pub education: Vec<String>,
+    pub certifications: Vec<String>,
+    pub employment_history: Vec<String>,
+    pub linkedin_url: Option<String>,
+    pub github_url: Option<String>,
+    pub timezone: Option<String>,
 }
 
 // ============================================================================
@@ -104,6 +114,7 @@ pub struct Organization {
     pub name: String,
     pub domain: Option<String>,
     pub auto_approve_domain: bool,
+    pub is_global: bool,
 
     pub created_by: Identity,
     pub created_at: Timestamp,
@@ -308,6 +319,10 @@ pub struct Message {
     pub ai_confidence: Option<f32>,
 
     pub sent_at: Timestamp,
+
+    // Edit / delete support
+    pub edited_at: Option<Timestamp>,
+    pub deleted: bool,
 }
 
 // ============================================================================
@@ -662,6 +677,9 @@ pub enum DocumentType {
     PolicyDocument,
     MeetingNotes,
     TechnicalSpec,
+    Canvas,
+    Whiteboard,
+    Folder,
 }
 
 #[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
@@ -685,6 +703,7 @@ pub struct Document {
     pub parent_id: Option<u64>,
 
     pub created_by: Identity,
+    pub last_edited_by: Option<Identity>,
     pub editors: Vec<String>, // Identity hex strings (Humans and AI)
 
     // AI Features
@@ -1025,6 +1044,36 @@ pub struct ActivityLog {
 }
 
 // ============================================================================
+// TYPING INDICATORS (ephemeral presence)
+// ============================================================================
+
+#[spacetimedb::table(accessor = typing_indicator, public)]
+#[derive(Clone)]
+pub struct TypingIndicator {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub channel_id: u64,
+    pub user_id: Identity,
+    pub started_at: Timestamp,
+}
+
+// ============================================================================
+// TASK WATCHERS (follow/watch)
+// ============================================================================
+
+#[spacetimedb::table(accessor = task_watcher, public)]
+#[derive(Clone)]
+pub struct TaskWatcher {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub task_id: u64,
+    pub user_id: Identity,
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
 // REDUCERS - CORE SYSTEM
 // ============================================================================
 
@@ -1084,6 +1133,20 @@ pub fn init(ctx: &ReducerContext) {
             created_by: system, created_at: now,
         });
     }
+
+    // Create Global organization if it doesn't exist
+    let has_global = ctx.db.organization().iter().any(|o| o.is_global);
+    if !has_global {
+        ctx.db.organization().insert(Organization {
+            id: 0,
+            name: "Global".to_string(),
+            domain: None,
+            auto_approve_domain: false,
+            is_global: true,
+            created_by: ctx.sender(),
+            created_at: ctx.timestamp,
+        });
+    }
 }
 
 // ============================================================================
@@ -1124,7 +1187,30 @@ pub fn client_connected(ctx: &ReducerContext) {
             created_at: now,
             last_active: now,
             org_id: None,
+            bio: None,
+            skills: vec![],
+            education: vec![],
+            certifications: vec![],
+            employment_history: vec![],
+            linkedin_url: None,
+            github_url: None,
+            timezone: None,
         });
+    }
+
+    // Auto-join Global organization
+    if let Some(global_org) = ctx.db.organization().iter().find(|o| o.is_global) {
+        let already_member = ctx.db.org_membership().iter().any(|m|
+            m.org_id == global_org.id && m.identity == Some(who) && m.status == MembershipStatus::Active
+        );
+        if !already_member {
+            ctx.db.org_membership().insert(OrgMembership {
+                id: 0, org_id: global_org.id, identity: Some(who),
+                email: String::new(), role: OrgMemberRole::Member,
+                status: MembershipStatus::Active, invited_by: None,
+                created_at: now, accepted_at: Some(now),
+            });
+        }
     }
 }
 
@@ -1432,6 +1518,207 @@ pub fn update_task(
 }
 
 // ============================================================================
+// REDUCERS - MESSAGE EDIT/DELETE/PIN
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn edit_message(ctx: &ReducerContext, message_id: u64, new_content: String) -> Result<(), String> {
+    let who = ctx.sender();
+    let msg = ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
+    if msg.sender != who { return Err("You can only edit your own messages".to_string()); }
+    if new_content.trim().is_empty() { return Err("Message cannot be empty".to_string()); }
+    ctx.db.message().id().update(Message {
+        content: new_content,
+        edited_at: Some(ctx.timestamp),
+        ..msg
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_message(ctx: &ReducerContext, message_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let msg = ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
+    if msg.sender != who { return Err("You can only delete your own messages".to_string()); }
+    ctx.db.message().id().update(Message { content: String::new(), deleted: true, ..msg });
+    // Remove any pins for this message
+    let pin_ids: Vec<u64> = ctx.db.pinned_message().iter()
+        .filter(|p| p.message_id == message_id)
+        .map(|p| p.id)
+        .collect();
+    for pid in pin_ids { ctx.db.pinned_message().id().delete(&pid); }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn pin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> Result<(), String> {
+    ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
+    ctx.db.channel().id().find(&channel_id).ok_or("Channel not found")?;
+    for p in ctx.db.pinned_message().iter() {
+        if p.channel_id == channel_id && p.message_id == message_id {
+            return Ok(());
+        }
+    }
+    ctx.db.pinned_message().insert(PinnedMessage {
+        id: 0, channel_id, message_id,
+        pinned_by: ctx.sender(), pinned_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unpin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> Result<(), String> {
+    let to_delete: Vec<u64> = ctx.db.pinned_message().iter()
+        .filter(|p| p.channel_id == channel_id && p.message_id == message_id)
+        .map(|p| p.id)
+        .collect();
+    for pid in to_delete { ctx.db.pinned_message().id().delete(&pid); }
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DOCUMENT CRUD (Canvas persistence)
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_document(
+    ctx: &ReducerContext, title: String, content: String, doc_type: DocumentType, parent_id: Option<u64>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    if title.trim().is_empty() { return Err("Title cannot be empty".to_string()); }
+    ctx.db.document().insert(Document {
+        id: 0, title, content, doc_type, parent_id,
+        created_by: who, last_edited_by: Some(who),
+        editors: vec![who.to_hex().to_string()],
+        ai_generated: false, ai_maintained: false, auto_sync_with: None,
+        created_at: now, updated_at: now,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_document(
+    ctx: &ReducerContext, document_id: u64, title: String, content: String,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    let hex = who.to_hex().to_string();
+    let mut editors = doc.editors.clone();
+    if !editors.contains(&hex) { editors.push(hex); }
+    ctx.db.document().id().update(Document {
+        title, content, editors, last_edited_by: Some(who), updated_at: ctx.timestamp, ..doc
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
+    ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    ctx.db.document().id().delete(&document_id);
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - TYPING INDICATORS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn set_typing_status(ctx: &ReducerContext, channel_id: u64, is_typing: bool) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    let existing: Option<u64> = ctx.db.typing_indicator().iter()
+        .find(|t| t.channel_id == channel_id && t.user_id == who)
+        .map(|t| t.id);
+    if is_typing {
+        if let Some(eid) = existing {
+            if let Some(ti) = ctx.db.typing_indicator().id().find(&eid) {
+                ctx.db.typing_indicator().id().update(TypingIndicator { started_at: now, ..ti });
+            }
+        } else {
+            ctx.db.typing_indicator().insert(TypingIndicator {
+                id: 0, channel_id, user_id: who, started_at: now,
+            });
+        }
+    } else if let Some(eid) = existing {
+        ctx.db.typing_indicator().id().delete(&eid);
+    }
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - EMPLOYEE RESUME
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn update_employee_resume(
+    ctx: &ReducerContext,
+    bio: Option<String>,
+    skills: Vec<String>,
+    education: Vec<String>,
+    certifications: Vec<String>,
+    employment_history: Vec<String>,
+    linkedin_url: Option<String>,
+    github_url: Option<String>,
+    timezone: Option<String>,
+) -> Result<(), String> {
+    let who = ctx.sender();
+    let emp = ctx.db.employee().id().find(&who).ok_or("Employee not found")?;
+    ctx.db.employee().id().update(Employee {
+        bio, skills, education, certifications, employment_history,
+        linkedin_url, github_url, timezone,
+        last_active: ctx.timestamp,
+        ..emp
+    });
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - TASK WATCHERS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn watch_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    ctx.db.task().id().find(&task_id).ok_or("Task not found")?;
+    for w in ctx.db.task_watcher().iter() {
+        if w.task_id == task_id && w.user_id == who { return Ok(()); }
+    }
+    ctx.db.task_watcher().insert(TaskWatcher {
+        id: 0, task_id, user_id: who, created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unwatch_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let to_del: Vec<u64> = ctx.db.task_watcher().iter()
+        .filter(|w| w.task_id == task_id && w.user_id == who)
+        .map(|w| w.id)
+        .collect();
+    for id in to_del { ctx.db.task_watcher().id().delete(&id); }
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - ORGANIZATION UPDATE
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn update_organization(
+    ctx: &ReducerContext, org_id: u64, name: String, domain: Option<String>,
+) -> Result<(), String> {
+    if !is_admin_or_owner_for_org(ctx, org_id) {
+        return Err("Only admins can update organization settings".to_string());
+    }
+    let org = ctx.db.organization().id().find(&org_id).ok_or("Org not found")?;
+    if org.is_global { return Err("Cannot modify the Global organization".to_string()); }
+    ctx.db.organization().id().update(Organization { name, domain, ..org });
+    Ok(())
+}
+
+// ============================================================================
 // REDUCERS - ORGANIZATION & INVITES
 // ============================================================================
 
@@ -1470,6 +1757,7 @@ pub fn create_organization(
         name: name.trim().to_string(),
         domain: domain.clone(),
         auto_approve_domain: auto_approve,
+        is_global: false,
         created_by: who,
         created_at: now,
     });
@@ -1894,6 +2182,8 @@ pub fn send_message(
         ai_generated: is_ai,
         ai_confidence: None,
         sent_at: now,
+        edited_at: None,
+        deleted: false,
     });
 
     log::info!("Message {} sent by {} in context {}", row.id, who.to_abbreviated_hex(), context_id);
@@ -1937,6 +2227,8 @@ pub fn send_thread_reply(
         ai_generated: is_ai,
         ai_confidence: None,
         sent_at: now,
+        edited_at: None,
+        deleted: false,
     });
 
     Ok(())

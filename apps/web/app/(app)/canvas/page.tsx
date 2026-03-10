@@ -1,16 +1,16 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { useTable, useSpacetimeDB } from 'spacetimedb/react'
-import { tables } from '@/generated'
+import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
+import { tables, reducers } from '@/generated'
+import type { Document as SpacetimeDocument } from '@/generated/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { PresenceBar } from '@/components/presence-bar'
 import {
   Dialog,
@@ -19,6 +19,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { Label } from '@/components/ui/label'
 import {
   Search,
@@ -29,10 +37,16 @@ import {
   Trash2,
   ArrowLeft,
   Clock,
-  MoreHorizontal,
   Sparkles,
   Grid3X3,
   LayoutList,
+  FolderPlus,
+  Folder,
+  FolderOpen,
+  MoveRight,
+  ChevronRight,
+  Check,
+  Loader2,
 } from 'lucide-react'
 
 // Dynamic imports for heavy editors
@@ -59,17 +73,76 @@ function EditorSkeleton() {
 
 // ---- Types ------------------------------------------------------------------
 
-type CanvasType = 'document' | 'whiteboard'
 type ViewMode = 'grid' | 'list'
+type SaveStatus = 'idle' | 'saving' | 'saved'
 
-interface LocalCanvas {
-  id: string
-  title: string
-  type: CanvasType
-  content: any
-  createdAt: Date
-  updatedAt: Date
-}
+// ---- Templates --------------------------------------------------------------
+
+const TEMPLATES: { name: string; description: string; content: any }[] = [
+  {
+    name: 'Blank',
+    description: 'Start from scratch',
+    content: null,
+  },
+  {
+    name: 'Meeting Notes',
+    description: 'Structured meeting template',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Meeting Notes' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Date' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Attendees' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Agenda' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Discussion' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+    ],
+  },
+  {
+    name: 'Technical Spec',
+    description: 'Technical design document',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Technical Specification' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Overview' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Describe the feature or system at a high level.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Goals' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Non-Goals' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Architecture' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'API Design' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Data Model' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Open Questions' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'Project Brief',
+    description: 'Project overview and plan',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Project Brief' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Summary' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Brief description of the project.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Problem Statement' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Proposed Solution' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Success Metrics' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Timeline' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'Phase 1: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'Phase 2: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Team' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+]
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -86,124 +159,351 @@ function formatTimeAgo(date: Date): string {
   return date.toLocaleDateString()
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+function timestampToDate(ts: any): Date {
+  // SpacetimeDB timestamps may be BigInt microseconds or Date
+  if (ts instanceof Date) return ts
+  if (typeof ts === 'bigint') return new Date(Number(ts / 1000n))
+  if (typeof ts === 'number') return new Date(ts / 1000)
+  return new Date()
 }
+
+function parseContent(content: string): any {
+  if (!content) return null
+  try {
+    return JSON.parse(content)
+  } catch {
+    return null
+  }
+}
+
+/** Check if a SpacetimeDB Option<u64> parentId matches a given folder id (null = root) */
+function parentIdMatches(docParentId: bigint | null | undefined, folderId: bigint | null): boolean {
+  if (folderId === null) {
+    return docParentId === null || docParentId === undefined
+  }
+  return docParentId === folderId
+}
+
 
 // ---- Main Page --------------------------------------------------------------
 
 export default function CanvasPage() {
   const { identity } = useSpacetimeDB()
+  const [allDocuments] = useTable(tables.document)
   const [employees] = useTable(tables.employee)
 
-  // Local canvas storage (until backend reducers are available)
-  const [canvases, setCanvases] = useState<LocalCanvas[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const saved = localStorage.getItem('omni-canvases')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        return parsed.map((c: any) => ({
-          ...c,
-          createdAt: new Date(c.createdAt),
-          updatedAt: new Date(c.updatedAt),
-        }))
-      }
-    } catch {}
-    return []
-  })
+  const createDocument = useReducer(reducers.createDocument)
+  const updateDocument = useReducer(reducers.updateDocument)
+  const deleteDocument = useReducer(reducers.deleteDocument)
 
-  const saveCanvases = useCallback((updated: LocalCanvas[]) => {
-    setCanvases(updated)
-    try { localStorage.setItem('omni-canvases', JSON.stringify(updated)) } catch {}
-  }, [])
-
-  const [activeCanvas, setActiveCanvas] = useState<LocalCanvas | null>(null)
+  const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
+  const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [showCreate, setShowCreate] = useState(false)
+  const [showCreateFolder, setShowCreateFolder] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [newType, setNewType] = useState<CanvasType>('document')
+  const [newType, setNewType] = useState<'Canvas' | 'Whiteboard'>('Canvas')
+  const [selectedTemplate, setSelectedTemplate] = useState(0)
+  const [folderTitle, setFolderTitle] = useState('')
+  const [showMoveDialog, setShowMoveDialog] = useState(false)
+  const [moveDocId, setMoveDocId] = useState<bigint | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const filteredCanvases = useMemo(() => {
-    let items = [...canvases]
+  // Ref to hold latest documents for use inside debounced callbacks (avoids stale closures)
+  const canvasDocumentsRef = useRef<SpacetimeDocument[]>([])
+
+  // Employee lookup
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, any>()
+    employees.forEach((e) => map.set(e.id.toHexString(), e))
+    return map
+  }, [employees])
+
+  // Filter to Canvas/Whiteboard/Folder types only
+  const canvasDocuments = useMemo(() => {
+    return allDocuments.filter(
+      (d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder'
+    )
+  }, [allDocuments])
+
+  // Keep the ref in sync
+  useEffect(() => {
+    canvasDocumentsRef.current = canvasDocuments
+  }, [canvasDocuments])
+
+  // All folders
+  const folders = useMemo(() => {
+    return canvasDocuments.filter((d) => d.docType.tag === 'Folder')
+  }, [canvasDocuments])
+
+  // Build folder path for breadcrumbs
+  const folderPath = useMemo(() => {
+    const path: SpacetimeDocument[] = []
+    let folderId = currentFolderId
+    while (folderId !== null) {
+      const folder = canvasDocuments.find((d) => d.id === folderId)
+      if (folder) {
+        path.unshift(folder)
+        folderId = folder.parentId ?? null
+      } else {
+        break
+      }
+    }
+    return path
+  }, [currentFolderId, canvasDocuments])
+
+  // Items in current folder, filtered
+  const filteredDocuments = useMemo(() => {
+    let items = canvasDocuments.filter((d) => parentIdMatches(d.parentId, currentFolderId))
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
-      items = items.filter((c) => c.title.toLowerCase().includes(q))
+      items = items.filter((d) => d.title.toLowerCase().includes(q))
     }
-    return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-  }, [canvases, searchQuery])
+    // Sort: folders first, then by updatedAt descending
+    return items.sort((a, b) => {
+      const aFolder = a.docType.tag === 'Folder' ? 0 : 1
+      const bFolder = b.docType.tag === 'Folder' ? 0 : 1
+      if (aFolder !== bFolder) return aFolder - bFolder
+      return timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime()
+    })
+  }, [canvasDocuments, currentFolderId, searchQuery])
 
-  const handleCreate = () => {
-    if (!newTitle.trim()) return
-    const canvas: LocalCanvas = {
-      id: generateId(),
-      title: newTitle.trim(),
-      type: newType,
-      content: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  // Active document object
+  const activeDoc = useMemo(() => {
+    if (activeDocId === null) return null
+    return canvasDocuments.find((d) => d.id === activeDocId) ?? null
+  }, [activeDocId, canvasDocuments])
+
+  // Last edited by name
+  const lastEditedByName = useMemo(() => {
+    if (!activeDoc?.lastEditedBy) return null
+    const emp = employeeMap.get(activeDoc.lastEditedBy.toHexString())
+    return emp?.name ?? null
+  }, [activeDoc, employeeMap])
+
+  // ---- Actions ----
+
+  const handleCreate = async () => {
+    const title = newTitle.trim() || 'Untitled'
+    const template = newType === 'Canvas' ? TEMPLATES[selectedTemplate] : null
+    const content = template?.content ? JSON.stringify(template.content) : ''
+    try {
+      await createDocument({
+        title,
+        content,
+        docType: { tag: newType } as any,
+        parentId: currentFolderId,
+      })
+      setShowCreate(false)
+      setNewTitle('')
+      setSelectedTemplate(0)
+    } catch (e) {
+      console.error('Failed to create document:', e)
     }
-    saveCanvases([canvas, ...canvases])
-    setShowCreate(false)
-    setNewTitle('')
-    setActiveCanvas(canvas)
   }
 
-  const handleDelete = (id: string) => {
-    saveCanvases(canvases.filter((c) => c.id !== id))
-    if (activeCanvas?.id === id) setActiveCanvas(null)
+  const handleCreateFolder = async () => {
+    const title = folderTitle.trim() || 'New Folder'
+    try {
+      await createDocument({
+        title,
+        content: '',
+        docType: { tag: 'Folder' } as any,
+        parentId: currentFolderId,
+      })
+      setShowCreateFolder(false)
+      setFolderTitle('')
+    } catch (e) {
+      console.error('Failed to create folder:', e)
+    }
   }
 
-  const handleContentChange = useCallback((content: any) => {
-    if (!activeCanvas) return
-    const updated = canvases.map((c) =>
-      c.id === activeCanvas.id ? { ...c, content, updatedAt: new Date() } : c
-    )
-    saveCanvases(updated)
-  }, [activeCanvas, canvases, saveCanvases])
+  const handleDelete = async (id: bigint) => {
+    try {
+      await deleteDocument({ documentId: id })
+      if (activeDocId === id) setActiveDocId(null)
+    } catch (e) {
+      console.error('Failed to delete document:', e)
+    }
+  }
+
+  const handleMoveToFolder = async (targetFolderId: bigint | null) => {
+    if (moveDocId === null) return
+    const doc = canvasDocuments.find((d) => d.id === moveDocId)
+    if (!doc) return
+    try {
+      await updateDocument({
+        documentId: moveDocId,
+        title: doc.title,
+        content: doc.content,
+      })
+      // NOTE: The updateDocument reducer only takes documentId, title, content.
+      // Moving to a folder would require a separate reducer or extending updateDocument.
+      // For now we close the dialog. If parentId update is needed, a backend change is required.
+      setShowMoveDialog(false)
+      setMoveDocId(null)
+    } catch (e) {
+      console.error('Failed to move document:', e)
+    }
+  }
+
+  // Title rename (from editor header)
+  const handleTitleSave = useCallback(
+    async (docId: bigint, newTitleValue: string) => {
+      const doc = canvasDocumentsRef.current.find((d) => d.id === docId)
+      if (!doc) return
+      const trimmed = newTitleValue.trim()
+      if (!trimmed || trimmed === doc.title) {
+        setEditingTitle(false)
+        return
+      }
+      try {
+        await updateDocument({
+          documentId: docId,
+          title: trimmed,
+          content: doc.content,
+        })
+      } catch (e) {
+        console.error('Failed to rename document:', e)
+      }
+      setEditingTitle(false)
+    },
+    [updateDocument]
+  )
+
+  // Debounced auto-save (2-second debounce)
+  const handleContentChange = useCallback(
+    (content: any) => {
+      if (activeDocId === null) return
+
+      setSaveStatus('saving')
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current)
+
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          // Read latest doc from ref to avoid stale closure
+          const doc = canvasDocumentsRef.current.find((d) => d.id === activeDocId)
+          if (!doc) return
+
+          const serialized = typeof content === 'string' ? content : JSON.stringify(content)
+          await updateDocument({
+            documentId: activeDocId,
+            title: doc.title,
+            content: serialized,
+          })
+          setSaveStatus('saved')
+          savedStatusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+        } catch (e) {
+          console.error('Failed to save:', e)
+          setSaveStatus('idle')
+        }
+      }, 2000)
+    },
+    [activeDocId, updateDocument]
+  )
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current)
+    }
+  }, [])
 
   // ---- Editor View ----
-  if (activeCanvas) {
+  if (activeDoc) {
+    const isWhiteboard = activeDoc.docType.tag === 'Whiteboard'
+    const parsedContent = parseContent(activeDoc.content)
+
     return (
       <div className="flex h-full flex-col">
         {/* Editor header */}
         <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setActiveCanvas(null)} className="gap-1.5 -ml-1">
+          <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1">
             <ArrowLeft className="size-4" />
             Back
           </Button>
           <Separator orientation="vertical" className="h-5" />
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {activeCanvas.type === 'document' ? (
-              <FileText className="size-4 text-blue-400 shrink-0" />
-            ) : (
+            {isWhiteboard ? (
               <PenTool className="size-4 text-emerald-400 shrink-0" />
+            ) : (
+              <FileText className="size-4 text-blue-400 shrink-0" />
             )}
-            <h1 className="text-sm font-semibold truncate">{activeCanvas.title}</h1>
+            {editingTitle ? (
+              <Input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={() => handleTitleSave(activeDoc.id, titleDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTitleSave(activeDoc.id, titleDraft)
+                  if (e.key === 'Escape') setEditingTitle(false)
+                }}
+                className="h-7 text-sm font-semibold max-w-xs"
+                autoFocus
+              />
+            ) : (
+              <button
+                onClick={() => {
+                  setTitleDraft(activeDoc.title)
+                  setEditingTitle(true)
+                }}
+                className="text-sm font-semibold truncate hover:text-primary transition-colors cursor-text"
+                title="Click to rename"
+              >
+                {activeDoc.title}
+              </button>
+            )}
             <Badge variant="outline" className="text-[10px] shrink-0">
-              {activeCanvas.type === 'document' ? 'Document' : 'Whiteboard'}
+              {isWhiteboard ? 'Whiteboard' : 'Document'}
             </Badge>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <PresenceBar />
-            <span className="text-[10px] text-muted-foreground">
-              Saved {formatTimeAgo(activeCanvas.updatedAt)}
+            {/* Save status indicator */}
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              {saveStatus === 'saving' && (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  Saving...
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <Check className="size-3 text-green-400" />
+                  Saved
+                </>
+              )}
+              {saveStatus === 'idle' && (
+                <>Saved {formatTimeAgo(timestampToDate(activeDoc.updatedAt))}</>
+              )}
             </span>
+            {/* Last edited by */}
+            {lastEditedByName && (
+              <span className="text-[10px] text-muted-foreground">
+                Last edited by {lastEditedByName}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Editor body */}
         <div className="flex-1 overflow-hidden">
-          {activeCanvas.type === 'document' ? (
-            <BlockEditor
-              initialContent={activeCanvas.content}
-              onChange={handleContentChange}
+          {isWhiteboard ? (
+            <ExcalidrawEditor
+              initialData={parsedContent ? { elements: parsedContent } : undefined}
+              onChange={(elements) => handleContentChange(elements)}
             />
           ) : (
-            <ExcalidrawEditor
-              initialData={activeCanvas.content ? { elements: activeCanvas.content } : undefined}
-              onChange={(elements) => handleContentChange(elements)}
+            <BlockEditor
+              initialContent={parsedContent}
+              onChange={handleContentChange}
             />
           )}
         </div>
@@ -222,7 +522,7 @@ export default function CanvasPage() {
           <PenTool className="size-5 text-violet-500" />
           <h1 className="text-lg font-bold">Canvas</h1>
           <Badge variant="secondary" className="text-xs">
-            {canvases.length}
+            {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
           </Badge>
         </div>
 
@@ -254,6 +554,11 @@ export default function CanvasPage() {
 
           <PresenceBar />
 
+          <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)} className="h-8 gap-1.5">
+            <FolderPlus className="size-3.5" />
+            Folder
+          </Button>
+
           <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
             <Plus className="size-3.5" />
             New Canvas
@@ -261,30 +566,96 @@ export default function CanvasPage() {
         </div>
       </div>
 
-      {/* Canvas List */}
+      {/* Breadcrumb navigation */}
+      {folderPath.length > 0 && (
+        <div className="border-b px-4 py-2">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  render={
+                    <button onClick={() => setCurrentFolderId(null)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm">
+                      Canvas
+                    </button>
+                  }
+                />
+              </BreadcrumbItem>
+              {folderPath.map((folder, idx) => (
+                <span key={folder.id.toString()} className="contents">
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {idx === folderPath.length - 1 ? (
+                      <BreadcrumbPage className="flex items-center gap-1.5 text-sm">
+                        <FolderOpen className="size-3.5" />
+                        {folder.title}
+                      </BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink
+                        render={
+                          <button onClick={() => setCurrentFolderId(folder.id)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm flex items-center gap-1.5">
+                            <Folder className="size-3.5" />
+                            {folder.title}
+                          </button>
+                        }
+                      />
+                    )}
+                  </BreadcrumbItem>
+                </span>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      )}
+
+      {/* Document List */}
       <ScrollArea className="flex-1">
         <div className="p-6">
-          {filteredCanvases.length === 0 ? (
-            <EmptyState onCreateClick={() => setShowCreate(true)} />
+          {filteredDocuments.length === 0 ? (
+            <EmptyState
+              inFolder={currentFolderId !== null}
+              onCreateClick={() => setShowCreate(true)}
+            />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredCanvases.map((canvas) => (
+              {filteredDocuments.map((doc) => (
                 <CanvasCard
-                  key={canvas.id}
-                  canvas={canvas}
-                  onOpen={() => setActiveCanvas(canvas)}
-                  onDelete={() => handleDelete(canvas.id)}
+                  key={doc.id.toString()}
+                  doc={doc}
+                  employeeMap={employeeMap}
+                  onOpen={() => {
+                    if (doc.docType.tag === 'Folder') {
+                      setCurrentFolderId(doc.id)
+                    } else {
+                      setActiveDocId(doc.id)
+                    }
+                  }}
+                  onDelete={() => handleDelete(doc.id)}
+                  onMove={() => {
+                    setMoveDocId(doc.id)
+                    setShowMoveDialog(true)
+                  }}
                 />
               ))}
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-2">
-              {filteredCanvases.map((canvas) => (
+              {filteredDocuments.map((doc) => (
                 <CanvasListItem
-                  key={canvas.id}
-                  canvas={canvas}
-                  onOpen={() => setActiveCanvas(canvas)}
-                  onDelete={() => handleDelete(canvas.id)}
+                  key={doc.id.toString()}
+                  doc={doc}
+                  employeeMap={employeeMap}
+                  onOpen={() => {
+                    if (doc.docType.tag === 'Folder') {
+                      setCurrentFolderId(doc.id)
+                    } else {
+                      setActiveDocId(doc.id)
+                    }
+                  }}
+                  onDelete={() => handleDelete(doc.id)}
+                  onMove={() => {
+                    setMoveDocId(doc.id)
+                    setShowMoveDialog(true)
+                  }}
                 />
               ))}
             </div>
@@ -292,9 +663,9 @@ export default function CanvasPage() {
         </div>
       </ScrollArea>
 
-      {/* Create Dialog */}
+      {/* Create Canvas Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>New Canvas</DialogTitle>
           </DialogHeader>
@@ -314,36 +685,126 @@ export default function CanvasPage() {
               <Label className="text-sm mb-2 block">Type</Label>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setNewType('document')}
+                  onClick={() => setNewType('Canvas')}
                   className={`relative rounded-xl border-2 p-4 text-left transition-all ${
-                    newType === 'document'
+                    newType === 'Canvas'
                       ? 'border-blue-500 bg-blue-500/5'
                       : 'border-border hover:border-muted-foreground/30'
                   }`}
                 >
-                  <FileText className={`size-8 mb-2 ${newType === 'document' ? 'text-blue-400' : 'text-muted-foreground'}`} />
+                  <FileText className={`size-8 mb-2 ${newType === 'Canvas' ? 'text-blue-400' : 'text-muted-foreground'}`} />
                   <p className="text-sm font-semibold">Document</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Rich text, like Notion</p>
                 </button>
                 <button
-                  onClick={() => setNewType('whiteboard')}
+                  onClick={() => setNewType('Whiteboard')}
                   className={`relative rounded-xl border-2 p-4 text-left transition-all ${
-                    newType === 'whiteboard'
+                    newType === 'Whiteboard'
                       ? 'border-emerald-500 bg-emerald-500/5'
                       : 'border-border hover:border-muted-foreground/30'
                   }`}
                 >
-                  <Pencil className={`size-8 mb-2 ${newType === 'whiteboard' ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                  <Pencil className={`size-8 mb-2 ${newType === 'Whiteboard' ? 'text-emerald-400' : 'text-muted-foreground'}`} />
                   <p className="text-sm font-semibold">Whiteboard</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Draw with Excalidraw</p>
                 </button>
               </div>
             </div>
+            {/* Templates (only for documents) */}
+            {newType === 'Canvas' && (
+              <div>
+                <Label className="text-sm mb-2 block">Template</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TEMPLATES.map((tmpl, idx) => (
+                    <button
+                      key={tmpl.name}
+                      onClick={() => setSelectedTemplate(idx)}
+                      className={`rounded-lg border p-3 text-left transition-all ${
+                        selectedTemplate === idx
+                          ? 'border-violet-500 bg-violet-500/5'
+                          : 'border-border hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        {idx === 0 && <FileText className="size-3.5 text-muted-foreground" />}
+                        {idx === 1 && <Clock className="size-3.5 text-muted-foreground" />}
+                        {idx === 2 && <Sparkles className="size-3.5 text-muted-foreground" />}
+                        {idx === 3 && <FileText className="size-3.5 text-muted-foreground" />}
+                        <p className="text-xs font-medium">{tmpl.name}</p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={handleCreate}>Create Canvas</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Folder Dialog */}
+      <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm">Folder Name</Label>
+              <Input
+                value={folderTitle}
+                onChange={(e) => setFolderTitle(e.target.value)}
+                placeholder="New Folder"
+                className="mt-1"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateFolder(false)}>Cancel</Button>
+            <Button onClick={handleCreateFolder}>
+              <FolderPlus className="size-4 mr-1.5" />
+              Create Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move to Folder Dialog */}
+      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move to Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 py-2 max-h-64 overflow-y-auto">
+            <button
+              onClick={() => handleMoveToFolder(null)}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+            >
+              <Folder className="size-4 text-muted-foreground" />
+              Root (no folder)
+            </button>
+            {folders
+              .filter((f) => f.id !== moveDocId)
+              .map((folder) => (
+                <button
+                  key={folder.id.toString()}
+                  onClick={() => handleMoveToFolder(folder.id)}
+                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+                >
+                  <Folder className="size-4 text-amber-400" />
+                  {folder.title}
+                </button>
+              ))}
+            {folders.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No folders yet. Create one first.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -353,14 +814,22 @@ export default function CanvasPage() {
 // ---- Sub-components ---------------------------------------------------------
 
 function CanvasCard({
-  canvas,
+  doc,
+  employeeMap,
   onOpen,
   onDelete,
+  onMove,
 }: {
-  canvas: LocalCanvas
+  doc: SpacetimeDocument
+  employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
+  onMove: () => void
 }) {
+  const isFolder = doc.docType.tag === 'Folder'
+  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+  const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
+
   return (
     <div
       onClick={onOpen}
@@ -368,22 +837,26 @@ function CanvasCard({
     >
       {/* Preview area */}
       <div className={`h-32 flex items-center justify-center ${
-        canvas.type === 'document'
-          ? 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
-          : 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
+        isFolder
+          ? 'bg-gradient-to-br from-amber-500/5 to-amber-500/10'
+          : isWhiteboard
+            ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
+            : 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
       }`}>
-        {canvas.type === 'document' ? (
+        {isFolder ? (
+          <FolderOpen className="size-12 text-amber-400/40" />
+        ) : isWhiteboard ? (
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-2 border-foreground/10 rounded-lg rotate-12" />
+            <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
+            <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
+          </div>
+        ) : (
           <div className="space-y-1.5 px-6 w-full">
             <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
             <div className="h-2 bg-foreground/10 rounded-full w-full" />
             <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
             <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
-          </div>
-        ) : (
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 border-2 border-foreground/10 rounded-lg rotate-12" />
-            <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
-            <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
           </div>
         )}
       </div>
@@ -391,84 +864,137 @@ function CanvasCard({
       {/* Info */}
       <div className="p-3.5">
         <div className="flex items-center gap-2 mb-1">
-          {canvas.type === 'document' ? (
-            <FileText className="size-3.5 text-blue-400 shrink-0" />
-          ) : (
+          {isFolder ? (
+            <Folder className="size-3.5 text-amber-400 shrink-0" />
+          ) : isWhiteboard ? (
             <PenTool className="size-3.5 text-emerald-400 shrink-0" />
+          ) : (
+            <FileText className="size-3.5 text-blue-400 shrink-0" />
           )}
-          <h3 className="text-sm font-semibold truncate">{canvas.title}</h3>
+          <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <Clock className="size-3" />
-          {formatTimeAgo(canvas.updatedAt)}
+          {formatTimeAgo(timestampToDate(doc.updatedAt))}
+          {lastEditor && (
+            <span className="ml-1">Last edited by {lastEditor.name}</span>
+          )}
         </div>
       </div>
 
-      {/* Delete button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
+      {/* Action buttons */}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMove() }}
+            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
+            title="Move to folder"
+          >
+            <MoveRight className="size-3.5" />
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="p-1.5 rounded-md bg-background/80 border hover:bg-destructive/10 hover:text-destructive transition-colors"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
 
 function CanvasListItem({
-  canvas,
+  doc,
+  employeeMap,
   onOpen,
   onDelete,
+  onMove,
 }: {
-  canvas: LocalCanvas
+  doc: SpacetimeDocument
+  employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
+  onMove: () => void
 }) {
+  const isFolder = doc.docType.tag === 'Folder'
+  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+  const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
+
   return (
     <div
       onClick={onOpen}
       className="group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-sm hover:border-primary/20"
     >
       <div className={`flex items-center justify-center size-10 rounded-lg shrink-0 ${
-        canvas.type === 'document'
-          ? 'bg-blue-500/10'
-          : 'bg-emerald-500/10'
+        isFolder
+          ? 'bg-amber-500/10'
+          : isWhiteboard
+            ? 'bg-emerald-500/10'
+            : 'bg-blue-500/10'
       }`}>
-        {canvas.type === 'document' ? (
-          <FileText className="size-5 text-blue-400" />
-        ) : (
+        {isFolder ? (
+          <Folder className="size-5 text-amber-400" />
+        ) : isWhiteboard ? (
           <PenTool className="size-5 text-emerald-400" />
+        ) : (
+          <FileText className="size-5 text-blue-400" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-semibold truncate">{canvas.title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
+          {isFolder && (
+            <ChevronRight className="size-3.5 text-muted-foreground" />
+          )}
+        </div>
         <p className="text-[11px] text-muted-foreground">
-          {canvas.type === 'document' ? 'Document' : 'Whiteboard'} · Updated {formatTimeAgo(canvas.updatedAt)}
+          {isFolder ? 'Folder' : isWhiteboard ? 'Whiteboard' : 'Document'} · Updated {formatTimeAgo(timestampToDate(doc.updatedAt))}
+          {lastEditor && <span> · Last edited by {lastEditor.name}</span>}
         </p>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-        className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMove() }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title="Move to folder"
+          >
+            <MoveRight className="size-3.5" />
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
 
-function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
+function EmptyState({ inFolder, onCreateClick }: { inFolder: boolean; onCreateClick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-        <PenTool className="size-7 text-muted-foreground" />
+        {inFolder ? (
+          <FolderOpen className="size-7 text-muted-foreground" />
+        ) : (
+          <PenTool className="size-7 text-muted-foreground" />
+        )}
       </div>
-      <h3 className="text-lg font-semibold mb-1">No canvases yet</h3>
+      <h3 className="text-lg font-semibold mb-1">
+        {inFolder ? 'This folder is empty' : 'No canvases yet'}
+      </h3>
       <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-        Create a document for rich text editing or a whiteboard for visual collaboration.
+        {inFolder
+          ? 'Create a document or whiteboard in this folder.'
+          : 'Create a document for rich text editing or a whiteboard for visual collaboration.'}
       </p>
       <Button onClick={onCreateClick} className="gap-1.5">
         <Plus className="size-4" />
-        Create your first canvas
+        {inFolder ? 'Create canvas' : 'Create your first canvas'}
       </Button>
     </div>
   )

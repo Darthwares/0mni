@@ -71,11 +71,20 @@ import {
   Circle,
   Loader2,
   Eye,
+  EyeOff,
   Flag,
   GripVertical,
   Pencil,
   MoreHorizontal,
+  Send,
+  MessageSquare,
+  Activity,
+  CalendarClock,
+  Reply,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -157,16 +166,43 @@ function formatTimeAgo(ts: any): string {
   } catch { return '' }
 }
 
+function formatDate(ts: any): string {
+  try {
+    const date = ts.toDate()
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch { return '' }
+}
+
+function getDueDateStatus(dueAt: any): 'overdue' | 'soon' | 'ok' | null {
+  if (!dueAt) return null
+  try {
+    const due = dueAt.toDate()
+    const now = new Date()
+    const diffMs = due.getTime() - now.getTime()
+    if (diffMs < 0) return 'overdue'
+    if (diffMs < 24 * 60 * 60 * 1000) return 'soon'
+    return 'ok'
+  } catch { return null }
+}
+
 // ---- Main Page --------------------------------------------------------------
 
 export default function TicketsPage() {
   const { identity } = useSpacetimeDB()
   const [allTasks] = useTable(tables.task)
   const [employees] = useTable(tables.employee)
+  const [allMessages] = useTable(tables.message)
+  const [allWatchers] = useTable(tables.task_watcher)
+  const [allActivityLogs] = useTable(tables.activity_log)
   const createTask = useReducer(reducers.createTask)
   const claimTask = useReducer(reducers.claimTask)
   const updateTaskStatus = useReducer(reducers.updateTaskStatus)
   const updateTask = useReducer(reducers.updateTask)
+  const sendMessage = useReducer(reducers.sendMessage)
+  const sendThreadReply = useReducer(reducers.sendThreadReply)
+  const watchTask = useReducer(reducers.watchTask)
+  const unwatchTask = useReducer(reducers.unwatchTask)
+  const escalateTask = useReducer(reducers.escalateTask)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
@@ -174,6 +210,7 @@ export default function TicketsPage() {
   const [filterType, setFilterType] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
 
   // Create form state
   const [newTitle, setNewTitle] = useState('')
@@ -282,6 +319,56 @@ export default function TicketsPage() {
     } catch (e: any) {
       console.error('Failed to update task:', e)
     }
+  }
+
+  const toggleTaskSelection = (taskId: bigint) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllSelection = () => {
+    if (selectedTaskIds.size === filteredTasks.length) {
+      setSelectedTaskIds(new Set())
+    } else {
+      setSelectedTaskIds(new Set(filteredTasks.map((t) => t.id)))
+    }
+  }
+
+  const handleBulkStatusChange = async (status: string) => {
+    for (const taskId of selectedTaskIds) {
+      try {
+        await updateTaskStatus({ taskId, newStatus: { tag: status } as any })
+      } catch (e: any) {
+        console.error('Failed to update task status:', e)
+      }
+    }
+    setSelectedTaskIds(new Set())
+  }
+
+  const handleBulkPriorityChange = async (priority: string) => {
+    for (const taskId of selectedTaskIds) {
+      const task = allTasks.find((t) => t.id === taskId)
+      if (task) {
+        try {
+          await updateTask({
+            taskId,
+            title: task.title,
+            description: task.description,
+            priority: { tag: priority } as any,
+          })
+        } catch (e: any) {
+          console.error('Failed to update task priority:', e)
+        }
+      }
+    }
+    setSelectedTaskIds(new Set())
   }
 
   return (
@@ -403,10 +490,26 @@ export default function TicketsPage() {
                               {task.title}
                             </KanbanBoardCardTitle>
 
-                            {/* Type badge */}
-                            <Badge variant="outline" className="text-[10px] h-5 w-fit">
-                              {taskTypeLabel(task.taskType.tag)}
-                            </Badge>
+                            {/* Type badge + Due date */}
+                            <div className="flex items-center gap-1.5 w-full">
+                              <Badge variant="outline" className="text-[10px] h-5 w-fit">
+                                {taskTypeLabel(task.taskType.tag)}
+                              </Badge>
+                              {task.dueAt && (() => {
+                                const status = getDueDateStatus(task.dueAt)
+                                if (status === 'overdue' || status === 'soon') {
+                                  return (
+                                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
+                                      status === 'overdue' ? 'text-red-500' : 'text-amber-500'
+                                    }`}>
+                                      <CalendarClock className="size-3" />
+                                      {status === 'overdue' ? 'Overdue' : 'Due soon'}
+                                    </span>
+                                  )
+                                }
+                                return null
+                              })()}
+                            </div>
 
                             {/* Bottom: Assignee + Time */}
                             <div className="flex items-center justify-between w-full">
@@ -468,23 +571,39 @@ export default function TicketsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
+                      <th className="px-3 py-2.5 w-10">
+                        <CheckboxUI
+                          checked={selectedTaskIds.size === filteredTasks.length && filteredTasks.length > 0}
+                          onCheckedChange={toggleAllSelection}
+                          aria-label="Select all"
+                        />
+                      </th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Task</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Status</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Priority</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-32">Type</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Assignee</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Due Date</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Created</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTasks.map((task) => {
                       const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
+                      const isSelected = selectedTaskIds.has(task.id)
                       return (
                         <tr
                           key={task.id.toString()}
                           onClick={() => setSelectedTask(task)}
-                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                          className={`border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors ${isSelected ? 'bg-muted/40' : ''}`}
                         >
+                          <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                            <CheckboxUI
+                              checked={isSelected}
+                              onCheckedChange={() => toggleTaskSelection(task.id)}
+                              aria-label={`Select ${task.title}`}
+                            />
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-[10px] text-muted-foreground">T-{task.id.toString()}</span>
@@ -518,6 +637,13 @@ export default function TicketsPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
+                            {task.dueAt ? (
+                              <DueDateBadge dueAt={task.dueAt} />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">--</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
                             <span className="text-xs text-muted-foreground">{formatTimeAgo(task.createdAt)}</span>
                           </td>
                         </tr>
@@ -527,6 +653,43 @@ export default function TicketsPage() {
                 </table>
               </div>
             </div>
+
+            {/* Bulk Action Bar */}
+            {selectedTaskIds.size > 0 && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border bg-background/95 backdrop-blur px-5 py-3 shadow-lg">
+                <span className="text-sm font-medium">{selectedTaskIds.size} selected</span>
+                <Separator orientation="vertical" className="h-5" />
+                <Select onValueChange={handleBulkStatusChange}>
+                  <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectValue placeholder="Change Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Unclaimed">Unclaimed</SelectItem>
+                    <SelectItem value="Claimed">Claimed</SelectItem>
+                    <SelectItem value="InProgress">In Progress</SelectItem>
+                    <SelectItem value="NeedsReview">Needs Review</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Blocked">Blocked</SelectItem>
+                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select onValueChange={handleBulkPriorityChange}>
+                  <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectValue placeholder="Change Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Urgent">Urgent</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedTaskIds(new Set())} className="h-8 text-xs">
+                  <X className="size-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
           </ScrollArea>
         )}
       </div>
@@ -543,6 +706,13 @@ export default function TicketsPage() {
             updateTaskStatus({ taskId, newStatus: { tag: status } as any })
           }
           myIdentity={identity}
+          allMessages={allMessages}
+          allWatchers={allWatchers}
+          allActivityLogs={allActivityLogs}
+          sendMessage={sendMessage}
+          sendThreadReply={sendThreadReply}
+          watchTask={watchTask}
+          unwatchTask={unwatchTask}
         />
       )}
 
@@ -684,6 +854,25 @@ function StatusBadge({ tag }: { tag: string }) {
   )
 }
 
+function DueDateBadge({ dueAt }: { dueAt: any }) {
+  const status = getDueDateStatus(dueAt)
+  const dateStr = formatDate(dueAt)
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+      status === 'overdue'
+        ? 'text-red-500'
+        : status === 'soon'
+          ? 'text-amber-500'
+          : 'text-muted-foreground'
+    }`}>
+      <CalendarClock className="size-3" />
+      {dateStr}
+      {status === 'overdue' && <span className="text-[10px]">(Overdue)</span>}
+      {status === 'soon' && <span className="text-[10px]">(Soon)</span>}
+    </span>
+  )
+}
+
 function TaskDetailPanel({
   task,
   employeeMap,
@@ -692,6 +881,13 @@ function TaskDetailPanel({
   onUpdateTask,
   onUpdateStatus,
   myIdentity,
+  allMessages,
+  allWatchers,
+  allActivityLogs,
+  sendMessage,
+  sendThreadReply,
+  watchTask,
+  unwatchTask,
 }: {
   task: any
   employeeMap: Map<string, any>
@@ -700,6 +896,13 @@ function TaskDetailPanel({
   onUpdateTask: (taskId: bigint, title: string, description: string, priority: string) => Promise<void>
   onUpdateStatus: (taskId: bigint, status: string) => Promise<any>
   myIdentity: any
+  allMessages: readonly any[]
+  allWatchers: readonly any[]
+  allActivityLogs: readonly any[]
+  sendMessage: (args: any) => Promise<any>
+  sendThreadReply: (args: any) => Promise<any>
+  watchTask: (args: any) => Promise<any>
+  unwatchTask: (args: any) => Promise<any>
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
   const [isEditing, setIsEditing] = useState(false)
@@ -707,6 +910,61 @@ function TaskDetailPanel({
   const [editDesc, setEditDesc] = useState(task.description)
   const [editPriority, setEditPriority] = useState(task.priority.tag)
   const [isSaving, setIsSaving] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [isSendingComment, setIsSendingComment] = useState(false)
+  const [expandedThreads, setExpandedThreads] = useState<Set<bigint>>(new Set())
+  const [replyingTo, setReplyingTo] = useState<bigint | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [isSendingReply, setIsSendingReply] = useState(false)
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments')
+
+  // Filter messages for this task
+  const taskMessages = useMemo(() => {
+    return allMessages
+      .filter((m) => m.contextType?.tag === 'Task' && m.contextId === task.id && !m.deleted)
+      .sort((a, b) => {
+        try {
+          return a.sentAt.toDate().getTime() - b.sentAt.toDate().getTime()
+        } catch { return 0 }
+      })
+  }, [allMessages, task.id])
+
+  // Separate comments (top-level) and thread replies
+  const topLevelComments = useMemo(() => {
+    return taskMessages.filter((m) => m.messageType?.tag === 'Comment' && !m.threadId)
+  }, [taskMessages])
+
+  const systemMessages = useMemo(() => {
+    return taskMessages.filter((m) => m.messageType?.tag === 'SystemNotification')
+  }, [taskMessages])
+
+  const getReplies = useCallback((parentId: bigint) => {
+    return taskMessages.filter((m) => m.threadId === parentId)
+  }, [taskMessages])
+
+  // Watchers for this task
+  const taskWatchers = useMemo(() => {
+    return allWatchers.filter((w) => w.taskId === task.id)
+  }, [allWatchers, task.id])
+
+  const isWatching = useMemo(() => {
+    if (!myIdentity) return false
+    return taskWatchers.some((w) => w.userId.toHexString() === myIdentity.toHexString())
+  }, [taskWatchers, myIdentity])
+
+  // Activity logs for this task
+  const taskActivityLogs = useMemo(() => {
+    return allActivityLogs
+      .filter((l) => l.entityType === 'task' && l.entityId === task.id)
+      .sort((a, b) => {
+        try {
+          return b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
+        } catch { return 0 }
+      })
+  }, [allActivityLogs, task.id])
+
+  // Due date status
+  const dueDateStatus = getDueDateStatus(task.dueAt)
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -725,6 +983,73 @@ function TaskDetailPanel({
     setEditDesc(task.description)
     setEditPriority(task.priority.tag)
     setIsEditing(false)
+  }
+
+  const handleSendComment = async () => {
+    if (!commentText.trim()) return
+    setIsSendingComment(true)
+    try {
+      await sendMessage({
+        contextType: { tag: 'Task' } as any,
+        contextId: task.id,
+        content: commentText.trim(),
+        messageType: { tag: 'Comment' } as any,
+      })
+      setCommentText('')
+    } catch (e) {
+      console.error('Failed to send comment:', e)
+    } finally {
+      setIsSendingComment(false)
+    }
+  }
+
+  const handleSendReply = async (threadId: bigint) => {
+    if (!replyText.trim()) return
+    setIsSendingReply(true)
+    try {
+      await sendThreadReply({
+        contextType: { tag: 'Task' } as any,
+        contextId: task.id,
+        content: replyText.trim(),
+        threadId,
+      })
+      setReplyText('')
+      setReplyingTo(null)
+    } catch (e) {
+      console.error('Failed to send reply:', e)
+    } finally {
+      setIsSendingReply(false)
+    }
+  }
+
+  const handleToggleWatch = async () => {
+    try {
+      if (isWatching) {
+        await unwatchTask({ taskId: task.id })
+      } else {
+        await watchTask({ taskId: task.id })
+      }
+    } catch (e) {
+      console.error('Failed to toggle watch:', e)
+    }
+  }
+
+  const toggleThread = (msgId: bigint) => {
+    setExpandedThreads((prev) => {
+      const next = new Set(prev)
+      if (next.has(msgId)) {
+        next.delete(msgId)
+      } else {
+        next.add(msgId)
+      }
+      return next
+    })
+  }
+
+  const getEmployeeName = (senderId: any): string => {
+    if (!senderId) return 'Unknown'
+    const emp = employeeMap.get(senderId.toHexString())
+    return emp?.name || 'Unknown User'
   }
 
   return (
@@ -749,6 +1074,19 @@ function TaskDetailPanel({
             )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Watch/Unwatch */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleWatch}
+              className={isWatching ? 'text-blue-500' : ''}
+              title={isWatching ? 'Unwatch this task' : 'Watch this task'}
+            >
+              {isWatching ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+            </Button>
+            {taskWatchers.length > 0 && (
+              <span className="text-[10px] text-muted-foreground -ml-1 mr-1">{taskWatchers.length}</span>
+            )}
             {!isEditing ? (
               <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} title="Edit">
                 <Pencil className="size-4" />
@@ -866,6 +1204,24 @@ function TaskDetailPanel({
                   {formatTimeAgo(task.createdAt)}
                 </div>
               </div>
+              {/* Due Date */}
+              {task.dueAt && (
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-1">Due Date</p>
+                  <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
+                    dueDateStatus === 'overdue'
+                      ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                      : dueDateStatus === 'soon'
+                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        : 'bg-muted/50 text-muted-foreground border-muted'
+                  }`}>
+                    <CalendarClock className="size-3.5" />
+                    {formatDate(task.dueAt)}
+                    {dueDateStatus === 'overdue' && <span className="ml-1">(Overdue)</span>}
+                    {dueDateStatus === 'soon' && <span className="ml-1">(Due soon)</span>}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* AI Section */}
@@ -934,6 +1290,274 @@ function TaskDetailPanel({
                 </div>
               </>
             )}
+
+            <Separator />
+
+            {/* Comments / Activity Tabs */}
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                <button
+                  onClick={() => setActiveTab('comments')}
+                  className={`flex items-center gap-1.5 text-sm font-medium pb-1 border-b-2 transition-colors ${
+                    activeTab === 'comments'
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <MessageSquare className="size-3.5" />
+                  Comments
+                  {topLevelComments.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1">{topLevelComments.length}</Badge>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('activity')}
+                  className={`flex items-center gap-1.5 text-sm font-medium pb-1 border-b-2 transition-colors ${
+                    activeTab === 'activity'
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Activity className="size-3.5" />
+                  Activity
+                </button>
+              </div>
+
+              {activeTab === 'comments' ? (
+                <div className="space-y-4">
+                  {/* Comments list */}
+                  {topLevelComments.length === 0 && (
+                    <div className="rounded-lg border border-dashed p-4 text-center">
+                      <MessageSquare className="size-5 mx-auto mb-1 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">No comments yet. Start the conversation.</p>
+                    </div>
+                  )}
+                  {topLevelComments.map((comment) => {
+                    const replies = getReplies(comment.id)
+                    const isExpanded = expandedThreads.has(comment.id)
+                    const senderName = getEmployeeName(comment.sender)
+                    return (
+                      <div key={comment.id.toString()} className="space-y-2">
+                        <div className="flex gap-2.5">
+                          <Avatar className="size-7 mt-0.5 shrink-0">
+                            <AvatarFallback className={`${nameToColor(senderName)} text-[8px] text-white`}>
+                              {getInitials(senderName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium">{senderName}</span>
+                              <span className="text-[10px] text-muted-foreground">{formatTimeAgo(comment.sentAt)}</span>
+                              {comment.aiGenerated && <Bot className="size-3 text-violet-400" />}
+                            </div>
+                            <p className="text-sm mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <button
+                                onClick={() => {
+                                  setReplyingTo(replyingTo === comment.id ? null : comment.id)
+                                  setReplyText('')
+                                }}
+                                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Reply className="size-3" />
+                                Reply
+                              </button>
+                              {replies.length > 0 && (
+                                <button
+                                  onClick={() => toggleThread(comment.id)}
+                                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                                  {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Thread replies */}
+                        {isExpanded && replies.length > 0 && (
+                          <div className="ml-9 space-y-2 border-l-2 border-muted pl-3">
+                            {replies.map((reply) => {
+                              const replySenderName = getEmployeeName(reply.sender)
+                              return (
+                                <div key={reply.id.toString()} className="flex gap-2">
+                                  <Avatar className="size-5 mt-0.5 shrink-0">
+                                    <AvatarFallback className={`${nameToColor(replySenderName)} text-[7px] text-white`}>
+                                      {getInitials(replySenderName)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[11px] font-medium">{replySenderName}</span>
+                                      <span className="text-[10px] text-muted-foreground">{formatTimeAgo(reply.sentAt)}</span>
+                                    </div>
+                                    <p className="text-xs mt-0.5 whitespace-pre-wrap">{reply.content}</p>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Reply input */}
+                        {replyingTo === comment.id && (
+                          <div className="ml-9 flex gap-2">
+                            <Input
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Write a reply..."
+                              className="h-8 text-xs flex-1"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault()
+                                  handleSendReply(comment.id)
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={() => handleSendReply(comment.id)}
+                              disabled={!replyText.trim() || isSendingReply}
+                            >
+                              {isSendingReply ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* New comment input */}
+                  <div className="flex gap-2 pt-2">
+                    <Textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Write a comment..."
+                      className="min-h-[60px] text-sm flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
+                          handleSendComment()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-muted-foreground">Ctrl+Enter to send</span>
+                    <Button
+                      size="sm"
+                      onClick={handleSendComment}
+                      disabled={!commentText.trim() || isSendingComment}
+                      className="h-7 text-xs gap-1"
+                    >
+                      {isSendingComment ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* Activity Log */
+                <div className="space-y-3">
+                  {/* System notification messages */}
+                  {systemMessages.map((msg) => {
+                    const actorName = getEmployeeName(msg.sender)
+                    return (
+                      <div key={msg.id.toString()} className="flex items-start gap-2.5">
+                        <div className="size-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                          <Activity className="size-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            <span className="font-medium">{actorName}</span>{' '}
+                            <span className="text-muted-foreground">{msg.content}</span>
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">{formatTimeAgo(msg.sentAt)}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Activity log entries */}
+                  {taskActivityLogs.map((log) => {
+                    const actorName = getEmployeeName(log.actor)
+                    const actionLabel = log.action?.tag?.replace(/([A-Z])/g, ' $1').trim() || 'Unknown'
+                    return (
+                      <div key={log.id.toString()} className="flex items-start gap-2.5">
+                        <div className="size-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                          <Activity className="size-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            <span className="font-medium">{actorName}</span>{' '}
+                            <span className="text-muted-foreground">{actionLabel}</span>
+                            {log.metadata && (
+                              <span className="text-muted-foreground"> - {log.metadata}</span>
+                            )}
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">{formatTimeAgo(log.timestamp)}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Fallback: show creation info if no activity */}
+                  {systemMessages.length === 0 && taskActivityLogs.length === 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <div className="size-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                          <Plus className="size-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Task created</span>
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="size-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                          <Circle className="size-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Current status: </span>
+                            <span className="font-medium">{task.status.tag.replace(/([A-Z])/g, ' $1').trim()}</span>
+                          </p>
+                        </div>
+                      </div>
+                      {task.claimedAt && (
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                            <User className="size-3 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs">
+                              <span className="text-muted-foreground">Task claimed</span>
+                            </p>
+                            <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.claimedAt)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {task.completedAt && (
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <CheckCircle2 className="size-3 text-emerald-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs">
+                              <span className="text-muted-foreground">Task completed</span>
+                            </p>
+                            <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.completedAt)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </ScrollArea>
       </div>

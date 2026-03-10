@@ -31,13 +31,14 @@ const routeNames: Record<string, string> = {
   "/settings": "Settings",
   "/tickets": "Tickets",
   "/canvas": "Canvas",
+  "/profile": "Profile",
 }
 
 const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const pageTitle = routeNames[pathname] ?? "Omni"
+  const pageTitle = routeNames[pathname] ?? (pathname?.startsWith("/profile/") ? "Profile" : "Omni")
   const isFullScreen = fullScreenRoutes.some(
     (r) => pathname === r || pathname?.startsWith(r + "/")
   )

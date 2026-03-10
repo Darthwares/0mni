@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/tooltip'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
+import { MentionInput, RenderMentions } from '@/components/mention-input'
 import {
   Hash,
   Lock,
@@ -44,6 +46,8 @@ import {
   Users,
   Settings,
   AtSign,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 
 // ---- Types ------------------------------------------------------------------
@@ -138,11 +142,18 @@ export default function MessagesPage() {
   const createDmChannel = useReducer(reducers.createDmChannel)
   const addReaction = useReducer(reducers.addReaction)
   const removeReaction = useReducer(reducers.removeReaction)
+  const editMessage = useReducer(reducers.editMessage)
+  const deleteMessage = useReducer(reducers.deleteMessage)
+  const pinMessage = useReducer(reducers.pinMessage)
+  const unpinMessage = useReducer(reducers.unpinMessage)
+  const setTypingStatus = useReducer(reducers.setTypingStatus)
 
   const [allChannels, channelsReady] = useTable(tables.channel)
   const [allMessages, messagesReady] = useTable(tables.message)
   const [allEmployees, employeesReady] = useTable(tables.employee)
   const [allReactions, reactionsReady] = useTable(tables.reaction)
+  const [allPinnedMessages] = useTable(tables.pinned_message)
+  const [allTypingIndicators] = useTable(tables.typing_indicator)
 
   const isReady = channelsReady && messagesReady && employeesReady && reactionsReady
 
@@ -158,10 +169,15 @@ export default function MessagesPage() {
   const [hoveredMsgId, setHoveredMsgId] = useState<bigint | null>(null)
   const [showEmojiFor, setShowEmojiFor] = useState<bigint | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [editingMsgId, setEditingMsgId] = useState<bigint | null>(null)
+  const [editText, setEditText] = useState('')
+  const [deletingMsgId, setDeletingMsgId] = useState<bigint | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const threadEndRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastTypingSentRef = useRef<number>(0)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -229,6 +245,27 @@ export default function MessagesPage() {
     }
     return map
   }, [allMessages])
+
+  // Pinned message IDs (set for fast lookup)
+  const pinnedMessageIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of allPinnedMessages) {
+      set.add(p.messageId.toString())
+    }
+    return set
+  }, [allPinnedMessages])
+
+  // Typing indicators for current channel (exclude self)
+  const typingUsers = useMemo(() => {
+    if (!view) return []
+    const channelId = view.channelId
+    return allTypingIndicators
+      .filter((t) => t.channelId === channelId && t.userId.toHexString() !== myHex)
+      .map((t) => {
+        const emp = employeeMap.get(t.userId.toHexString())
+        return emp?.name ?? 'Someone'
+      })
+  }, [allTypingIndicators, view, myHex, employeeMap])
 
   // Messages for current channel (excluding thread replies)
   const messages = useMemo(() => {
@@ -304,7 +341,10 @@ export default function MessagesPage() {
       })
       console.log('[Omni] Message sent successfully')
       setMessageText('')
-      composerRef.current?.focus()
+      // Stop typing indicator when message is sent
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      try { setTypingStatus({ channelId, isTyping: false }) } catch {}
+      lastTypingSentRef.current = 0
     } catch (err: any) {
       const errorMsg = err?.message || String(err)
       console.error('[Omni] Failed to send message:', errorMsg, err)
@@ -375,6 +415,86 @@ export default function MessagesPage() {
       handler()
     }
   }
+
+  // ---- Typing indicator logic -----------------------------------------------
+
+  const handleTyping = useCallback(() => {
+    if (!view) return
+    const now = Date.now()
+    // Only send typing status every 3 seconds
+    if (now - lastTypingSentRef.current < 3000) return
+    lastTypingSentRef.current = now
+    try {
+      setTypingStatus({ channelId: view.channelId, isTyping: true })
+    } catch (err) {
+      // Ignore typing status errors
+    }
+    // Clear previous timeout and set new one to stop typing after 3 seconds
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      try {
+        setTypingStatus({ channelId: view.channelId, isTyping: false })
+      } catch (err) {
+        // Ignore
+      }
+      lastTypingSentRef.current = 0
+    }, 3000)
+  }, [view, setTypingStatus])
+
+  // Cleanup typing on unmount or channel change
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    }
+  }, [view])
+
+  // ---- Edit / Delete / Pin handlers -----------------------------------------
+
+  const handleStartEdit = useCallback((msg: any) => {
+    setEditingMsgId(msg.id)
+    setEditText(msg.content)
+  }, [])
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingMsgId || !editText.trim()) return
+    try {
+      await editMessage({ messageId: editingMsgId, newContent: editText.trim() })
+    } catch (err) {
+      console.error('Failed to edit message:', err)
+    }
+    setEditingMsgId(null)
+    setEditText('')
+  }, [editingMsgId, editText, editMessage])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMsgId(null)
+    setEditText('')
+  }, [])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletingMsgId) return
+    try {
+      await deleteMessage({ messageId: deletingMsgId })
+    } catch (err) {
+      console.error('Failed to delete message:', err)
+    }
+    setDeletingMsgId(null)
+  }, [deletingMsgId, deleteMessage])
+
+  const handleTogglePin = useCallback(async (msg: any) => {
+    const isPinned = pinnedMessageIds.has(msg.id.toString())
+    if (!view) return
+    const channelId = view.channelId
+    try {
+      if (isPinned) {
+        await unpinMessage({ channelId, messageId: msg.id })
+      } else {
+        await pinMessage({ channelId, messageId: msg.id })
+      }
+    } catch (err) {
+      console.error('Failed to toggle pin:', err)
+    }
+  }, [pinnedMessageIds, view, pinMessage, unpinMessage])
 
   // ---- Render helpers -------------------------------------------------------
 
@@ -702,7 +822,7 @@ export default function MessagesPage() {
                               onMouseLeave={() => { setHoveredMsgId(null); if (showEmojiFor === msg.id) setShowEmojiFor(null) }}
                             >
                               {/* Action toolbar */}
-                              {isHovered && (
+                              {isHovered && editingMsgId !== msg.id && (
                                 <div className="absolute -top-3 right-2 flex items-center bg-neutral-800 border border-neutral-700 rounded-md shadow-lg z-10">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -726,6 +846,45 @@ export default function MessagesPage() {
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs">Reply in thread</TooltipContent>
                                   </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => handleTogglePin(msg)}
+                                        className={`p-1.5 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 ${pinnedMessageIds.has(msg.id.toString()) ? 'text-amber-400' : ''}`}
+                                      >
+                                        <Pin className="h-3.5 w-3.5" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      {pinnedMessageIds.has(msg.id.toString()) ? 'Unpin' : 'Pin'}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  {msg.sender.toHexString() === myHex && !msg.deleted && (
+                                    <>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={() => handleStartEdit(msg)}
+                                            className="p-1.5 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="text-xs">Edit</TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={() => setDeletingMsgId(msg.id)}
+                                            className="p-1.5 hover:bg-neutral-700 rounded-r-md text-neutral-400 hover:text-red-400"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="text-xs">Delete</TooltipContent>
+                                      </Tooltip>
+                                    </>
+                                  )}
                                 </div>
                               )}
 
@@ -769,12 +928,43 @@ export default function MessagesPage() {
                                         </Badge>
                                       )}
                                       <span className="text-[11px] text-neutral-600">{formatTime(msg.sentAt)}</span>
+                                      {msg.editedAt != null && !msg.deleted && (
+                                        <span className="text-[10px] text-neutral-600">(edited)</span>
+                                      )}
+                                      {pinnedMessageIds.has(msg.id.toString()) && (
+                                        <span className="text-[10px] text-amber-500" title="Pinned">📌</span>
+                                      )}
                                     </div>
                                   )}
 
-                                  <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed">
-                                    {msg.content}
-                                  </p>
+                                  {msg.deleted ? (
+                                    <p className="text-sm text-neutral-500 italic">[Message deleted]</p>
+                                  ) : editingMsgId === msg.id ? (
+                                    <div className="space-y-1" onKeyDown={(e) => { if (e.key === 'Escape') handleCancelEdit() }}>
+                                      <MentionInput
+                                        value={editText}
+                                        onChange={setEditText}
+                                        onSubmit={handleSaveEdit}
+                                        className="text-sm bg-neutral-800 border-neutral-600 text-neutral-200 rounded px-2 py-1"
+                                      />
+                                      <div className="flex items-center gap-2 text-[11px]">
+                                        <span className="text-neutral-500">Escape to <button onClick={handleCancelEdit} className="text-violet-400 hover:underline">cancel</button> &middot; Enter to <button onClick={handleSaveEdit} className="text-violet-400 hover:underline">save</button></span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-baseline gap-2">
+                                      <RenderMentions
+                                        text={msg.content}
+                                        className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed"
+                                      />
+                                      {isSameAuthor && msg.editedAt != null && (
+                                        <span className="text-[10px] text-neutral-600 shrink-0">(edited)</span>
+                                      )}
+                                      {isSameAuthor && pinnedMessageIds.has(msg.id.toString()) && (
+                                        <span className="text-[10px] text-amber-500 shrink-0" title="Pinned">📌</span>
+                                      )}
+                                    </div>
+                                  )}
 
                                   {/* Reactions */}
                                   {msgReactions && msgReactions.size > 0 && (
@@ -817,6 +1007,15 @@ export default function MessagesPage() {
                   </div>
                 </ScrollArea>
 
+                {/* Typing indicators */}
+                {typingUsers.length > 0 && (
+                  <div className="shrink-0 px-5 py-1 text-xs text-neutral-400 animate-pulse">
+                    {typingUsers.length === 1
+                      ? `${typingUsers[0]} is typing...`
+                      : `${typingUsers.join(', ')} are typing...`}
+                  </div>
+                )}
+
                 {/* Composer */}
                 {sendError && (
                   <div className="px-5 py-2 bg-red-500/10 border-t border-red-500/30">
@@ -825,11 +1024,10 @@ export default function MessagesPage() {
                 )}
                 <div className="shrink-0 px-5 py-3 border-t border-neutral-800">
                   <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
-                    <Textarea
-                      ref={composerRef}
+                    <MentionInput
                       value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, handleSend)}
+                      onChange={(val) => { setMessageText(val); handleTyping() }}
+                      onSubmit={handleSend}
                       placeholder={
                         view.kind === 'channel' && currentChannel
                           ? `Message #${currentChannel.name}`
@@ -837,9 +1035,7 @@ export default function MessagesPage() {
                             ? `Message ${employeeMap.get(view.employeeId)?.name ?? ''}`
                             : 'Type a message...'
                       }
-                      disabled={isSending}
-                      className="min-h-[40px] max-h-[200px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-2.5"
-                      rows={1}
+                      className="min-h-[40px] max-h-[200px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
                       <div className="flex items-center gap-1">
@@ -891,10 +1087,18 @@ export default function MessagesPage() {
                                 <div className="flex items-baseline gap-2 mb-0.5">
                                   <span className="font-semibold text-sm text-neutral-100">{senderName}</span>
                                   <span className="text-[11px] text-neutral-600">{formatTime(msg.sentAt)}</span>
+                                  {msg.editedAt != null && !msg.deleted && (
+                                    <span className="text-[10px] text-neutral-600">(edited)</span>
+                                  )}
                                 </div>
-                                <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed">
-                                  {msg.content}
-                                </p>
+                                {msg.deleted ? (
+                                  <p className="text-sm text-neutral-500 italic">[Message deleted]</p>
+                                ) : (
+                                  <RenderMentions
+                                    text={msg.content}
+                                    className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed"
+                                  />
+                                )}
                               </div>
                             </div>
                           </div>
@@ -907,14 +1111,12 @@ export default function MessagesPage() {
                   {/* Thread composer */}
                   <div className="shrink-0 px-4 py-3 border-t border-neutral-800">
                     <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
-                      <Textarea
+                      <MentionInput
                         value={threadText}
-                        onChange={(e) => setThreadText(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, handleThreadReply)}
+                        onChange={setThreadText}
+                        onSubmit={handleThreadReply}
                         placeholder="Reply..."
-                        disabled={isSending}
-                        className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-2"
-                        rows={1}
+                        className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2"
                       />
                       <div className="flex justify-end px-3 pb-2">
                         <Button
@@ -934,6 +1136,31 @@ export default function MessagesPage() {
           </>
         )}
       </main>
+
+      {/* ================================================================== */}
+      {/* DELETE MESSAGE CONFIRMATION DIALOG                                  */}
+      {/* ================================================================== */}
+      <Dialog open={deletingMsgId !== null} onOpenChange={(open) => { if (!open) setDeletingMsgId(null) }}>
+        <DialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete message</DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              Are you sure you want to delete this message? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeletingMsgId(null)} className="text-neutral-400">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ================================================================== */}
       {/* CREATE CHANNEL DIALOG                                               */}

@@ -1,10 +1,10 @@
 "use client"
 
 import {
-  BadgeCheck,
   ChevronsUpDown,
   LogOut,
   Settings,
+  User,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -24,6 +24,7 @@ import {
 import { useTable, useSpacetimeDB } from "spacetimedb/react"
 import { tables } from "@/generated"
 import { useAuth } from "react-oidc-context"
+import Link from "next/link"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
@@ -83,11 +84,11 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck className="mr-2 size-4" />
-                Profile
+              <DropdownMenuItem render={<Link href="/profile" />}>
+                <User className="mr-2 size-4" />
+                My Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/settings" />}>
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>

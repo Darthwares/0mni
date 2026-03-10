@@ -31,6 +31,7 @@ interface OrganizationRow {
   name: string
   domain: string | undefined
   autoApproveDomain: boolean
+  isGlobal: boolean
   createdBy: any
   createdAt: any
 }
@@ -39,6 +40,7 @@ interface OrgContextValue {
   status: OrgStatus
   currentOrgId: number | null
   currentOrg: OrganizationRow | null
+  isGlobalOrg: boolean
   myMemberships: OrgMembershipRow[]
   myRole: string | null
   isAdminOrOwner: boolean
@@ -51,6 +53,7 @@ const OrgContext = createContext<OrgContextValue>({
   status: 'loading',
   currentOrgId: null,
   currentOrg: null,
+  isGlobalOrg: false,
   myMemberships: [],
   myRole: null,
   isAdminOrOwner: false,
@@ -197,10 +200,19 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
   const isAdminOrOwner = myRole === 'Owner' || myRole === 'Admin'
 
-  // All orgs user is in
+  // Check if current org is the Global org
+  const isGlobalOrg = currentOrg?.isGlobal === true
+
+  // All orgs user is in — Global first, then alphabetical
   const allOrgs = useMemo(() => {
     const orgIds = new Set(myMemberships.map((m) => Number(m.orgId)))
-    return organizations.filter((o) => orgIds.has(Number(o.id)))
+    return organizations
+      .filter((o) => orgIds.has(Number(o.id)))
+      .sort((a, b) => {
+        if (a.isGlobal && !b.isGlobal) return -1
+        if (!a.isGlobal && b.isGlobal) return 1
+        return a.name.localeCompare(b.name)
+      })
   }, [myMemberships, organizations])
 
   // Members of current org
@@ -252,6 +264,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         status,
         currentOrgId,
         currentOrg,
+        isGlobalOrg,
         myMemberships,
         myRole,
         isAdminOrOwner,

@@ -353,7 +353,7 @@ export function AppSidebar() {
                               tooltip={item.title}
                               render={<Link href={item.href} />}
                             >
-                              <item.icon className="size-4" />
+                              <item.icon className="size-4 transition-all duration-200 group-hover/menu-button:scale-125 group-hover/menu-button:rotate-[-8deg]" />
                               <span className="flex-1">{item.title}</span>
                               {count !== undefined && count > 0 && (
                                 <Badge variant="secondary" className="ml-auto size-5 justify-center rounded-full p-0 text-[10px]">
@@ -380,7 +380,7 @@ export function AppSidebar() {
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
                 size="sm"
               >
-                <Share2 className="size-4 group-data-[collapsible=icon]:mr-0 mr-2" />
+                <Share2 className="size-4 group-data-[collapsible=icon]:mr-0 mr-2 transition-transform duration-200 hover:scale-110" />
                 <span className="group-data-[collapsible=icon]:hidden">Share Za Warudo</span>
               </Button>
             ) : (
@@ -390,7 +390,7 @@ export function AppSidebar() {
                 className="w-full border-primary/30 hover:border-primary/50 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
                 size="sm"
               >
-                <UserPlus className="size-4 group-data-[collapsible=icon]:mr-0 mr-2" />
+                <UserPlus className="size-4 group-data-[collapsible=icon]:mr-0 mr-2 transition-transform duration-200 hover:scale-110" />
                 <span className="group-data-[collapsible=icon]:hidden">Invite People</span>
               </Button>
             )}
@@ -402,7 +402,7 @@ export function AppSidebar() {
                 render={<Link href="/settings" />}
                 isActive={pathname === "/settings"}
               >
-                <Settings className="size-4" />
+                <Settings className="size-4 transition-transform duration-300 group-hover/menu-button:rotate-90" />
                 <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>

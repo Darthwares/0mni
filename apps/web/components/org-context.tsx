@@ -169,21 +169,46 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     )
   }, [identity, memberships])
 
+  // Grace period: after subscriptions are ready, wait for client_connected auto-join
+  // before declaring 'no-org' (the server auto-joins Za Warudo on connect)
+  const [graceExpired, setGraceExpired] = useState(false)
+  useEffect(() => {
+    if (!ready) {
+      setGraceExpired(false)
+      return
+    }
+    if (myMemberships.length > 0 || myPendingMemberships.length > 0) {
+      // Already have memberships, no need for grace period
+      setGraceExpired(true)
+      return
+    }
+    const timer = setTimeout(() => setGraceExpired(true), 3000)
+    return () => clearTimeout(timer)
+  }, [ready, myMemberships.length, myPendingMemberships.length])
+
   // Determine status
   const status: OrgStatus = useMemo(() => {
     if (!identity || !ready) return 'loading'
     if (myMemberships.length > 0) return 'ready'
     if (myPendingMemberships.length > 0) return 'pending'
+    // Wait for grace period before declaring no-org (auto-join may still be in flight)
+    if (!graceExpired) return 'loading'
     return 'no-org'
-  }, [identity, ready, myMemberships, myPendingMemberships])
+  }, [identity, ready, myMemberships, myPendingMemberships, graceExpired])
 
-  // Auto-select org if none selected or selected org not in memberships
+  // Auto-select org: prefer saved selection, then Za Warudo (global), then first
   const currentOrgId = useMemo(() => {
     if (myMemberships.length === 0) return null
     const selectedExists = selectedOrgId !== null && myMemberships.some((m) => Number(m.orgId) === selectedOrgId)
     if (selectedExists) return selectedOrgId
+    // Prefer global org (Za Warudo) as default
+    const globalOrg = organizations.find((o) => o.isGlobal)
+    if (globalOrg) {
+      const hasGlobal = myMemberships.some((m) => Number(m.orgId) === Number(globalOrg.id))
+      if (hasGlobal) return Number(globalOrg.id)
+    }
     return Number(myMemberships[0].orgId)
-  }, [myMemberships, selectedOrgId])
+  }, [myMemberships, selectedOrgId, organizations])
 
   // Current org object
   const currentOrg = useMemo(() => {

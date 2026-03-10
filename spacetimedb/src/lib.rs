@@ -1369,6 +1369,68 @@ pub fn escalate_task(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_task_status(
+    ctx: &ReducerContext,
+    task_id: u64,
+    new_status: TaskStatus,
+) -> Result<(), String> {
+    let now = ctx.timestamp;
+
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+
+    // If moving to Claimed and no assignee, assign to caller
+    let assignee = if new_status == TaskStatus::Claimed && task.assignee.is_none() {
+        Some(ctx.sender())
+    } else {
+        task.assignee
+    };
+
+    let claimed_at = if new_status == TaskStatus::Claimed && task.claimed_at.is_none() {
+        Some(now)
+    } else {
+        task.claimed_at
+    };
+
+    let completed_at = if new_status == TaskStatus::Completed && task.completed_at.is_none() {
+        Some(now)
+    } else {
+        task.completed_at
+    };
+
+    ctx.db.task().id().update(Task {
+        status: new_status,
+        assignee,
+        claimed_at,
+        completed_at,
+        ..task
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_task(
+    ctx: &ReducerContext,
+    task_id: u64,
+    title: String,
+    description: String,
+    priority: Priority,
+) -> Result<(), String> {
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+
+    ctx.db.task().id().update(Task {
+        title,
+        description,
+        priority,
+        ..task
+    });
+
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - ORGANIZATION & INVITES
 // ============================================================================

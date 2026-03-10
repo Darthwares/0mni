@@ -73,6 +73,7 @@ import {
   Eye,
   Flag,
   GripVertical,
+  Pencil,
   MoreHorizontal,
 } from 'lucide-react'
 
@@ -94,6 +95,15 @@ const COLUMNS: ColumnDef[] = [
   { id: 'review', label: 'Review', statusTags: ['NeedsReview', 'Escalated'], circleColor: 'violet' },
   { id: 'done', label: 'Done', statusTags: ['Completed'], circleColor: 'green' },
 ]
+
+// Maps column ID → the primary TaskStatus tag for that column (used on drop)
+const COLUMN_TARGET_STATUS: Record<string, string> = {
+  'backlog': 'Unclaimed',
+  'todo': 'Claimed',
+  'in-progress': 'InProgress',
+  'review': 'NeedsReview',
+  'done': 'Completed',
+}
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -155,6 +165,8 @@ export default function TicketsPage() {
   const [employees] = useTable(tables.employee)
   const createTask = useReducer(reducers.createTask)
   const claimTask = useReducer(reducers.claimTask)
+  const updateTaskStatus = useReducer(reducers.updateTaskStatus)
+  const updateTask = useReducer(reducers.updateTask)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
@@ -241,6 +253,37 @@ export default function TicketsPage() {
     }
   }
 
+  const handleMoveTask = async (taskId: bigint, targetColumnId: string) => {
+    const targetStatus = COLUMN_TARGET_STATUS[targetColumnId]
+    if (!targetStatus) return
+
+    // Don't move if already in target status
+    const task = allTasks.find((t) => t.id === taskId)
+    if (!task || task.status.tag === targetStatus) return
+
+    try {
+      await updateTaskStatus({
+        taskId,
+        newStatus: { tag: targetStatus } as any,
+      })
+    } catch (e: any) {
+      console.error('Failed to move task:', e)
+    }
+  }
+
+  const handleUpdateTask = async (taskId: bigint, title: string, description: string, priority: string) => {
+    try {
+      await updateTask({
+        taskId,
+        title,
+        description,
+        priority: { tag: priority } as any,
+      })
+    } catch (e: any) {
+      console.error('Failed to update task:', e)
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -317,11 +360,9 @@ export default function TicketsPage() {
                     columnId={col.id}
                     className="w-72 min-w-[288px]"
                     onDropOverColumn={(data) => {
-                      // Handle drop: parse task data and move to this column
                       try {
                         const parsed = JSON.parse(data)
-                        // Could call a reducer here to change status
-                        console.log(`Dropped task ${parsed.id} on column ${col.id}`)
+                        handleMoveTask(BigInt(parsed.taskId), col.id)
                       } catch {}
                     }}
                   >
@@ -497,6 +538,10 @@ export default function TicketsPage() {
           employeeMap={employeeMap}
           onClose={() => setSelectedTask(null)}
           onClaim={() => handleClaim(selectedTask.id)}
+          onUpdateTask={handleUpdateTask}
+          onUpdateStatus={(taskId: bigint, status: string) =>
+            updateTaskStatus({ taskId, newStatus: { tag: status } as any })
+          }
           myIdentity={identity}
         />
       )}
@@ -644,31 +689,85 @@ function TaskDetailPanel({
   employeeMap,
   onClose,
   onClaim,
+  onUpdateTask,
+  onUpdateStatus,
   myIdentity,
 }: {
   task: any
   employeeMap: Map<string, any>
   onClose: () => void
   onClaim: () => void
+  onUpdateTask: (taskId: bigint, title: string, description: string, priority: string) => Promise<void>
+  onUpdateStatus: (taskId: bigint, status: string) => Promise<any>
   myIdentity: any
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(task.title)
+  const [editDesc, setEditDesc] = useState(task.description)
+  const [editPriority, setEditPriority] = useState(task.priority.tag)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await onUpdateTask(task.id, editTitle, editDesc, editPriority)
+      setIsEditing(false)
+    } catch (e) {
+      console.error('Failed to save:', e)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setEditTitle(task.title)
+    setEditDesc(task.description)
+    setEditPriority(task.priority.tag)
+    setIsEditing(false)
+  }
 
   return (
     <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg border-l bg-background shadow-2xl animate-in slide-in-from-right-full duration-200">
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 border-b px-5 py-4">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-xs text-muted-foreground">T-{task.id.toString()}</span>
               <StatusBadge tag={task.status.tag} />
             </div>
-            <h2 className="text-lg font-semibold">{task.title}</h2>
+            {isEditing ? (
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="text-lg font-semibold h-auto py-0.5 px-1 -ml-1"
+                autoFocus
+              />
+            ) : (
+              <h2 className="text-lg font-semibold">{task.title}</h2>
+            )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {!isEditing ? (
+              <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} title="Edit">
+                <Pencil className="size-4" />
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8 text-xs">
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8 text-xs gap-1">
+                  {isSaving ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                  Save
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="size-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Body */}
@@ -677,21 +776,66 @@ function TaskDetailPanel({
             {/* Description */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {task.description || 'No description provided.'}
-              </p>
+              {isEditing ? (
+                <Textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="min-h-[100px]"
+                  placeholder="Add a description..."
+                />
+              ) : (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {task.description || 'No description provided.'}
+                </p>
+              )}
             </div>
 
             <Separator />
+
+            {/* Status selector */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Status</p>
+              <Select
+                value={task.status.tag}
+                onValueChange={(val) => onUpdateStatus(task.id, val)}
+              >
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Unclaimed">Unclaimed</SelectItem>
+                  <SelectItem value="Claimed">Claimed</SelectItem>
+                  <SelectItem value="InProgress">In Progress</SelectItem>
+                  <SelectItem value="NeedsReview">Needs Review</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Blocked">Blocked</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Priority</p>
-                <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${priorityBadgeClass(task.priority.tag)}`}>
-                  {priorityIcon(task.priority.tag)}
-                  {task.priority.tag}
-                </div>
+                {isEditing ? (
+                  <Select value={editPriority} onValueChange={setEditPriority}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Urgent">Urgent</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="Low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${priorityBadgeClass(task.priority.tag)}`}>
+                    {priorityIcon(task.priority.tag)}
+                    {task.priority.tag}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Type</p>

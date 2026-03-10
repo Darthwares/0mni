@@ -66,6 +66,8 @@ import SendVideoFrameReducer from "./send_video_frame_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
+import UpdateTaskReducer from "./update_task_reducer";
+import UpdateTaskStatusReducer from "./update_task_status_reducer";
 
 // Import all procedure arg schemas
 
@@ -426,6 +428,8 @@ const reducersSchema = __reducers(
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
+  __reducerSchema("update_task", UpdateTaskReducer),
+  __reducerSchema("update_task_status", UpdateTaskStatusReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

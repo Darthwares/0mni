@@ -38,6 +38,8 @@ import SendVideoFrameReducer from "../send_video_frame_reducer";
 import UpdateChannelTopicReducer from "../update_channel_topic_reducer";
 import UpdateEmployeeProfileReducer from "../update_employee_profile_reducer";
 import UpdateMemberRoleReducer from "../update_member_role_reducer";
+import UpdateTaskReducer from "../update_task_reducer";
+import UpdateTaskStatusReducer from "../update_task_status_reducer";
 
 export type AcceptCallParams = __Infer<typeof AcceptCallReducer>;
 export type AddReactionParams = __Infer<typeof AddReactionReducer>;
@@ -71,4 +73,6 @@ export type SendVideoFrameParams = __Infer<typeof SendVideoFrameReducer>;
 export type UpdateChannelTopicParams = __Infer<typeof UpdateChannelTopicReducer>;
 export type UpdateEmployeeProfileParams = __Infer<typeof UpdateEmployeeProfileReducer>;
 export type UpdateMemberRoleParams = __Infer<typeof UpdateMemberRoleReducer>;
+export type UpdateTaskParams = __Infer<typeof UpdateTaskReducer>;
+export type UpdateTaskStatusParams = __Infer<typeof UpdateTaskStatusReducer>;
 

@@ -14,6 +14,7 @@ function getOidcConfig(): AuthProviderProps {
     post_logout_redirect_uri: `${origin}/login`,
     scope: 'openid email profile',
     response_type: 'code',
+    automaticSilentRenew: true,
     onSigninCallback: () => {
       window.history.replaceState({}, document.title, window.location.pathname)
     },

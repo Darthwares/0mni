@@ -22,6 +22,8 @@ import {
   PenTool,
   Globe,
   AlertTriangle,
+  Share2,
+  UserPlus,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -65,6 +67,7 @@ import { useTable, useReducer } from "spacetimedb/react"
 import { tables, reducers } from "@/generated"
 import { useOrg } from "@/components/org-context"
 import { useAuth } from "react-oidc-context"
+import { ShareInviteDialog } from "@/components/share-invite-dialog"
 
 const navSections = [
   {
@@ -167,6 +170,7 @@ export function AppSidebar() {
   const createOrganization = useReducer(reducers.createOrganization)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [newOrgName, setNewOrgName] = useState("")
   const [newOrgDomain, setNewOrgDomain] = useState("")
   const [isCreating, setIsCreating] = useState(false)
@@ -359,6 +363,29 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter>
+          {/* Prominent Share / Invite Button */}
+          <div className="px-2 group-data-[collapsible=icon]:px-0">
+            {isGlobalOrg ? (
+              <Button
+                onClick={() => setShareDialogOpen(true)}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
+                size="sm"
+              >
+                <Share2 className="size-4 group-data-[collapsible=icon]:mr-0 mr-2" />
+                <span className="group-data-[collapsible=icon]:hidden">Share Za Warudo</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setShareDialogOpen(true)}
+                variant="outline"
+                className="w-full border-primary/30 hover:border-primary/50 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
+                size="sm"
+              >
+                <UserPlus className="size-4 group-data-[collapsible=icon]:mr-0 mr-2" />
+                <span className="group-data-[collapsible=icon]:hidden">Invite People</span>
+              </Button>
+            )}
+          </div>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -381,6 +408,8 @@ export function AppSidebar() {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+
+      <ShareInviteDialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} />
 
       {/* Create Organization Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

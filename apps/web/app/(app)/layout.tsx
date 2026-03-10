@@ -40,7 +40,17 @@ const routeNames: Record<string, string> = {
 
 const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
 
+// Outer layout — only uses hooks that don't need SpacetimeDBProvider
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </ProtectedRoute>
+  )
+}
+
+// Inner layout — safe to use SpacetimeDB hooks (ProtectedRoute ensures provider exists)
+function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { showHelp, setShowHelp } = useKeyboardShortcuts()
   useNotificationManager()
@@ -50,38 +60,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <ProtectedRoute>
-      <OrgProvider>
-        <TooltipProvider>
-          <SidebarProvider defaultOpen={false}>
-            <AppSidebar />
-            <SidebarInset>
-              {!isFullScreen && (
-                <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-                  <SidebarTrigger className="-ml-1" />
-                  <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-                  <Breadcrumb>
-                    <BreadcrumbList>
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{pageTitle}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </BreadcrumbList>
-                  </Breadcrumb>
-                  <div className="ml-auto">
-                    <PresenceBar />
-                  </div>
-                </header>
-              )}
-              <main className={isFullScreen ? "flex-1 overflow-hidden h-screen" : "flex-1 overflow-auto"}>
-                {children}
-              </main>
-            </SidebarInset>
-            <NotificationPrompt />
-            <CommandPalette />
-            <KeyboardShortcutsDialog open={showHelp} onOpenChange={setShowHelp} />
-          </SidebarProvider>
-        </TooltipProvider>
-      </OrgProvider>
-    </ProtectedRoute>
+    <OrgProvider>
+      <TooltipProvider>
+        <SidebarProvider defaultOpen={false}>
+          <AppSidebar />
+          <SidebarInset>
+            {!isFullScreen && (
+              <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{pageTitle}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+                <div className="ml-auto">
+                  <PresenceBar />
+                </div>
+              </header>
+            )}
+            <main className={isFullScreen ? "flex-1 overflow-hidden h-screen" : "flex-1 overflow-auto"}>
+              {children}
+            </main>
+          </SidebarInset>
+          <NotificationPrompt />
+          <CommandPalette />
+          <KeyboardShortcutsDialog open={showHelp} onOpenChange={setShowHelp} />
+        </SidebarProvider>
+      </TooltipProvider>
+    </OrgProvider>
   )
 }

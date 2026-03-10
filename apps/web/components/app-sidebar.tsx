@@ -208,7 +208,7 @@ export function AppSidebar() {
           {isGlobalOrg && (
             <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400 group-data-[collapsible=icon]:hidden">
               <AlertTriangle className="size-3.5 shrink-0" />
-              <span>You are in Global — visible to everyone</span>
+              <span>You are in Za Warudo — visible to everyone</span>
             </div>
           )}
 
@@ -238,7 +238,7 @@ export function AppSidebar() {
                         </span>
                         {isGlobalOrg ? (
                           <Badge className="h-4 rounded px-1 py-0 text-[9px] font-semibold uppercase leading-none bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25 hover:bg-amber-500/15">
-                            Global
+                            Za Warudo
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="h-4 rounded px-1 py-0 text-[9px] font-semibold uppercase leading-none">

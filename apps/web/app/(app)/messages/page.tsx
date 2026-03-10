@@ -3,6 +3,7 @@
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -135,6 +136,7 @@ function emojiForName(name: string): string {
 
 export default function MessagesPage() {
   const { identity, isActive, connectionError } = useSpacetimeDB()
+  const { currentOrgId } = useOrg()
   const sendMessage = useReducer(reducers.sendMessage)
   const sendThreadReply = useReducer(reducers.sendThreadReply)
   const createChannel = useReducer(reducers.createChannel)
@@ -1170,7 +1172,8 @@ export default function MessagesPage() {
         onOpenChange={setShowCreateChannel}
         onCreate={async (name, desc, priv) => {
           try {
-            await createChannel({ name, description: desc || null, isPrivate: priv })
+            if (currentOrgId === null) return
+            await createChannel({ name, description: desc || null, isPrivate: priv, orgId: BigInt(currentOrgId) })
             setShowCreateChannel(false)
           } catch (err) {
             console.error('Failed to create channel:', err)

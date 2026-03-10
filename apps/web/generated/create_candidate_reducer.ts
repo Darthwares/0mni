@@ -14,4 +14,5 @@ export default {
   name: __t.string(),
   email: __t.string(),
   linkedinUrl: __t.option(__t.string()),
+  orgId: __t.u64(),
 };

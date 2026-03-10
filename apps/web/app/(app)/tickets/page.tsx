@@ -3,6 +3,7 @@
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useMemo, useState, useCallback } from 'react'
+import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -189,6 +190,7 @@ function getDueDateStatus(dueAt: any): 'overdue' | 'soon' | 'ok' | null {
 
 export default function TicketsPage() {
   const { identity } = useSpacetimeDB()
+  const { currentOrgId } = useOrg()
   const [allTasks] = useTable(tables.task)
   const [employees] = useTable(tables.employee)
   const [allMessages] = useTable(tables.message)
@@ -260,7 +262,7 @@ export default function TicketsPage() {
   }, [filteredTasks])
 
   const handleCreate = async () => {
-    if (!newTitle.trim()) return
+    if (!newTitle.trim() || currentOrgId === null) return
     setIsCreating(true)
     try {
       await createTask({
@@ -271,6 +273,7 @@ export default function TicketsPage() {
         contextId: BigInt(0),
         assignee: null,
         priority: { tag: newPriority } as any,
+        orgId: BigInt(currentOrgId),
       })
       setShowCreate(false)
       setNewTitle('')

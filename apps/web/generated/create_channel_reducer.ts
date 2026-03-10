@@ -14,4 +14,5 @@ export default {
   name: __t.string(),
   description: __t.option(__t.string()),
   isPrivate: __t.bool(),
+  orgId: __t.u64(),
 };

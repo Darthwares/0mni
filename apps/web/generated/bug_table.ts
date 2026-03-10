@@ -18,6 +18,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   title: __t.string(),
   description: __t.string(),
   get severity() {

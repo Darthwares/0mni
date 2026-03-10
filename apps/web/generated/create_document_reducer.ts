@@ -21,4 +21,5 @@ export default {
     return DocumentType;
   },
   parentId: __t.option(__t.u64()),
+  orgId: __t.u64(),
 };

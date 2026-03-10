@@ -16,6 +16,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   repositoryId: __t.u64().name("repository_id"),
   externalId: __t.string().name("external_id"),
   title: __t.string(),

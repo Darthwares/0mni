@@ -16,6 +16,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   actor: __t.identity(),
   get action() {
     return Action;

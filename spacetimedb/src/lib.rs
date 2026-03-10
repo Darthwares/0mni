@@ -235,6 +235,8 @@ pub struct Task {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     // What needs to be done
     pub task_type: TaskType,
     pub title: String,
@@ -344,6 +346,8 @@ pub struct Customer {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub external_id: Option<String>,
 
     pub name: Option<String>,
@@ -380,6 +384,8 @@ pub struct Ticket {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub customer_id: u64,
 
@@ -431,6 +437,8 @@ pub struct Lead {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub name: String,
     pub email: String,
     pub phone: Option<String>,
@@ -468,6 +476,8 @@ pub struct Deal {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub name: String,
     pub lead_id: Option<u64>,
@@ -508,6 +518,8 @@ pub struct Candidate {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub name: String,
     pub email: String,
     pub phone: Option<String>,
@@ -545,6 +557,8 @@ pub struct JobPosting {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub title: String,
     pub description: String,
@@ -586,6 +600,8 @@ pub struct Interview {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub candidate_id: u64,
     pub job_posting_id: u64,
@@ -629,6 +645,8 @@ pub struct Channel {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub name: String,
     pub description: Option<String>,
@@ -696,6 +714,8 @@ pub struct Document {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub title: String,
     pub content: String, // Markdown
     pub doc_type: DocumentType,
@@ -748,6 +768,8 @@ pub struct Meeting {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub title: String,
     pub meeting_type: MeetingType,
 
@@ -789,6 +811,8 @@ pub struct CodeRepository {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub name: String,
     pub url: String,
     pub platform: CodePlatform,
@@ -817,6 +841,8 @@ pub struct PullRequest {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub repository_id: u64,
 
@@ -864,6 +890,8 @@ pub struct Bug {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
+
+    pub org_id: u64,
 
     pub title: String,
     pub description: String,
@@ -1032,6 +1060,8 @@ pub struct ActivityLog {
     #[auto_inc]
     pub id: u64,
 
+    pub org_id: u64,
+
     pub actor: Identity, // Human or AI
     pub action: Action,
 
@@ -1096,55 +1126,57 @@ pub fn init(ctx: &ReducerContext) {
         });
     }
 
-    // Seed default channels if none exist
+    // Create Global organization if it doesn't exist
+    let global_org = if let Some(existing) = ctx.db.organization().iter().find(|o| o.is_global) {
+        existing
+    } else {
+        ctx.db.organization().insert(Organization {
+            id: 0,
+            name: "Za Warudo".to_string(),
+            domain: None,
+            auto_approve_domain: false,
+            is_global: true,
+            created_by: ctx.sender(),
+            created_at: ctx.timestamp,
+        })
+    };
+    let global_org_id = global_org.id;
+
+    // Seed default channels if none exist (using Za Warudo's org_id)
     let has_channels = ctx.db.channel().iter().next().is_some();
     if !has_channels {
         let now = ctx.timestamp;
         let system = ctx.sender();
 
         ctx.db.channel().insert(Channel {
-            id: 0, name: "general".to_string(),
+            id: 0, org_id: global_org_id, name: "general".to_string(),
             description: Some("Company-wide announcements and discussion".to_string()),
             is_private: false, members: vec![], ai_participants: vec![],
             created_by: system, created_at: now,
         });
         ctx.db.channel().insert(Channel {
-            id: 0, name: "random".to_string(),
+            id: 0, org_id: global_org_id, name: "random".to_string(),
             description: Some("Non-work banter and water cooler conversation".to_string()),
             is_private: false, members: vec![], ai_participants: vec![],
             created_by: system, created_at: now,
         });
         ctx.db.channel().insert(Channel {
-            id: 0, name: "engineering".to_string(),
+            id: 0, org_id: global_org_id, name: "engineering".to_string(),
             description: Some("Engineering team discussions".to_string()),
             is_private: false, members: vec![], ai_participants: vec![],
             created_by: system, created_at: now,
         });
         ctx.db.channel().insert(Channel {
-            id: 0, name: "support".to_string(),
+            id: 0, org_id: global_org_id, name: "support".to_string(),
             description: Some("Customer support coordination".to_string()),
             is_private: false, members: vec![], ai_participants: vec![],
             created_by: system, created_at: now,
         });
         ctx.db.channel().insert(Channel {
-            id: 0, name: "sales".to_string(),
+            id: 0, org_id: global_org_id, name: "sales".to_string(),
             description: Some("Sales team pipeline and updates".to_string()),
             is_private: false, members: vec![], ai_participants: vec![],
             created_by: system, created_at: now,
-        });
-    }
-
-    // Create Global organization if it doesn't exist
-    let has_global = ctx.db.organization().iter().any(|o| o.is_global);
-    if !has_global {
-        ctx.db.organization().insert(Organization {
-            id: 0,
-            name: "Global".to_string(),
-            domain: None,
-            auto_approve_domain: false,
-            is_global: true,
-            created_by: ctx.sender(),
-            created_at: ctx.timestamp,
         });
     }
 }
@@ -1210,6 +1242,19 @@ pub fn client_connected(ctx: &ReducerContext) {
                 status: MembershipStatus::Active, invited_by: None,
                 created_at: now, accepted_at: Some(now),
             });
+        }
+
+        // Auto-join user to all Za Warudo public channels
+        let hex = who.to_hex().to_string();
+        let global_channels: Vec<Channel> = ctx.db.channel().iter()
+            .filter(|ch| ch.org_id == global_org.id && !ch.is_private)
+            .collect();
+        for ch in global_channels {
+            if !ch.members.contains(&hex) {
+                let mut updated = ch.clone();
+                updated.members.push(hex.clone());
+                ctx.db.channel().id().update(updated);
+            }
         }
     }
 }
@@ -1278,11 +1323,14 @@ pub fn create_task(
     context_id: u64,
     assignee: Option<Identity>,
     priority: Priority,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let now = ctx.timestamp;
 
     let task = ctx.db.task().insert(Task {
         id: 0,
+        org_id,
         task_type,
         title,
         description,
@@ -1308,6 +1356,7 @@ pub fn create_task(
     // Log activity
     ctx.db.activity_log().insert(ActivityLog {
         id: 0,
+        org_id,
         actor: ctx.sender(),
         action: Action::Created,
         entity_type: "Task".to_string(),
@@ -1326,6 +1375,8 @@ pub fn claim_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
 
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
+
+    require_org_access(ctx, task.org_id)?;
 
     if task.status != TaskStatus::Unclaimed {
         return Err("Task is not available".to_string());
@@ -1466,6 +1517,8 @@ pub fn update_task_status(
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
 
+    require_org_access(ctx, task.org_id)?;
+
     // If moving to Claimed and no assignee, assign to caller
     let assignee = if new_status == TaskStatus::Claimed && task.assignee.is_none() {
         Some(ctx.sender())
@@ -1506,6 +1559,8 @@ pub fn update_task(
 ) -> Result<(), String> {
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
+
+    require_org_access(ctx, task.org_id)?;
 
     ctx.db.task().id().update(Task {
         title,
@@ -1553,7 +1608,9 @@ pub fn delete_message(ctx: &ReducerContext, message_id: u64) -> Result<(), Strin
 #[spacetimedb::reducer]
 pub fn pin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> Result<(), String> {
     ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
-    ctx.db.channel().id().find(&channel_id).ok_or("Channel not found")?;
+    let channel = ctx.db.channel().id().find(&channel_id).ok_or("Channel not found")?;
+    require_org_access(ctx, channel.org_id)?;
+    require_channel_member(ctx, &channel)?;
     for p in ctx.db.pinned_message().iter() {
         if p.channel_id == channel_id && p.message_id == message_id {
             return Ok(());
@@ -1568,6 +1625,9 @@ pub fn pin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> Re
 
 #[spacetimedb::reducer]
 pub fn unpin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> Result<(), String> {
+    let channel = ctx.db.channel().id().find(&channel_id).ok_or("Channel not found")?;
+    require_org_access(ctx, channel.org_id)?;
+    require_channel_member(ctx, &channel)?;
     let to_delete: Vec<u64> = ctx.db.pinned_message().iter()
         .filter(|p| p.channel_id == channel_id && p.message_id == message_id)
         .map(|p| p.id)
@@ -1583,12 +1643,14 @@ pub fn unpin_message(ctx: &ReducerContext, channel_id: u64, message_id: u64) -> 
 #[spacetimedb::reducer]
 pub fn create_document(
     ctx: &ReducerContext, title: String, content: String, doc_type: DocumentType, parent_id: Option<u64>,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let who = ctx.sender();
     let now = ctx.timestamp;
     if title.trim().is_empty() { return Err("Title cannot be empty".to_string()); }
     ctx.db.document().insert(Document {
-        id: 0, title, content, doc_type, parent_id,
+        id: 0, org_id, title, content, doc_type, parent_id,
         created_by: who, last_edited_by: Some(who),
         editors: vec![who.to_hex().to_string()],
         ai_generated: false, ai_maintained: false, auto_sync_with: None,
@@ -1603,6 +1665,7 @@ pub fn update_document(
 ) -> Result<(), String> {
     let who = ctx.sender();
     let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
     let hex = who.to_hex().to_string();
     let mut editors = doc.editors.clone();
     if !editors.contains(&hex) { editors.push(hex); }
@@ -1614,7 +1677,8 @@ pub fn update_document(
 
 #[spacetimedb::reducer]
 pub fn delete_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
-    ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
     ctx.db.document().id().delete(&document_id);
     Ok(())
 }
@@ -1627,6 +1691,14 @@ pub fn delete_document(ctx: &ReducerContext, document_id: u64) -> Result<(), Str
 pub fn set_typing_status(ctx: &ReducerContext, channel_id: u64, is_typing: bool) -> Result<(), String> {
     let who = ctx.sender();
     let now = ctx.timestamp;
+
+    // Verify channel access
+    let channel = ctx.db.channel().id().find(&channel_id).ok_or("Channel not found")?;
+    require_org_access(ctx, channel.org_id)?;
+    if channel.is_private {
+        require_channel_member(ctx, &channel)?;
+    }
+
     let existing: Option<u64> = ctx.db.typing_indicator().iter()
         .find(|t| t.channel_id == channel_id && t.user_id == who)
         .map(|t| t.id);
@@ -1680,7 +1752,8 @@ pub fn update_employee_resume(
 #[spacetimedb::reducer]
 pub fn watch_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
     let who = ctx.sender();
-    ctx.db.task().id().find(&task_id).ok_or("Task not found")?;
+    let task = ctx.db.task().id().find(&task_id).ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
     for w in ctx.db.task_watcher().iter() {
         if w.task_id == task_id && w.user_id == who { return Ok(()); }
     }
@@ -1693,6 +1766,8 @@ pub fn watch_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
 #[spacetimedb::reducer]
 pub fn unwatch_task(ctx: &ReducerContext, task_id: u64) -> Result<(), String> {
     let who = ctx.sender();
+    let task = ctx.db.task().id().find(&task_id).ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
     let to_del: Vec<u64> = ctx.db.task_watcher().iter()
         .filter(|w| w.task_id == task_id && w.user_id == who)
         .map(|w| w.id)
@@ -1713,7 +1788,7 @@ pub fn update_organization(
         return Err("Only admins can update organization settings".to_string());
     }
     let org = ctx.db.organization().id().find(&org_id).ok_or("Org not found")?;
-    if org.is_global { return Err("Cannot modify the Global organization".to_string()); }
+    if org.is_global { return Err("Cannot modify Za Warudo".to_string()); }
     ctx.db.organization().id().update(Organization { name, domain, ..org });
     Ok(())
 }
@@ -1734,6 +1809,42 @@ fn get_membership_role_for_org(ctx: &ReducerContext, org_id: u64) -> Option<OrgM
 
 fn is_admin_or_owner_for_org(ctx: &ReducerContext, org_id: u64) -> bool {
     matches!(get_membership_role_for_org(ctx, org_id), Some(OrgMemberRole::Owner) | Some(OrgMemberRole::Admin))
+}
+
+/// Check if caller is a member of the given org (or if org is Global/Za Warudo)
+fn require_org_access(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
+    let org = ctx.db.organization().id().find(&org_id)
+        .ok_or("Organization not found")?;
+    if org.is_global {
+        return Ok(()); // Everyone can access Za Warudo
+    }
+    let who = ctx.sender();
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == org_id && m.identity == Some(who) && m.status == MembershipStatus::Active {
+            return Ok(());
+        }
+    }
+    Err("You are not a member of this organization".to_string())
+}
+
+/// Check if caller is a member of the channel
+fn require_channel_member(ctx: &ReducerContext, channel: &Channel) -> Result<(), String> {
+    let hex = ctx.sender().to_hex().to_string();
+    // Public non-private channels are open to org members (checked separately)
+    if !channel.is_private {
+        return Ok(());
+    }
+    if channel.members.contains(&hex) {
+        return Ok(());
+    }
+    Err("You are not a member of this channel".to_string())
+}
+
+/// Get the caller's current org_id from their employee record, or error
+fn get_caller_org_id(ctx: &ReducerContext) -> Result<u64, String> {
+    let emp = ctx.db.employee().id().find(&ctx.sender())
+        .ok_or("Employee not found")?;
+    emp.org_id.ok_or("You must belong to an organization".to_string())
 }
 
 #[spacetimedb::reducer]
@@ -2164,6 +2275,16 @@ pub fn send_message(
         return Err("Message cannot be empty".to_string());
     }
 
+    // If context is a channel, verify org access and channel membership
+    if context_type == ContextType::Channel {
+        let channel = ctx.db.channel().id().find(&context_id)
+            .ok_or("Channel not found")?;
+        require_org_access(ctx, channel.org_id)?;
+        if channel.is_private {
+            require_channel_member(ctx, &channel)?;
+        }
+    }
+
     // Check if sender is AI agent
     let is_ai = ctx.db.employee().id().find(&who)
         .map(|e| e.employee_type == EmployeeType::AIAgent)
@@ -2205,6 +2326,16 @@ pub fn send_thread_reply(
         return Err("Reply cannot be empty".to_string());
     }
 
+    // If context is a channel, verify org access and channel membership
+    if context_type == ContextType::Channel {
+        let channel = ctx.db.channel().id().find(&context_id)
+            .ok_or("Channel not found")?;
+        require_org_access(ctx, channel.org_id)?;
+        if channel.is_private {
+            require_channel_member(ctx, &channel)?;
+        }
+    }
+
     // Verify parent message exists
     if ctx.db.message().id().find(&thread_id).is_none() {
         return Err("Thread parent message not found".to_string());
@@ -2244,7 +2375,9 @@ pub fn create_channel(
     name: String,
     description: Option<String>,
     is_private: bool,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let who = ctx.sender();
     let now = ctx.timestamp;
 
@@ -2253,15 +2386,16 @@ pub fn create_channel(
         return Err("Channel name cannot be empty".to_string());
     }
 
-    // Check for duplicate channel name
+    // Check for duplicate channel name within the org
     for ch in ctx.db.channel().iter() {
-        if ch.name == clean_name {
+        if ch.org_id == org_id && ch.name == clean_name {
             return Err(format!("Channel #{} already exists", clean_name));
         }
     }
 
     ctx.db.channel().insert(Channel {
         id: 0,
+        org_id,
         name: clean_name,
         description,
         is_private,
@@ -2285,6 +2419,8 @@ pub fn join_channel(
     let channel = ctx.db.channel().id().find(&channel_id)
         .ok_or("Channel not found")?;
 
+    require_org_access(ctx, channel.org_id)?;
+
     if channel.members.contains(&hex) {
         return Ok(()); // Already a member
     }
@@ -2307,6 +2443,8 @@ pub fn leave_channel(
     let channel = ctx.db.channel().id().find(&channel_id)
         .ok_or("Channel not found")?;
 
+    require_org_access(ctx, channel.org_id)?;
+
     let mut updated = channel.clone();
     updated.members.retain(|m| m != &hex);
     ctx.db.channel().id().update(updated);
@@ -2322,6 +2460,9 @@ pub fn update_channel_topic(
 ) -> Result<(), String> {
     let channel = ctx.db.channel().id().find(&channel_id)
         .ok_or("Channel not found")?;
+
+    require_org_access(ctx, channel.org_id)?;
+    require_channel_member(ctx, &channel)?;
 
     let mut updated = channel.clone();
     updated.description = description;
@@ -2408,6 +2549,9 @@ pub fn create_dm_channel(
     let now = ctx.timestamp;
     let my_hex = who.to_hex().to_string();
 
+    // Use caller's org_id for the DM channel
+    let caller_org_id = get_caller_org_id(ctx)?;
+
     // Check if DM channel already exists between these two users
     for ch in ctx.db.channel().iter() {
         if ch.is_private && ch.members.len() == 2 {
@@ -2423,6 +2567,7 @@ pub fn create_dm_channel(
 
     ctx.db.channel().insert(Channel {
         id: 0,
+        org_id: caller_org_id,
         name: dm_name,
         description: None,
         is_private: true,
@@ -2621,11 +2766,14 @@ pub fn create_customer(
     email: String,
     phone: Option<String>,
     company: Option<String>,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let now = ctx.timestamp;
 
     ctx.db.customer().insert(Customer {
         id: 0,
+        org_id,
         external_id: None,
         name,
         email,
@@ -2653,12 +2801,14 @@ pub fn create_ticket(
 ) -> Result<(), String> {
     let now = ctx.timestamp;
 
-    // Verify customer exists
-    ctx.db.customer().id().find(&customer_id)
+    // Verify customer exists and get its org_id
+    let customer = ctx.db.customer().id().find(&customer_id)
         .ok_or("Customer not found")?;
+    require_org_access(ctx, customer.org_id)?;
 
     let _ticket = ctx.db.ticket().insert(Ticket {
         id: 0,
+        org_id: customer.org_id,
         customer_id,
         subject: subject.clone(),
         status: TicketStatus::New,
@@ -2676,6 +2826,7 @@ pub fn create_ticket(
     // Auto-create task for handling this ticket
     ctx.db.task().insert(Task {
         id: 0,
+        org_id: customer.org_id,
         task_type: TaskType::CustomerSupport,
         title: format!("Respond to: {}", subject),
         description: subject.clone(),
@@ -2712,11 +2863,14 @@ pub fn create_lead(
     email: String,
     company: Option<String>,
     source: LeadSource,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let now = ctx.timestamp;
 
     ctx.db.lead().insert(Lead {
         id: 0,
+        org_id,
         name,
         email,
         phone: None,
@@ -2745,11 +2899,14 @@ pub fn create_candidate(
     name: String,
     email: String,
     linkedin_url: Option<String>,
+    org_id: u64,
 ) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
     let now = ctx.timestamp;
 
     ctx.db.candidate().insert(Candidate {
         id: 0,
+        org_id,
         name,
         email,
         phone: None,

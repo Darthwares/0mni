@@ -3,6 +3,7 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import {
   Tabs,
   TabsList,
@@ -202,6 +203,7 @@ function stageStyle(tag: DealStageTag): StageStyle {
 // ─── Page component ──────────────────────────────────────────────────────────
 
 export default function SalesPage() {
+  const { currentOrgId } = useOrg()
   const [allLeads] = useTable(tables.lead)
   const [allDeals] = useTable(tables.deal)
   const createLead = useSpacetimeReducer(reducers.createLead)
@@ -214,12 +216,13 @@ export default function SalesPage() {
   const [newLeadSource, setNewLeadSource] = useState<string>('Inbound')
 
   function handleCreateLead() {
-    if (!newLeadName.trim() || !newLeadEmail.trim()) return
+    if (!newLeadName.trim() || !newLeadEmail.trim() || currentOrgId === null) return
     createLead({
       name: newLeadName.trim(),
       email: newLeadEmail.trim(),
       company: newLeadCompany.trim() || undefined,
       source: { tag: newLeadSource } as any,
+      orgId: BigInt(currentOrgId),
     })
     setNewLeadName('')
     setNewLeadEmail('')

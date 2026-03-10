@@ -15,4 +15,5 @@ export default {
   email: __t.string(),
   phone: __t.option(__t.string()),
   company: __t.option(__t.string()),
+  orgId: __t.u64(),
 };

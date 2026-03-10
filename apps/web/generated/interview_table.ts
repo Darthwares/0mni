@@ -17,6 +17,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   candidateId: __t.u64().name("candidate_id"),
   jobPostingId: __t.u64().name("job_posting_id"),
   get interviewType() {

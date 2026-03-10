@@ -3,6 +3,7 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Card,
@@ -188,6 +189,7 @@ function formatDateTime(ts: any): string {
 // =============================================================================
 
 export default function RecruitmentPage() {
+  const { currentOrgId } = useOrg()
   const [allCandidates] = useTable(tables.candidate)
   const [allJobPostings] = useTable(tables.job_posting)
   const [allInterviews] = useTable(tables.interview)
@@ -276,12 +278,13 @@ export default function RecruitmentPage() {
   }, [jobPostings, jobSearch])
 
   function handleCreateCandidate() {
-    if (!newCandidateName.trim() || !newCandidateEmail.trim()) return
+    if (!newCandidateName.trim() || !newCandidateEmail.trim() || currentOrgId === null) return
     try {
       createCandidate({
         name: newCandidateName.trim(),
         email: newCandidateEmail.trim(),
         linkedinUrl: newCandidateLinkedIn.trim() || undefined,
+        orgId: BigInt(currentOrgId),
       })
     } catch (err) {
       console.error('Failed to create candidate:', err)

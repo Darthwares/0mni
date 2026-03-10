@@ -19,6 +19,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   get taskType() {
     return TaskType.name("task_type");
   },

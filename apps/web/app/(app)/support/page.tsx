@@ -3,6 +3,7 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -159,6 +160,7 @@ type StatusFilter = (typeof STATUS_FILTERS)[number]
 // =============================================================================
 
 export default function SupportPage() {
+  const { currentOrgId } = useOrg()
   const [allTickets] = useTable(tables.ticket)
   const [allCustomers] = useTable(tables.customer)
   const [allMessages] = useTable(tables.message)
@@ -284,13 +286,14 @@ export default function SupportPage() {
   }
 
   function handleCreateCustomer() {
-    if (!newCustomerEmail.trim()) return
+    if (!newCustomerEmail.trim() || currentOrgId === null) return
     try {
       createCustomer({
         name: newCustomerName.trim() || undefined,
         email: newCustomerEmail.trim(),
         phone: newCustomerPhone.trim() || undefined,
         company: newCustomerCompany.trim() || undefined,
+        orgId: BigInt(currentOrgId),
       })
     } catch (err) {
       console.error('Failed to create customer:', err)

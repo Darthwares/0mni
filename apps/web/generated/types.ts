@@ -34,6 +34,7 @@ export type ActionItem = __Infer<typeof ActionItem>;
 
 export const ActivityLog = __t.object("ActivityLog", {
   id: __t.u64(),
+  orgId: __t.u64(),
   actor: __t.identity(),
   get action() {
     return Action;
@@ -131,6 +132,7 @@ export type AutoSyncSource = __Infer<typeof AutoSyncSource>;
 
 export const Bug = __t.object("Bug", {
   id: __t.u64(),
+  orgId: __t.u64(),
   title: __t.string(),
   description: __t.string(),
   get severity() {
@@ -212,6 +214,7 @@ export type CallType = __Infer<typeof CallType>;
 
 export const Candidate = __t.object("Candidate", {
   id: __t.u64(),
+  orgId: __t.u64(),
   name: __t.string(),
   email: __t.string(),
   phone: __t.option(__t.string()),
@@ -245,6 +248,7 @@ export type CandidateStatus = __Infer<typeof CandidateStatus>;
 
 export const Channel = __t.object("Channel", {
   id: __t.u64(),
+  orgId: __t.u64(),
   name: __t.string(),
   description: __t.option(__t.string()),
   isPrivate: __t.bool(),
@@ -267,6 +271,7 @@ export type CodePlatform = __Infer<typeof CodePlatform>;
 
 export const CodeRepository = __t.object("CodeRepository", {
   id: __t.u64(),
+  orgId: __t.u64(),
   name: __t.string(),
   url: __t.string(),
   get platform() {
@@ -294,6 +299,7 @@ export type ContextType = __Infer<typeof ContextType>;
 
 export const Customer = __t.object("Customer", {
   id: __t.u64(),
+  orgId: __t.u64(),
   externalId: __t.option(__t.string()),
   name: __t.option(__t.string()),
   email: __t.string(),
@@ -314,6 +320,7 @@ export type Customer = __Infer<typeof Customer>;
 
 export const Deal = __t.object("Deal", {
   id: __t.u64(),
+  orgId: __t.u64(),
   name: __t.string(),
   leadId: __t.option(__t.u64()),
   value: __t.f32(),
@@ -354,6 +361,7 @@ export type Department = __Infer<typeof Department>;
 
 export const Document = __t.object("Document", {
   id: __t.u64(),
+  orgId: __t.u64(),
   title: __t.string(),
   content: __t.string(),
   get docType() {
@@ -441,6 +449,7 @@ export type EmployeeType = __Infer<typeof EmployeeType>;
 
 export const Interview = __t.object("Interview", {
   id: __t.u64(),
+  orgId: __t.u64(),
   candidateId: __t.u64(),
   jobPostingId: __t.u64(),
   get interviewType() {
@@ -471,6 +480,7 @@ export type InterviewType = __Infer<typeof InterviewType>;
 
 export const JobPosting = __t.object("JobPosting", {
   id: __t.u64(),
+  orgId: __t.u64(),
   title: __t.string(),
   description: __t.string(),
   get department() {
@@ -500,6 +510,7 @@ export type JobStatus = __Infer<typeof JobStatus>;
 
 export const Lead = __t.object("Lead", {
   id: __t.u64(),
+  orgId: __t.u64(),
   name: __t.string(),
   email: __t.string(),
   phone: __t.option(__t.string()),
@@ -556,6 +567,7 @@ export type MediaSettings = __Infer<typeof MediaSettings>;
 
 export const Meeting = __t.object("Meeting", {
   id: __t.u64(),
+  orgId: __t.u64(),
   title: __t.string(),
   get meetingType() {
     return MeetingType;
@@ -721,6 +733,7 @@ export type Priority = __Infer<typeof Priority>;
 
 export const PullRequest = __t.object("PullRequest", {
   id: __t.u64(),
+  orgId: __t.u64(),
   repositoryId: __t.u64(),
   externalId: __t.string(),
   title: __t.string(),
@@ -769,6 +782,7 @@ export type Sentiment = __Infer<typeof Sentiment>;
 
 export const Task = __t.object("Task", {
   id: __t.u64(),
+  orgId: __t.u64(),
   get taskType() {
     return TaskType;
   },
@@ -861,6 +875,7 @@ export type ThoughtType = __Infer<typeof ThoughtType>;
 
 export const Ticket = __t.object("Ticket", {
   id: __t.u64(),
+  orgId: __t.u64(),
   customerId: __t.u64(),
   subject: __t.string(),
   get status() {

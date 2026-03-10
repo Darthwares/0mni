@@ -30,4 +30,5 @@ export default {
   get priority() {
     return Priority;
   },
+  orgId: __t.u64(),
 };

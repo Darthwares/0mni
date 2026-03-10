@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useOrg } from '@/components/org-context'
 import dynamic from 'next/dynamic'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
@@ -189,6 +190,7 @@ function parentIdMatches(docParentId: bigint | null | undefined, folderId: bigin
 
 export default function CanvasPage() {
   const { identity } = useSpacetimeDB()
+  const { currentOrgId } = useOrg()
   const [allDocuments] = useTable(tables.document)
   const [employees] = useTable(tables.employee)
 
@@ -289,6 +291,7 @@ export default function CanvasPage() {
   // ---- Actions ----
 
   const handleCreate = async () => {
+    if (currentOrgId === null) return
     const title = newTitle.trim() || 'Untitled'
     const template = newType === 'Canvas' ? TEMPLATES[selectedTemplate] : null
     const content = template?.content ? JSON.stringify(template.content) : ''
@@ -298,6 +301,7 @@ export default function CanvasPage() {
         content,
         docType: { tag: newType } as any,
         parentId: currentFolderId,
+        orgId: BigInt(currentOrgId),
       })
       setShowCreate(false)
       setNewTitle('')
@@ -308,6 +312,7 @@ export default function CanvasPage() {
   }
 
   const handleCreateFolder = async () => {
+    if (currentOrgId === null) return
     const title = folderTitle.trim() || 'New Folder'
     try {
       await createDocument({
@@ -315,6 +320,7 @@ export default function CanvasPage() {
         content: '',
         docType: { tag: 'Folder' } as any,
         parentId: currentFolderId,
+        orgId: BigInt(currentOrgId),
       })
       setShowCreateFolder(false)
       setFolderTitle('')

@@ -16,6 +16,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   name: __t.string(),
   description: __t.option(__t.string()),
   isPrivate: __t.bool().name("is_private"),

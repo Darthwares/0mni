@@ -16,6 +16,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  orgId: __t.u64().name("org_id"),
   name: __t.string(),
   leadId: __t.option(__t.u64()).name("lead_id"),
   value: __t.f32(),

@@ -2582,18 +2582,32 @@ pub fn create_dm_channel(
     // Use caller's org_id for the DM channel
     let caller_org_id = get_caller_org_id(ctx)?;
 
+    let is_self_dm = my_hex == target_identity_hex;
+
     // Check if DM channel already exists between these two users
     for ch in ctx.db.channel().iter() {
-        if ch.is_private && ch.members.len() == 2 {
-            if ch.members.contains(&my_hex) && ch.members.contains(&target_identity_hex) {
-                // Already exists, return OK (client will find it)
+        if ch.is_private && ch.name.starts_with("dm-") {
+            if is_self_dm {
+                // Self-DM: 1 member, that member is me
+                if ch.members.len() == 1 && ch.members.contains(&my_hex) {
+                    return Ok(());
+                }
+            } else if ch.members.len() == 2
+                && ch.members.contains(&my_hex)
+                && ch.members.contains(&target_identity_hex)
+            {
                 return Ok(());
             }
         }
     }
 
-    // Create the DM channel (named with both users' hex, prefixed with dm-)
+    // Create the DM channel
     let dm_name = format!("dm-{}-{}", &my_hex[..8], &target_identity_hex[..8.min(target_identity_hex.len())]);
+    let members = if is_self_dm {
+        vec![my_hex]
+    } else {
+        vec![my_hex, target_identity_hex]
+    };
 
     ctx.db.channel().insert(Channel {
         id: 0,
@@ -2601,7 +2615,7 @@ pub fn create_dm_channel(
         name: dm_name,
         description: None,
         is_private: true,
-        members: vec![my_hex, target_identity_hex],
+        members,
         ai_participants: vec![],
         created_by: who,
         created_at: now,

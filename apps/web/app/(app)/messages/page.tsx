@@ -202,15 +202,17 @@ export default function MessagesPage() {
 
   const employees = useMemo(
     () => [...allEmployees]
-      .filter((e) => identity ? e.id.toHexString() !== myHex : true)
       .sort((a, b) => {
-        // Online first
+        // Self first, then online, then alphabetical
+        const aIsSelf = a.id.toHexString() === myHex ? -1 : 0
+        const bIsSelf = b.id.toHexString() === myHex ? -1 : 0
+        if (aIsSelf !== bIsSelf) return aIsSelf - bIsSelf
         const aOnline = a.status.tag === 'Online' ? 0 : 1
         const bOnline = b.status.tag === 'Online' ? 0 : 1
         if (aOnline !== bOnline) return aOnline - bOnline
         return a.name.localeCompare(b.name)
       }),
-    [allEmployees, identity, myHex],
+    [allEmployees, myHex],
   )
 
   const employeeMap = useMemo(
@@ -500,13 +502,23 @@ export default function MessagesPage() {
 
   // ---- Render helpers -------------------------------------------------------
 
+  function isSelfDm(channel: any): boolean {
+    return channel.members.length === 1 && channel.members[0] === myHex
+  }
+
   function getDmPartnerName(channel: any): string {
+    if (isSelfDm(channel)) {
+      return employeeMap.get(myHex)?.name ?? 'You'
+    }
     const other = channel.members.find((m: string) => m !== myHex)
     if (!other) return 'Unknown'
     return employeeMap.get(other)?.name ?? 'Unknown'
   }
 
   function getDmPartner(channel: any) {
+    if (isSelfDm(channel)) {
+      return employeeMap.get(myHex) ?? null
+    }
     const other = channel.members.find((m: string) => m !== myHex)
     return other ? employeeMap.get(other) : null
   }
@@ -649,6 +661,7 @@ export default function MessagesPage() {
                 {dmChannels.map((ch) => {
                   const partner = getDmPartner(ch)
                   if (!partner) return null
+                  const selfDm = isSelfDm(ch)
                   const isActive = view?.kind === 'dm' && view.channelId === ch.id
                   return (
                     <button
@@ -668,7 +681,7 @@ export default function MessagesPage() {
                         </Avatar>
                         <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-900 ${statusDot(partner.status.tag)}`} />
                       </div>
-                      <span className="truncate">{partner.name}</span>
+                      <span className="truncate">{partner.name}{selfDm ? ' (you)' : ''}</span>
                       {partner.employeeType.tag === 'AiAgent' && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
                     </button>
                   )
@@ -676,9 +689,14 @@ export default function MessagesPage() {
 
                 {/* All employees for starting new DMs */}
                 {filteredEmployees
-                  .filter((emp) => !dmChannels.some((ch) => ch.members.includes(emp.id.toHexString())))
+                  .filter((emp) => {
+                    const empHex = emp.id.toHexString()
+                    // Already has an existing DM channel?
+                    return !dmChannels.some((ch) => ch.members.includes(empHex))
+                  })
                   .map((emp) => {
                     const isAI = emp.employeeType.tag === 'AiAgent'
+                    const isSelf = emp.id.toHexString() === myHex
                     return (
                       <button
                         key={emp.id.toHexString()}
@@ -693,7 +711,7 @@ export default function MessagesPage() {
                           </Avatar>
                           <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-900 ${statusDot(emp.status.tag)}`} />
                         </div>
-                        <span className="truncate">{emp.name}</span>
+                        <span className="truncate">{emp.name}{isSelf ? ' (you)' : ''}</span>
                         {isAI && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
                       </button>
                     )
@@ -757,6 +775,11 @@ export default function MessagesPage() {
                       <div>
                         <div className="flex items-center gap-2 font-semibold text-neutral-100 text-sm">
                           {partner.name}
+                          {view.employeeId === myHex && (
+                            <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-neutral-800 text-neutral-400 border-0">
+                              you
+                            </Badge>
+                          )}
                           {partner.employeeType.tag === 'AiAgent' && (
                             <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-violet-900/50 text-violet-300 border-0">
                               <Bot className="h-2 w-2" /> AI
@@ -765,7 +788,7 @@ export default function MessagesPage() {
                         </div>
                         <div className="flex items-center gap-1 text-[11px] text-neutral-500">
                           <div className={`h-1.5 w-1.5 rounded-full ${statusDot(partner.status.tag)}`} />
-                          {partner.status.tag}
+                          {view.employeeId === myHex ? 'Jot down notes, links, and ideas' : partner.status.tag}
                         </div>
                       </div>
                     </>

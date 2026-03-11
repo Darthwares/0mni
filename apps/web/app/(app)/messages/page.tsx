@@ -603,7 +603,7 @@ export default function MessagesPage() {
             placeholder="Search channels & people"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-7 h-8 md:h-7 text-xs bg-accent border-border text-foreground/90 placeholder:text-muted-foreground focus-visible:ring-violet-500"
+            className="pl-7 h-8 md:h-7 text-xs bg-background/60 dark:bg-accent border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-violet-500"
           />
         </div>
       </div>
@@ -613,11 +613,11 @@ export default function MessagesPage() {
         <div className="px-2 pt-2">
           <button
             onClick={() => setChannelsCollapsed(!channelsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-muted-foreground hover:text-foreground/90 transition-colors"
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors"
           >
             {channelsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Channels</span>
-            <span className="ml-auto text-muted-foreground/60">{filteredChannels.length}</span>
+            <span className="ml-auto text-foreground/30 font-normal normal-case tracking-normal">{filteredChannels.length}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -638,13 +638,13 @@ export default function MessagesPage() {
                 <ContextMenuTrigger>
                   <button
                     onClick={() => selectChannel(channel.id)}
-                    className={`w-full flex items-center gap-1.5 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
+                    className={`w-full flex items-center gap-1.5 px-2 py-2 md:py-1.5 rounded-md text-sm transition-colors text-left ${
                       isActive
-                        ? 'bg-violet-600/20 text-white font-medium'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground/90'
+                        ? 'bg-violet-600/15 dark:bg-violet-600/20 text-violet-900 dark:text-violet-100 font-medium'
+                        : 'text-foreground/70 hover:bg-accent hover:text-foreground transition-colors'
                     }`}
                   >
-                    {channel.isPrivate ? <Lock className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" /> : <Hash className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" />}
+                    {channel.isPrivate ? <Lock className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-60" /> : <Hash className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-60" />}
                     <span className="truncate">{channel.name}</span>
                   </button>
                 </ContextMenuTrigger>
@@ -667,13 +667,13 @@ export default function MessagesPage() {
           })}
         </div>
 
-        <Separator className="my-2 mx-3 bg-accent" />
+        <Separator className="my-2 mx-3 bg-border/50" />
 
         {/* Direct Messages */}
         <div className="px-2 pb-4">
           <button
             onClick={() => setDmsCollapsed(!dmsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-muted-foreground hover:text-foreground/90 transition-colors"
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors"
           >
             {dmsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Direct Messages</span>
@@ -692,10 +692,10 @@ export default function MessagesPage() {
                     <ContextMenuTrigger>
                       <button
                         onClick={() => selectDm(ch.id, partner.id.toHexString())}
-                        className={`w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
+                        className={`w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-md text-sm transition-colors text-left ${
                           isActive
-                            ? 'bg-violet-600/20 text-white font-medium'
-                            : 'text-muted-foreground hover:bg-accent hover:text-foreground/90'
+                            ? 'bg-violet-600/15 dark:bg-violet-600/20 text-violet-900 dark:text-violet-100 font-medium'
+                            : 'text-foreground/70 hover:bg-accent hover:text-foreground transition-colors'
                         }`}
                       >
                         <div className="relative shrink-0">
@@ -743,7 +743,7 @@ export default function MessagesPage() {
                     <button
                       key={emp.id.toHexString()}
                       onClick={() => handleOpenDm(emp)}
-                      className="w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm text-muted-foreground hover:bg-accent hover:text-foreground/80 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-md text-sm text-foreground/60 hover:bg-accent hover:text-foreground transition-colors text-left"
                     >
                       <div className="relative shrink-0">
                         <Avatar className="h-6 md:h-5 w-6 md:w-5">
@@ -1224,7 +1224,7 @@ export default function MessagesPage() {
       {/* ================================================================== */}
       {/* SLACK SIDEBAR                                                       */}
       {/* ================================================================== */}
-      <aside className="w-64 shrink-0 flex flex-col bg-muted border-r border-border">
+      <aside className="w-64 shrink-0 flex flex-col bg-muted/50 dark:bg-muted border-r border-border">
         {/* Workspace header */}
         <div className="h-12 flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-2 min-w-0">

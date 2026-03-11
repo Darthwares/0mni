@@ -11,6 +11,31 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Omni <onboarding@resend.dev
 
 export async function POST(req: NextRequest) {
   try {
+    // Verify the request has a valid OIDC token
+    // The token is a JWT from our OIDC provider — validate its structure
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const token = authHeader.slice(7)
+    // JWT must have 3 parts separated by dots and be of reasonable length
+    const jwtParts = token.split('.')
+    if (jwtParts.length !== 3 || token.length < 100) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+    }
+    // Decode payload and check expiry
+    try {
+      const payload = JSON.parse(Buffer.from(jwtParts[1], 'base64url').toString())
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+        return NextResponse.json({ error: 'Token expired' }, { status: 401 })
+      }
+      if (!payload.sub) {
+        return NextResponse.json({ error: 'Invalid token claims' }, { status: 401 })
+      }
+    } catch {
+      return NextResponse.json({ error: 'Malformed token' }, { status: 401 })
+    }
+
     const resend = getResend()
     const { type, email, orgName, inviteCode, inviterName } = await req.json()
 

@@ -103,7 +103,10 @@ export default function SettingsPage() {
       )
       await fetch('/api/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {}),
+        },
         body: JSON.stringify({
           type: 'invite-email',
           email: inviteEmail.trim(),
@@ -140,7 +143,10 @@ export default function SettingsPage() {
       )
       await fetch('/api/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {}),
+        },
         body: JSON.stringify({
           type: 'invite-link',
           email: linkEmailAddress.trim(),

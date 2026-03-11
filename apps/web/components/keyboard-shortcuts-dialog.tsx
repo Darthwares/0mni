@@ -22,8 +22,20 @@ const navigationShortcuts = [
   { keys: ["g", "s"], description: "Go to Settings" },
 ]
 
+const messagesShortcuts = [
+  { keys: ["↑", "↓"], description: "Navigate channels & DMs" },
+  { keys: ["/"], description: "Focus message composer" },
+  { keys: ["f"], description: "Focus search" },
+  { keys: ["t"], description: "Open thread on last message" },
+  { keys: ["e"], description: "Edit your last message" },
+  { keys: ["+"], description: "React to last message" },
+  { keys: ["n"], description: "Create new channel" },
+  { keys: ["Esc"], description: "Close thread / blur input" },
+]
+
 const generalShortcuts = [
   { keys: ["?"], description: "Show keyboard shortcuts" },
+  { keys: ["⌘", "K"], description: "Open command palette" },
   { keys: ["Esc"], description: "Close dialog / panel" },
 ]
 
@@ -82,6 +94,22 @@ export function KeyboardShortcutsDialog({
             </h4>
             <div className="divide-y divide-border">
               {navigationShortcuts.map((shortcut) => (
+                <ShortcutRow
+                  key={shortcut.description}
+                  keys={shortcut.keys}
+                  description={shortcut.description}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Messages
+            </h4>
+            <div className="divide-y divide-border">
+              {messagesShortcuts.map((shortcut) => (
                 <ShortcutRow
                   key={shortcut.description}
                   keys={shortcut.keys}

@@ -4,6 +4,7 @@
 use spacetimedb::{Identity, ReducerContext, SpacetimeType, Table, Timestamp, Uuid};
 use spacetimedb::rand::RngCore;
 
+
 // ============================================================================
 // CORE IDENTITY & ACCESS
 // ============================================================================
@@ -1157,6 +1158,7 @@ pub struct TaskWatcher {
     pub created_at: Timestamp,
 }
 
+
 // ============================================================================
 // REDUCERS - CORE SYSTEM
 // ============================================================================
@@ -1253,6 +1255,10 @@ pub fn client_connected(ctx: &ReducerContext) {
         let mut updated = existing.clone();
         updated.status = EmployeeStatus::Online;
         updated.last_active = now;
+        // Fix org_id if it was never set (backfill for existing users)
+        if updated.org_id.is_none() {
+            updated.org_id = global_org_id.or(updated.selected_org_id);
+        }
         ctx.db.employee().id().update(updated);
         log::info!("Client reconnected: {} ({})", existing.name, who.to_abbreviated_hex());
     } else {
@@ -1275,7 +1281,7 @@ pub fn client_connected(ctx: &ReducerContext) {
             cost_incurred: None,
             created_at: now,
             last_active: now,
-            org_id: None,
+            org_id: global_org_id,
             selected_org_id: global_org_id,
             bio: None,
             skills: vec![],
@@ -1351,6 +1357,18 @@ pub fn sync_identity(
     avatar_url: Option<String>,
 ) -> Result<(), String> {
     let who = ctx.sender();
+
+    // Input validation
+    if name.len() > 200 {
+        return Err("Name exceeds maximum length".to_string());
+    }
+    if let Some(ref e) = email {
+        if e.len() > 320 { return Err("Email exceeds maximum length".to_string()); }
+    }
+    if let Some(ref a) = avatar_url {
+        if a.len() > 2_000 { return Err("Avatar URL exceeds maximum length".to_string()); }
+    }
+
     let employee = ctx.db.employee().id().find(&who)
         .ok_or("Employee not found")?;
 
@@ -1382,6 +1400,16 @@ pub fn update_employee_profile(
     department: Department,
 ) -> Result<(), String> {
     let who = ctx.sender();
+
+    if name.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    if name.len() > 100 {
+        return Err("Name exceeds maximum length of 100 characters".to_string());
+    }
+    if role.len() > 100 {
+        return Err("Role exceeds maximum length of 100 characters".to_string());
+    }
 
     let employee = ctx.db.employee().id().find(&who)
         .ok_or("Employee not found")?;
@@ -1542,6 +1570,8 @@ pub fn complete_task_with_verification(
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
 
+    require_org_access(ctx, task.org_id)?;
+
     if task.assignee != Some(who) {
         return Err("You are not assigned to this task".to_string());
     }
@@ -1607,6 +1637,8 @@ pub fn escalate_task(
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
 
+    require_org_access(ctx, task.org_id)?;
+
     if task.assignee != Some(who) {
         return Err("You are not assigned to this task".to_string());
     }
@@ -1638,12 +1670,21 @@ pub fn update_task_status(
     task_id: u64,
     new_status: TaskStatus,
 ) -> Result<(), String> {
+    let who = ctx.sender();
     let now = ctx.timestamp;
 
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
 
     require_org_access(ctx, task.org_id)?;
+
+    // Only assignee, creator (assigned_by), or org admin can change task status
+    let is_assignee = task.assignee == Some(who);
+    let is_creator = task.assigned_by == Some(who);
+    let is_admin = is_admin_or_owner_for_org(ctx, task.org_id);
+    if !is_assignee && !is_creator && !is_admin {
+        return Err("Only the assignee, creator, or org admin can change task status".to_string());
+    }
 
     // If moving to Claimed and no assignee, assign to caller
     let assignee = if new_status == TaskStatus::Claimed && task.assignee.is_none() {
@@ -1683,10 +1724,26 @@ pub fn update_task(
     description: String,
     priority: Priority,
 ) -> Result<(), String> {
+    let who = ctx.sender();
     let task = ctx.db.task().id().find(&task_id)
         .ok_or("Task not found")?;
 
     require_org_access(ctx, task.org_id)?;
+
+    // Only assignee, creator, or org admin can edit task details
+    let is_assignee = task.assignee == Some(who);
+    let is_creator = task.assigned_by == Some(who);
+    let is_admin = is_admin_or_owner_for_org(ctx, task.org_id);
+    if !is_assignee && !is_creator && !is_admin {
+        return Err("Only the assignee, creator, or org admin can edit this task".to_string());
+    }
+
+    if title.len() > 200 {
+        return Err("Task title exceeds maximum length of 200 characters".to_string());
+    }
+    if description.len() > 5_000 {
+        return Err("Task description exceeds maximum length of 5,000 characters".to_string());
+    }
 
     ctx.db.task().id().update(Task {
         title,
@@ -1711,6 +1768,11 @@ pub fn edit_message(ctx: &ReducerContext, message_id: u64, new_content: String) 
     if new_content.len() > 10_000 {
         return Err("Message content exceeds maximum length of 10,000 characters".to_string());
     }
+
+    // Verify caller still has org access for this message's context
+    let org_id = resolve_context_org_id(ctx, &msg.context_type, msg.context_id)?;
+    require_org_access(ctx, org_id)?;
+
     ctx.db.message().id().update(Message {
         content: new_content,
         edited_at: Some(ctx.timestamp),
@@ -1724,6 +1786,11 @@ pub fn delete_message(ctx: &ReducerContext, message_id: u64) -> Result<(), Strin
     let who = ctx.sender();
     let msg = ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
     if msg.sender != who { return Err("You can only delete your own messages".to_string()); }
+
+    // Verify caller still has org access for this message's context
+    let org_id = resolve_context_org_id(ctx, &msg.context_type, msg.context_id)?;
+    require_org_access(ctx, org_id)?;
+
     ctx.db.message().id().update(Message { content: String::new(), deleted: true, ..msg });
     // Remove any pins for this message
     let pin_ids: Vec<u64> = ctx.db.pinned_message().iter()
@@ -1803,7 +1870,23 @@ pub fn update_document(
     let who = ctx.sender();
     let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
     require_org_access(ctx, doc.org_id)?;
+
+    // Only creator, existing editors, or org admin can edit
     let hex = who.to_hex().to_string();
+    let is_creator = doc.created_by == who;
+    let is_editor = doc.editors.contains(&hex);
+    let is_admin = is_admin_or_owner_for_org(ctx, doc.org_id);
+    if !is_creator && !is_editor && !is_admin {
+        return Err("Only the creator, editors, or org admin can edit this document".to_string());
+    }
+
+    if title.len() > 200 {
+        return Err("Document title exceeds maximum length of 200 characters".to_string());
+    }
+    if content.len() > 100_000 {
+        return Err("Document content exceeds maximum length of 100,000 characters".to_string());
+    }
+
     let mut editors = doc.editors.clone();
     if !editors.contains(&hex) { editors.push(hex); }
     ctx.db.document().id().update(Document {
@@ -1814,8 +1897,17 @@ pub fn update_document(
 
 #[spacetimedb::reducer]
 pub fn delete_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
     let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
     require_org_access(ctx, doc.org_id)?;
+
+    // Only creator or org admin can delete documents
+    let is_creator = doc.created_by == who;
+    let is_admin = is_admin_or_owner_for_org(ctx, doc.org_id);
+    if !is_creator && !is_admin {
+        return Err("Only the document creator or org admin can delete this document".to_string());
+    }
+
     ctx.db.document().id().delete(&document_id);
     Ok(())
 }
@@ -1991,6 +2083,25 @@ pub fn update_employee_resume(
     timezone: Option<String>,
 ) -> Result<(), String> {
     let who = ctx.sender();
+
+    // Input validation
+    if let Some(ref b) = bio {
+        if b.len() > 2_000 { return Err("Bio exceeds maximum length of 2,000 characters".to_string()); }
+    }
+    if skills.len() > 50 { return Err("Too many skills (max 50)".to_string()); }
+    if education.len() > 20 { return Err("Too many education entries (max 20)".to_string()); }
+    if certifications.len() > 30 { return Err("Too many certifications (max 30)".to_string()); }
+    if employment_history.len() > 30 { return Err("Too many employment history entries (max 30)".to_string()); }
+    if let Some(ref u) = linkedin_url {
+        if u.len() > 500 { return Err("LinkedIn URL exceeds maximum length of 500 characters".to_string()); }
+    }
+    if let Some(ref u) = github_url {
+        if u.len() > 500 { return Err("GitHub URL exceeds maximum length of 500 characters".to_string()); }
+    }
+    if let Some(ref t) = timezone {
+        if t.len() > 100 { return Err("Timezone exceeds maximum length of 100 characters".to_string()); }
+    }
+
     let emp = ctx.db.employee().id().find(&who).ok_or("Employee not found")?;
     ctx.db.employee().id().update(Employee {
         bio, skills, education, certifications, employment_history,
@@ -2096,11 +2207,51 @@ fn require_channel_member(ctx: &ReducerContext, channel: &Channel) -> Result<(),
     Err("You are not a member of this channel".to_string())
 }
 
+/// Resolve the org_id for a message's context (channel, task, customer, etc.)
+fn resolve_context_org_id(ctx: &ReducerContext, context_type: &ContextType, context_id: u64) -> Result<u64, String> {
+    match context_type {
+        ContextType::Channel => {
+            let ch = ctx.db.channel().id().find(&context_id).ok_or("Channel not found")?;
+            Ok(ch.org_id)
+        }
+        ContextType::Task => {
+            let t = ctx.db.task().id().find(&context_id).ok_or("Task not found")?;
+            Ok(t.org_id)
+        }
+        ContextType::Customer => {
+            let c = ctx.db.customer().id().find(&context_id).ok_or("Customer not found")?;
+            Ok(c.org_id)
+        }
+        ContextType::Deal => {
+            let d = ctx.db.deal().id().find(&context_id).ok_or("Deal not found")?;
+            Ok(d.org_id)
+        }
+        ContextType::Candidate => {
+            let c = ctx.db.candidate().id().find(&context_id).ok_or("Candidate not found")?;
+            Ok(c.org_id)
+        }
+        ContextType::Document => {
+            let d = ctx.db.document().id().find(&context_id).ok_or("Document not found")?;
+            Ok(d.org_id)
+        }
+        ContextType::Meeting => {
+            let m = ctx.db.meeting().id().find(&context_id).ok_or("Meeting not found")?;
+            Ok(m.org_id)
+        }
+        ContextType::CodeReview => {
+            let pr = ctx.db.pull_request().id().find(&context_id).ok_or("Code review not found")?;
+            Ok(pr.org_id)
+        }
+    }
+}
+
 /// Get the caller's current org_id from their employee record, or error
 fn get_caller_org_id(ctx: &ReducerContext) -> Result<u64, String> {
     let emp = ctx.db.employee().id().find(&ctx.sender())
         .ok_or("Employee not found")?;
-    emp.org_id.ok_or("You must belong to an organization".to_string())
+    emp.org_id
+        .or(emp.selected_org_id)
+        .ok_or("You must belong to an organization".to_string())
 }
 
 #[spacetimedb::reducer]
@@ -2116,6 +2267,18 @@ pub fn create_organization(
 
     if name.trim().is_empty() {
         return Err("Organization name cannot be empty".to_string());
+    }
+    if name.len() > 100 {
+        return Err("Organization name exceeds maximum length of 100 characters".to_string());
+    }
+    if display_name.len() > 100 {
+        return Err("Display name exceeds maximum length of 100 characters".to_string());
+    }
+
+    // Prevent creating orgs with reserved names
+    let lower_name = name.trim().to_lowercase();
+    if lower_name == "world" || lower_name == "za warudo" {
+        return Err("Cannot create organization with reserved name".to_string());
     }
 
     let auto_approve = domain.is_some();
@@ -2151,6 +2314,31 @@ pub fn create_organization(
             ..emp
         });
     }
+
+    // Seed default channels for the new org
+    let creator_hex = who.to_hex().to_string();
+    ctx.db.channel().insert(Channel {
+        id: 0,
+        org_id: org.id,
+        name: "general".to_string(),
+        description: Some("Company-wide announcements and discussion".to_string()),
+        is_private: false,
+        members: vec![creator_hex.clone()],
+        ai_participants: vec![],
+        created_by: who,
+        created_at: now,
+    });
+    ctx.db.channel().insert(Channel {
+        id: 0,
+        org_id: org.id,
+        name: "random".to_string(),
+        description: Some("Non-work banter and water cooler conversation".to_string()),
+        is_private: false,
+        members: vec![creator_hex],
+        ai_participants: vec![],
+        created_by: who,
+        created_at: now,
+    });
 
     log::info!("Organization '{}' created by {}", org.name, who.to_abbreviated_hex());
     Ok(())
@@ -2216,13 +2404,16 @@ pub fn generate_invite_link(
     let org = ctx.db.organization().id().find(&org_id)
         .ok_or("Organization not found")?;
 
-    // Generate random 8-char code using deterministic RNG
+    // Generate random 16-char code using deterministic RNG
     let mut rng = ctx.rng();
     let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
-    let code: String = (0..8).map(|_| {
+    let code: String = (0..16).map(|_| {
         let idx = (rng.next_u32() as usize) % chars.len();
         chars[idx]
     }).collect();
+
+    // Default expiry: 7 days from now
+    let expires_at = Some(ctx.timestamp + std::time::Duration::from_secs(7 * 24 * 60 * 60));
 
     ctx.db.org_invite_link().insert(OrgInviteLink {
         id: 0,
@@ -2231,7 +2422,7 @@ pub fn generate_invite_link(
         created_by: who,
         max_uses,
         use_count: 0,
-        expires_at: None,
+        expires_at,
         active: true,
         created_at: now,
     });
@@ -2248,6 +2439,16 @@ pub fn join_org_with_email(
     display_name: String,
     avatar_url: Option<String>,
 ) -> Result<(), String> {
+    // Input validation
+    if display_name.len() > 200 {
+        return Err("Display name exceeds maximum length of 200 characters".to_string());
+    }
+    if let Some(ref url) = avatar_url {
+        if url.len() > 2_000 {
+            return Err("Avatar URL exceeds maximum length of 2,000 characters".to_string());
+        }
+    }
+
     let who = ctx.sender();
     let now = ctx.timestamp;
     let email = email.trim().to_lowercase();
@@ -2255,20 +2456,26 @@ pub fn join_org_with_email(
     let org = ctx.db.organization().id().find(&org_id)
         .ok_or("Organization not found")?;
 
-    // Check if already an active member
+    // Check if already has a membership (Active or Pending)
     for m in ctx.db.org_membership().iter() {
-        if m.org_id == org.id && m.identity == Some(who) && m.status == MembershipStatus::Active {
-            // Already a member, just update employee info
-            if let Some(emp) = ctx.db.employee().id().find(&who) {
-                ctx.db.employee().id().update(Employee {
-                    name: display_name,
-                    email: Some(email),
-                    avatar_url,
-                    org_id: Some(org.id),
-                    ..emp
-                });
+        if m.org_id == org.id && m.identity == Some(who) {
+            if m.status == MembershipStatus::Active {
+                // Already an active member, just update employee info
+                if let Some(emp) = ctx.db.employee().id().find(&who) {
+                    ctx.db.employee().id().update(Employee {
+                        name: display_name,
+                        email: Some(email),
+                        avatar_url,
+                        org_id: Some(org.id),
+                        ..emp
+                    });
+                }
+                return Ok(());
             }
-            return Ok(());
+            if m.status == MembershipStatus::Pending {
+                // Already has a pending request — don't create duplicates
+                return Ok(());
+            }
         }
     }
 
@@ -2281,6 +2488,8 @@ pub fn join_org_with_email(
         }
     }
 
+    let mut became_active = false;
+
     if let Some(invite) = matched_invite {
         // Accept the invite
         ctx.db.org_membership().id().update(OrgMembership {
@@ -2289,12 +2498,20 @@ pub fn join_org_with_email(
             accepted_at: Some(now),
             ..invite
         });
+        became_active = true;
         log::info!("{} accepted invite, joined org", email);
     } else if org.auto_approve_domain {
-        // Check domain match
-        let email_domain = email.rsplit('@').next().unwrap_or("");
+        // Check domain match using VERIFIED email from employee record (not user-supplied)
+        let verified_email = ctx.db.employee().id().find(&who)
+            .and_then(|e| e.email.clone())
+            .unwrap_or_default();
+        let email_domain = if verified_email.is_empty() {
+            ""
+        } else {
+            verified_email.rsplit('@').next().unwrap_or("")
+        };
         let org_domain = org.domain.as_deref().unwrap_or("");
-        if !org_domain.is_empty() && email_domain == org_domain {
+        if !org_domain.is_empty() && !email_domain.is_empty() && email_domain == org_domain {
             ctx.db.org_membership().insert(OrgMembership {
                 id: 0,
                 org_id: org.id,
@@ -2306,6 +2523,7 @@ pub fn join_org_with_email(
                 created_at: now,
                 accepted_at: Some(now),
             });
+            became_active = true;
             log::info!("{} auto-approved via domain match", email);
         } else {
             // No domain match — create pending request
@@ -2338,15 +2556,30 @@ pub fn join_org_with_email(
         log::info!("{} requested access (pending)", email);
     }
 
-    // Update employee record
+    // Only update employee org_id if membership is Active (not Pending)
     if let Some(emp) = ctx.db.employee().id().find(&who) {
         ctx.db.employee().id().update(Employee {
             name: display_name,
             email: Some(email),
             avatar_url,
-            org_id: Some(org.id),
+            org_id: if became_active { Some(org.id) } else { emp.org_id },
             ..emp
         });
+    }
+
+    // Auto-join user to all public channels in the org if they became active
+    if became_active {
+        let hex = who.to_hex().to_string();
+        let public_channels: Vec<Channel> = ctx.db.channel().iter()
+            .filter(|ch| ch.org_id == org.id && !ch.is_private)
+            .collect();
+        for ch in public_channels {
+            if !ch.members.contains(&hex) {
+                let mut updated = ch.clone();
+                updated.members.push(hex.clone());
+                ctx.db.channel().id().update(updated);
+            }
+        }
     }
 
     Ok(())
@@ -2360,6 +2593,16 @@ pub fn join_org_with_invite_code(
     display_name: String,
     avatar_url: Option<String>,
 ) -> Result<(), String> {
+    // Input validation
+    if display_name.len() > 200 {
+        return Err("Display name exceeds maximum length of 200 characters".to_string());
+    }
+    if let Some(ref url) = avatar_url {
+        if url.len() > 2_000 {
+            return Err("Avatar URL exceeds maximum length of 2,000 characters".to_string());
+        }
+    }
+
     let who = ctx.sender();
     let now = ctx.timestamp;
     let email = email.trim().to_lowercase();
@@ -2375,6 +2618,13 @@ pub fn join_org_with_invite_code(
 
     let link = found_link.ok_or("Invalid or expired invite link")?;
 
+    // Check expiry
+    if let Some(expires_at) = link.expires_at {
+        if ctx.timestamp > expires_at {
+            return Err("This invite link has expired".to_string());
+        }
+    }
+
     // Check max uses
     if let Some(max) = link.max_uses {
         if link.use_count >= max {
@@ -2382,24 +2632,59 @@ pub fn join_org_with_invite_code(
         }
     }
 
-    // Increment use count
+    // Check for existing membership — prevent duplicates
+    let mut pending_membership_id: Option<u64> = None;
+    for m in ctx.db.org_membership().iter() {
+        if m.org_id == link.org_id && m.identity == Some(who) {
+            if m.status == MembershipStatus::Active {
+                // Already an active member, just update employee info
+                if let Some(emp) = ctx.db.employee().id().find(&who) {
+                    ctx.db.employee().id().update(Employee {
+                        name: display_name,
+                        email: Some(email),
+                        avatar_url,
+                        org_id: Some(link.org_id),
+                        ..emp
+                    });
+                }
+                return Ok(());
+            }
+            if m.status == MembershipStatus::Pending {
+                // Has a pending request — upgrade it to Active instead of creating duplicate
+                pending_membership_id = Some(m.id);
+            }
+        }
+    }
+
+    // Increment use count (after all guard checks pass)
     ctx.db.org_invite_link().id().update(OrgInviteLink {
         use_count: link.use_count + 1,
         ..link.clone()
     });
 
-    // Create active membership
-    ctx.db.org_membership().insert(OrgMembership {
-        id: 0,
-        org_id: link.org_id,
-        identity: Some(who),
-        email: email.clone(),
-        role: OrgMemberRole::Member,
-        status: MembershipStatus::Active,
-        invited_by: Some(link.created_by),
-        created_at: now,
-        accepted_at: Some(now),
-    });
+    // If there's an existing Pending membership, upgrade it to Active
+    if let Some(pending_id) = pending_membership_id {
+        if let Some(pending) = ctx.db.org_membership().id().find(&pending_id) {
+            ctx.db.org_membership().id().update(OrgMembership {
+                status: MembershipStatus::Active,
+                accepted_at: Some(now),
+                ..pending
+            });
+        }
+    } else {
+        // Create new active membership
+        ctx.db.org_membership().insert(OrgMembership {
+            id: 0,
+            org_id: link.org_id,
+            identity: Some(who),
+            email: email.clone(),
+            role: OrgMemberRole::Member,
+            status: MembershipStatus::Active,
+            invited_by: Some(link.created_by),
+            created_at: now,
+            accepted_at: Some(now),
+        });
+    }
 
     // Update employee record
     if let Some(emp) = ctx.db.employee().id().find(&who) {
@@ -2410,6 +2695,19 @@ pub fn join_org_with_invite_code(
             org_id: Some(link.org_id),
             ..emp
         });
+    }
+
+    // Auto-join user to all public channels in the org
+    let hex = who.to_hex().to_string();
+    let public_channels: Vec<Channel> = ctx.db.channel().iter()
+        .filter(|ch| ch.org_id == link.org_id && !ch.is_private)
+        .collect();
+    for ch in public_channels {
+        if !ch.members.contains(&hex) {
+            let mut updated = ch.clone();
+            updated.members.push(hex.clone());
+            ctx.db.channel().id().update(updated);
+        }
     }
 
     log::info!("{} joined via invite link '{}'", email, code);
@@ -2439,13 +2737,26 @@ pub fn approve_membership(
         ..membership.clone()
     });
 
-    // Update employee org_id if they have an identity
+    // Update employee org_id and auto-join public channels
     if let Some(identity) = membership.identity {
         if let Some(emp) = ctx.db.employee().id().find(&identity) {
             ctx.db.employee().id().update(Employee {
                 org_id: Some(membership.org_id),
                 ..emp
             });
+        }
+
+        // Auto-join user to all public channels in the org
+        let hex = identity.to_hex().to_string();
+        let public_channels: Vec<Channel> = ctx.db.channel().iter()
+            .filter(|ch| ch.org_id == membership.org_id && !ch.is_private)
+            .collect();
+        for ch in public_channels {
+            if !ch.members.contains(&hex) {
+                let mut updated = ch.clone();
+                updated.members.push(hex.clone());
+                ctx.db.channel().id().update(updated);
+            }
         }
     }
 
@@ -2534,13 +2845,44 @@ pub fn send_message(
         return Err("Message content exceeds maximum length of 10,000 characters".to_string());
     }
 
-    // If context is a channel, verify org access and channel membership
-    if context_type == ContextType::Channel {
-        let channel = ctx.db.channel().id().find(&context_id)
-            .ok_or("Channel not found")?;
-        require_org_access(ctx, channel.org_id)?;
-        if channel.is_private {
-            require_channel_member(ctx, &channel)?;
+    // Verify org access based on context type
+    match context_type {
+        ContextType::Channel => {
+            let channel = ctx.db.channel().id().find(&context_id)
+                .ok_or("Channel not found")?;
+            require_org_access(ctx, channel.org_id)?;
+            if channel.is_private {
+                require_channel_member(ctx, &channel)?;
+            }
+        }
+        ContextType::Task => {
+            let task = ctx.db.task().id().find(&context_id)
+                .ok_or("Task not found")?;
+            require_org_access(ctx, task.org_id)?;
+        }
+        ContextType::Customer => {
+            let customer = ctx.db.customer().id().find(&context_id)
+                .ok_or("Customer not found")?;
+            require_org_access(ctx, customer.org_id)?;
+        }
+        ContextType::Deal => {
+            let deal = ctx.db.deal().id().find(&context_id)
+                .ok_or("Deal not found")?;
+            require_org_access(ctx, deal.org_id)?;
+        }
+        ContextType::Candidate => {
+            let candidate = ctx.db.candidate().id().find(&context_id)
+                .ok_or("Candidate not found")?;
+            require_org_access(ctx, candidate.org_id)?;
+        }
+        ContextType::Document => {
+            let doc = ctx.db.document().id().find(&context_id)
+                .ok_or("Document not found")?;
+            require_org_access(ctx, doc.org_id)?;
+        }
+        ContextType::Meeting | ContextType::CodeReview => {
+            let org_id = resolve_context_org_id(ctx, &context_type, context_id)?;
+            require_org_access(ctx, org_id)?;
         }
     }
 
@@ -2584,14 +2926,48 @@ pub fn send_thread_reply(
     if content.trim().is_empty() {
         return Err("Reply cannot be empty".to_string());
     }
+    if content.len() > 10_000 {
+        return Err("Reply content exceeds maximum length of 10,000 characters".to_string());
+    }
 
-    // If context is a channel, verify org access and channel membership
-    if context_type == ContextType::Channel {
-        let channel = ctx.db.channel().id().find(&context_id)
-            .ok_or("Channel not found")?;
-        require_org_access(ctx, channel.org_id)?;
-        if channel.is_private {
-            require_channel_member(ctx, &channel)?;
+    // Verify org access based on context type
+    match context_type {
+        ContextType::Channel => {
+            let channel = ctx.db.channel().id().find(&context_id)
+                .ok_or("Channel not found")?;
+            require_org_access(ctx, channel.org_id)?;
+            if channel.is_private {
+                require_channel_member(ctx, &channel)?;
+            }
+        }
+        ContextType::Task => {
+            let task = ctx.db.task().id().find(&context_id)
+                .ok_or("Task not found")?;
+            require_org_access(ctx, task.org_id)?;
+        }
+        ContextType::Customer => {
+            let customer = ctx.db.customer().id().find(&context_id)
+                .ok_or("Customer not found")?;
+            require_org_access(ctx, customer.org_id)?;
+        }
+        ContextType::Deal => {
+            let deal = ctx.db.deal().id().find(&context_id)
+                .ok_or("Deal not found")?;
+            require_org_access(ctx, deal.org_id)?;
+        }
+        ContextType::Candidate => {
+            let candidate = ctx.db.candidate().id().find(&context_id)
+                .ok_or("Candidate not found")?;
+            require_org_access(ctx, candidate.org_id)?;
+        }
+        ContextType::Document => {
+            let doc = ctx.db.document().id().find(&context_id)
+                .ok_or("Document not found")?;
+            require_org_access(ctx, doc.org_id)?;
+        }
+        ContextType::Meeting | ContextType::CodeReview => {
+            let org_id = resolve_context_org_id(ctx, &context_type, context_id)?;
+            require_org_access(ctx, org_id)?;
         }
     }
 
@@ -2689,6 +3065,11 @@ pub fn join_channel(
 
     require_org_access(ctx, channel.org_id)?;
 
+    // Private channels (including DMs) require an invitation — no self-joining
+    if channel.is_private {
+        return Err("Cannot join a private channel without an invitation".to_string());
+    }
+
     if channel.members.contains(&hex) {
         return Ok(()); // Already a member
     }
@@ -2730,7 +3111,12 @@ pub fn update_channel_topic(
         .ok_or("Channel not found")?;
 
     require_org_access(ctx, channel.org_id)?;
-    require_channel_member(ctx, &channel)?;
+
+    // Require actual channel membership (not just org membership)
+    let hex = ctx.sender().to_hex().to_string();
+    if !channel.members.contains(&hex) && !is_admin_or_owner_for_org(ctx, channel.org_id) {
+        return Err("You must be a member of this channel or an org admin to update the topic".to_string());
+    }
 
     let mut updated = channel.clone();
     updated.description = description;
@@ -2752,9 +3138,51 @@ pub fn add_reaction(
     let who = ctx.sender();
     let now = ctx.timestamp;
 
-    // Verify message exists
-    if ctx.db.message().id().find(&message_id).is_none() {
-        return Err("Message not found".to_string());
+    if emoji.is_empty() || emoji.len() > 50 {
+        return Err("Invalid emoji".to_string());
+    }
+
+    // Verify message exists and user has access
+    let msg = ctx.db.message().id().find(&message_id)
+        .ok_or("Message not found")?;
+    match msg.context_type {
+        ContextType::Channel => {
+            let channel = ctx.db.channel().id().find(&msg.context_id)
+                .ok_or("Channel not found")?;
+            require_org_access(ctx, channel.org_id)?;
+            if channel.is_private {
+                require_channel_member(ctx, &channel)?;
+            }
+        }
+        ContextType::Task => {
+            let task = ctx.db.task().id().find(&msg.context_id)
+                .ok_or("Task not found")?;
+            require_org_access(ctx, task.org_id)?;
+        }
+        ContextType::Customer => {
+            let customer = ctx.db.customer().id().find(&msg.context_id)
+                .ok_or("Customer not found")?;
+            require_org_access(ctx, customer.org_id)?;
+        }
+        ContextType::Deal => {
+            let deal = ctx.db.deal().id().find(&msg.context_id)
+                .ok_or("Deal not found")?;
+            require_org_access(ctx, deal.org_id)?;
+        }
+        ContextType::Candidate => {
+            let candidate = ctx.db.candidate().id().find(&msg.context_id)
+                .ok_or("Candidate not found")?;
+            require_org_access(ctx, candidate.org_id)?;
+        }
+        ContextType::Document => {
+            let doc = ctx.db.document().id().find(&msg.context_id)
+                .ok_or("Document not found")?;
+            require_org_access(ctx, doc.org_id)?;
+        }
+        ContextType::Meeting | ContextType::CodeReview => {
+            let org_id = resolve_context_org_id(ctx, &msg.context_type, msg.context_id)?;
+            require_org_access(ctx, org_id)?;
+        }
     }
 
     // Check for duplicate reaction
@@ -2786,6 +3214,7 @@ pub fn remove_reaction(
 ) -> Result<(), String> {
     let who = ctx.sender();
 
+    // Can only remove your own reactions
     let mut to_delete: Option<u64> = None;
     for r in ctx.db.reaction().iter() {
         if r.message_id == message_id
@@ -2822,9 +3251,32 @@ pub fn create_dm_channel(
 
     let is_self_dm = my_hex == target_identity_hex;
 
-    // Check if DM channel already exists between these two users
+    // Verify target identity exists as an employee (unless self-DM)
+    if !is_self_dm {
+        // Parse hex string to find target employee
+        let target_exists = ctx.db.employee().iter().any(|e| e.id.to_hex().to_string() == target_identity_hex);
+        if !target_exists {
+            return Err("Target user does not exist".to_string());
+        }
+
+        // Verify target is a member of the same org (unless it's the global org)
+        let org = ctx.db.organization().id().find(&caller_org_id)
+            .ok_or("Organization not found")?;
+        if !org.is_global {
+            let target_in_org = ctx.db.org_membership().iter().any(|m|
+                m.org_id == caller_org_id
+                && m.status == MembershipStatus::Active
+                && m.identity.map(|i| i.to_hex().to_string()) == Some(target_identity_hex.clone())
+            );
+            if !target_in_org {
+                return Err("Target user is not a member of your organization".to_string());
+            }
+        }
+    }
+
+    // Check if DM channel already exists between these two users in this org
     for ch in ctx.db.channel().iter() {
-        if ch.is_private && ch.name.starts_with("dm-") {
+        if ch.org_id == caller_org_id && ch.is_private && ch.name.starts_with("dm-") {
             if is_self_dm {
                 // Self-DM: 1 member, that member is me
                 if ch.members.len() == 1 && ch.members.contains(&my_hex) {

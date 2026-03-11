@@ -41,6 +41,8 @@ import { PresenceAvatars } from '@/components/presence-avatars'
 import { MentionInput, RenderMentions } from '@/components/mention-input'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useResourcePresence } from '@/hooks/use-resource-presence'
+import { useMessagesKeyboard } from '@/hooks/use-messages-keyboard'
+import { MessagesShortcutBar } from '@/components/messages-shortcut-bar'
 import {
   Hash,
   Lock,
@@ -173,6 +175,7 @@ export default function MessagesPage() {
   const [allReactions, reactionsReady] = useTable(tables.reaction)
   const [allPinnedMessages] = useTable(tables.pinned_message)
   const [allTypingIndicators] = useTable(tables.typing_indicator)
+  const [allMemberships] = useTable(tables.org_membership)
 
   const isReady = channelsReady && messagesReady && employeesReady && reactionsReady
 
@@ -209,23 +212,36 @@ export default function MessagesPage() {
 
   // ---- Derived data ---------------------------------------------------------
 
-  // Regular channels (not DM channels)
+  // Regular channels (not DM channels) — scoped to current org
   const channels = useMemo(
     () => [...allChannels]
-      .filter((c) => !c.name.startsWith('dm-'))
+      .filter((c) => !c.name.startsWith('dm-') && (currentOrgId === null || Number(c.orgId) === currentOrgId))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    [allChannels],
+    [allChannels, currentOrgId],
   )
 
-  // DM channels (private channels with exactly 2 members, name starts with dm-)
+  // DM channels — scoped to current org
   const dmChannels = useMemo(
     () => [...allChannels]
-      .filter((c) => c.name.startsWith('dm-') && c.isPrivate && c.members.includes(myHex)),
-    [allChannels, myHex],
+      .filter((c) => c.name.startsWith('dm-') && c.isPrivate && c.members.includes(myHex) && (currentOrgId === null || Number(c.orgId) === currentOrgId)),
+    [allChannels, myHex, currentOrgId],
   )
+
+  // Active org members (identity hex set) — used to scope employee list to current org
+  const orgMemberIds = useMemo(() => {
+    if (currentOrgId === null) return null // null = show all (World)
+    const ids = new Set<string>()
+    for (const m of allMemberships) {
+      if (Number(m.orgId) === currentOrgId && m.status.tag === 'Active' && m.identity) {
+        ids.add(m.identity.toHexString())
+      }
+    }
+    return ids
+  }, [allMemberships, currentOrgId])
 
   const employees = useMemo(
     () => [...allEmployees]
+      .filter((e) => orgMemberIds === null || orgMemberIds.has(e.id.toHexString()))
       .sort((a, b) => {
         // Self first, then online, then alphabetical
         const aIsSelf = a.id.toHexString() === myHex ? -1 : 0
@@ -236,7 +252,7 @@ export default function MessagesPage() {
         if (aOnline !== bOnline) return aOnline - bOnline
         return a.name.localeCompare(b.name)
       }),
-    [allEmployees, myHex],
+    [allEmployees, myHex, orgMemberIds],
   )
 
   const employeeMap = useMemo(
@@ -328,6 +344,68 @@ export default function MessagesPage() {
     [employees, searchQuery],
   )
 
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Build flat list of navigable sidebar items (channels + DMs) for keyboard nav
+  const navigableItems = useMemo(() => {
+    const items: any[] = []
+    for (const ch of filteredChannels) {
+      items.push({ kind: 'channel', id: ch.id, name: ch.name })
+    }
+    for (const ch of dmChannels) {
+      const partner = getDmPartner(ch)
+      if (partner) {
+        items.push({ kind: 'dm', channelId: ch.id, employeeId: partner.id.toHexString(), name: partner.name })
+      }
+    }
+    return items
+  }, [filteredChannels, dmChannels, employeeMap, myHex])
+
+  // Last own message in current channel (for "e" to edit)
+  const lastOwnMessage = useMemo(() => {
+    if (!identity) return null
+    const own = messages.filter((m: any) => m.sender.toHexString() === myHex && !m.deleted)
+    return own.length > 0 ? own[own.length - 1] : null
+  }, [messages, myHex, identity])
+
+  // Last message in channel (for "t" to thread, "+" to react)
+  const lastMessage = useMemo(() => {
+    return messages.length > 0 ? messages[messages.length - 1] : null
+  }, [messages])
+
+  // Keyboard shortcuts
+  useMessagesKeyboard({
+    items: navigableItems,
+    view,
+    enabled: navigableItems.length > 0 && !isMobile,
+    threadOpen: thread !== null,
+    onNavigate: (item) => {
+      if (item.kind === 'channel') {
+        setView({ kind: 'channel', channelId: item.id })
+      } else {
+        setView({ kind: 'dm', channelId: item.channelId, employeeId: item.employeeId })
+      }
+      setThread(null)
+    },
+    onFocusComposer: () => {
+      const el = document.querySelector<HTMLElement>('[data-composer="main"] textarea') ??
+        document.querySelector<HTMLElement>('textarea[placeholder^="Message"]') ??
+        document.querySelector<HTMLElement>('input[placeholder^="Message"]')
+      el?.focus()
+    },
+    onFocusSearch: () => {
+      searchInputRef.current?.focus()
+    },
+    onCloseThread: () => setThread(null),
+    onOpenThread: lastMessage ? () => setThread({ parentId: lastMessage.id }) : null,
+    onToggleEmoji: lastMessage ? () => setShowEmojiFor(showEmojiFor === lastMessage.id ? null : lastMessage.id) : null,
+    onEditLastMessage: lastOwnMessage ? () => {
+      setEditingMsgId(lastOwnMessage.id)
+      setEditText(lastOwnMessage.content)
+    } : null,
+    onCreateChannel: () => setShowCreateChannel(true),
+  })
+
   // ---- Effects --------------------------------------------------------------
 
   useEffect(() => {
@@ -337,6 +415,12 @@ export default function MessagesPage() {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadMessages.length])
+
+  // Reset view when org changes (channels are now scoped to the new org)
+  useEffect(() => {
+    setView(null)
+    setThread(null)
+  }, [currentOrgId])
 
   // Auto-select #general
   useEffect(() => {
@@ -609,6 +693,7 @@ export default function MessagesPage() {
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             placeholder="Search channels & people"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -1258,6 +1343,7 @@ export default function MessagesPage() {
       {/* MAIN CHAT AREA                                                      */}
       {/* ================================================================== */}
       <main className="flex-1 flex flex-col min-w-0 bg-background">
+        <MessagesShortcutBar />
         {view === null ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">

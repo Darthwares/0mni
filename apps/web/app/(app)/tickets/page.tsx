@@ -229,6 +229,10 @@ export default function TicketsPage() {
 
   const filteredTasks = useMemo(() => {
     let tasks = [...allTasks]
+    // Scope tasks to current org
+    if (currentOrgId !== null) {
+      tasks = tasks.filter((t) => Number(t.orgId) === currentOrgId)
+    }
     tasks = tasks.filter((t) => t.status.tag !== 'Cancelled' && t.status.tag !== 'Blocked')
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -243,7 +247,7 @@ export default function TicketsPage() {
       tasks = tasks.filter((t) => t.taskType.tag === filterType)
     }
     return tasks
-  }, [allTasks, searchQuery, filterPriority, filterType])
+  }, [allTasks, searchQuery, filterPriority, filterType, currentOrgId])
 
   const columnTasks = useMemo(() => {
     const map = new Map<string, any[]>()

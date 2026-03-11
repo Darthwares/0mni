@@ -153,6 +153,12 @@ function emojiForName(name: string): string {
 // ---- Main Component ---------------------------------------------------------
 
 export default function MessagesPage() {
+  const { currentOrgId } = useOrg()
+  // Key forces full remount when org switches — guarantees fresh channels, DMs, view state
+  return <MessagesPageInner key={currentOrgId ?? 'world'} />
+}
+
+function MessagesPageInner() {
   const { identity, isActive, connectionError } = useSpacetimeDB()
   const { currentOrgId } = useOrg()
   const isMobile = useIsMobile()
@@ -415,12 +421,6 @@ export default function MessagesPage() {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadMessages.length])
-
-  // Reset view when org changes (channels are now scoped to the new org)
-  useEffect(() => {
-    setView(null)
-    setThread(null)
-  }, [currentOrgId])
 
   // Auto-select #general
   useEffect(() => {

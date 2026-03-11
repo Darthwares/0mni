@@ -351,14 +351,18 @@ export default function MessagesPage() {
   // Auto-navigate to newly created DM channel
   useEffect(() => {
     if (!pendingDmTarget) return
-    const newDm = dmChannels.find((c) => c.members.includes(pendingDmTarget))
+    const isSelf = pendingDmTarget === myHex
+    const newDm = dmChannels.find((c) => {
+      if (isSelf) return isSelfDm(c)
+      return c.members.includes(pendingDmTarget) && !isSelfDm(c)
+    })
     if (newDm) {
       setView({ kind: 'dm', channelId: newDm.id, employeeId: pendingDmTarget })
       setThread(null)
       if (isMobile) setMobileShowSidebar(false)
       setPendingDmTarget(null)
     }
-  }, [dmChannels, pendingDmTarget, isMobile])
+  }, [dmChannels, pendingDmTarget, isMobile, myHex])
 
   // ---- Handlers -------------------------------------------------------------
 
@@ -434,10 +438,14 @@ export default function MessagesPage() {
 
   const handleOpenDm = async (emp: any) => {
     const targetHex = emp.id.toHexString()
-    // Find existing DM channel
-    const existing = dmChannels.find(
-      (c) => c.members.includes(targetHex) && c.members.includes(myHex),
-    )
+    const isSelf = targetHex === myHex
+    // Find existing DM channel — self-DM must match specifically
+    const existing = dmChannels.find((c) => {
+      if (isSelf) {
+        return isSelfDm(c)
+      }
+      return c.members.includes(targetHex) && c.members.includes(myHex) && c.members.length <= 2 && !isSelfDm(c)
+    })
     if (existing) {
       setView({ kind: 'dm', channelId: existing.id, employeeId: targetHex })
       setThread(null)
@@ -556,7 +564,8 @@ export default function MessagesPage() {
   // ---- Render helpers -------------------------------------------------------
 
   function isSelfDm(channel: any): boolean {
-    return channel.members.length === 1 && channel.members[0] === myHex
+    // Self-DM: all members are the current user (handles both [myHex] and [myHex, myHex])
+    return channel.members.length >= 1 && channel.members.every((m: string) => m === myHex)
   }
 
   function getDmPartnerName(channel: any): string {
@@ -731,10 +740,10 @@ export default function MessagesPage() {
                   const isSelf = empHex === myHex
                   if (isSelf) {
                     // Show self if no self-DM channel exists yet
-                    return !dmChannels.some((ch) => ch.members.length === 1 && ch.members[0] === myHex)
+                    return !dmChannels.some((ch) => isSelfDm(ch))
                   }
                   // For others, check if a DM already exists between us
-                  return !dmChannels.some((ch) => ch.members.includes(empHex) && ch.members.length <= 2)
+                  return !dmChannels.some((ch) => ch.members.includes(empHex) && ch.members.length <= 2 && !isSelfDm(ch))
                 })
                 .map((emp) => {
                   const isAI = emp.employeeType.tag === 'AiAgent'

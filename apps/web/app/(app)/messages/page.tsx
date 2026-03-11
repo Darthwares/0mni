@@ -620,25 +620,26 @@ export default function MessagesPage() {
       <ScrollArea className="flex-1">
         {/* Channels */}
         <div className="px-2 pt-2">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setChannelsCollapsed(!channelsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChannelsCollapsed(!channelsCollapsed) } }}
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors cursor-pointer select-none"
           >
             {channelsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Channels</span>
             <span className="ml-auto text-foreground/30 font-normal normal-case tracking-normal">{filteredChannels.length}</span>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowCreateChannel(true) }}
-                  className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground/80"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
+              <TooltipTrigger
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowCreateChannel(true) }}
+                className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground/80"
+              >
+                <Plus className="h-3 w-3" />
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">Create channel</TooltipContent>
             </Tooltip>
-          </button>
+          </div>
 
           {!channelsCollapsed && filteredChannels.map((channel) => {
             const isActive = view?.kind === 'channel' && view.channelId === channel.id
@@ -680,13 +681,16 @@ export default function MessagesPage() {
 
         {/* Direct Messages */}
         <div className="px-2 pb-4">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setDmsCollapsed(!dmsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDmsCollapsed(!dmsCollapsed) } }}
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-semibold text-foreground/50 uppercase tracking-wider hover:text-foreground/70 transition-colors cursor-pointer select-none"
           >
             {dmsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Direct Messages</span>
-          </button>
+          </div>
 
           {!dmsCollapsed && (
             <>
@@ -1380,35 +1384,29 @@ export default function MessagesPage() {
                               {isHovered && editingMsgId !== msg.id && (
                                 <div className="absolute -top-3 right-2 flex items-center bg-accent border border-border rounded-md shadow-lg z-10">
                                   <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)}
-                                        className="p-1.5 hover:bg-accent rounded-l-md text-muted-foreground hover:text-foreground/90"
-                                      >
-                                        <SmilePlus className="h-3.5 w-3.5" />
-                                      </button>
+                                    <TooltipTrigger
+                                      onClick={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)}
+                                      className="p-1.5 hover:bg-accent rounded-l-md text-muted-foreground hover:text-foreground/90"
+                                    >
+                                      <SmilePlus className="h-3.5 w-3.5" />
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs">React</TooltipContent>
                                   </Tooltip>
                                   <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={() => setThread({ parentId: msg.id })}
-                                        className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
-                                      >
-                                        <MessageSquare className="h-3.5 w-3.5" />
-                                      </button>
+                                    <TooltipTrigger
+                                      onClick={() => setThread({ parentId: msg.id })}
+                                      className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
+                                    >
+                                      <MessageSquare className="h-3.5 w-3.5" />
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs">Reply in thread</TooltipContent>
                                   </Tooltip>
                                   <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={() => handleTogglePin(msg)}
-                                        className={`p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90 ${pinnedMessageIds.has(msg.id.toString()) ? 'text-amber-400' : ''}`}
-                                      >
-                                        <Pin className="h-3.5 w-3.5" />
-                                      </button>
+                                    <TooltipTrigger
+                                      onClick={() => handleTogglePin(msg)}
+                                      className={`p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90 ${pinnedMessageIds.has(msg.id.toString()) ? 'text-amber-400' : ''}`}
+                                    >
+                                      <Pin className="h-3.5 w-3.5" />
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs">
                                       {pinnedMessageIds.has(msg.id.toString()) ? 'Unpin' : 'Pin'}
@@ -1417,24 +1415,20 @@ export default function MessagesPage() {
                                   {msg.sender.toHexString() === myHex && !msg.deleted && (
                                     <>
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={() => handleStartEdit(msg)}
-                                            className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
-                                          >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                          </button>
+                                        <TooltipTrigger
+                                          onClick={() => handleStartEdit(msg)}
+                                          className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="text-xs">Edit</TooltipContent>
                                       </Tooltip>
                                       <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={() => setDeletingMsgId(msg.id)}
-                                            className="p-1.5 hover:bg-accent rounded-r-md text-muted-foreground hover:text-red-400"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </button>
+                                        <TooltipTrigger
+                                          onClick={() => setDeletingMsgId(msg.id)}
+                                          className="p-1.5 hover:bg-accent rounded-r-md text-muted-foreground hover:text-red-400"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="text-xs">Delete</TooltipContent>
                                       </Tooltip>

@@ -62,8 +62,8 @@ export function PresenceAvatars({
       <div className="flex -space-x-1.5">
         {shown.map((user) => (
           <Tooltip key={user.hex}>
-            <TooltipTrigger asChild>
-              <Avatar className={`${sizeClasses[size]} ring-2 ring-background ${statusRing(user.status)} cursor-default`}>
+            <TooltipTrigger render={<div />} className="cursor-default">
+              <Avatar className={`${sizeClasses[size]} ring-2 ring-background ${statusRing(user.status)}`}>
                 {user.avatarUrl && <AvatarImage src={user.avatarUrl} />}
                 <AvatarFallback className={`text-white ${avatarColor(user.name)}`}>
                   {getInitials(user.name)}

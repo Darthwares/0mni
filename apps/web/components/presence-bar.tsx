@@ -55,8 +55,7 @@ export function PresenceBar() {
         <div className="flex -space-x-1.5">
           {onlineOthers.map((emp) => (
             <Tooltip key={emp.id.toHexString()}>
-              <TooltipTrigger asChild>
-                <div className="relative">
+              <TooltipTrigger render={<div />} className="relative">
                   <Avatar className="size-6 border-2 border-background ring-0 transition-transform hover:scale-110 hover:z-10">
                     <AvatarFallback className={`${nameToColor(emp.name)} text-[9px] font-bold text-white`}>
                       {getInitials(emp.name)}
@@ -67,7 +66,6 @@ export function PresenceBar() {
                     emp.status.tag === 'Busy' ? 'bg-amber-500' :
                     emp.status.tag === 'InCall' ? 'bg-blue-500' : 'bg-neutral-500'
                   }`} />
-                </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
                 <p className="font-medium">{emp.name}</p>

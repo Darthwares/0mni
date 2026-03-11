@@ -1,4 +1,18 @@
 
+# ⛔ CRITICAL: NEVER USE --clear-database ⛔
+
+**`spacetime publish --clear-database` DESTROYS ALL DATA — every user, org, message, channel, and membership is permanently lost.**
+
+- NEVER run `--clear-database` in any environment (local, staging, or production)
+- Adding NEW tables is safe and does NOT require clearing the database
+- If you need new fields on an existing table, create a SEPARATE new table instead of modifying the existing one
+- There is NO recovery from `--clear-database` — the data is gone forever
+- If a schema migration fails, investigate alternatives (new tables, workarounds) — do NOT resort to clearing
+
+**This rule has NO exceptions. Violating it causes catastrophic, unrecoverable data loss.**
+
+---
+
 # SpacetimeDB Rules (All Languages)
 
 ## Migrating from 1.0 to 2.0?
@@ -71,8 +85,8 @@ spacetime start
 # Publish module
 spacetime publish <db-name> --module-path <module-path>
 
-# Clear and republish
-spacetime publish <db-name> --clear-database -y --module-path <module-path>
+# ⛔ DANGER: DO NOT USE — destroys all data! See top of file.
+# spacetime publish <db-name> --clear-database -y --module-path <module-path>
 
 # Generate client bindings
 spacetime generate --lang <lang> --out-dir <out> --module-path <module-path>
@@ -741,8 +755,8 @@ spacetime start
 # Publish module
 spacetime publish <module-name> --module-path <backend-dir>
 
-# Clear database and republish
-spacetime publish <module-name> --clear-database -y --module-path <backend-dir>
+# ⛔ DANGER: DO NOT USE — destroys all data! See top of file.
+# spacetime publish <module-name> --clear-database -y --module-path <backend-dir>
 
 # Generate bindings
 spacetime generate --lang rust --out-dir <client>/src/module_bindings --module-path <backend-dir>

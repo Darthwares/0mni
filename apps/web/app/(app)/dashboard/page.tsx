@@ -1,7 +1,8 @@
 'use client'
 
 import { useTable, useSpacetimeDB } from 'spacetimedb/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { tables } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -27,6 +28,15 @@ import {
   Star,
   Clock,
 } from 'lucide-react'
+
+const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full aspect-square max-w-[500px] mx-auto flex items-center justify-center">
+      <div className="animate-pulse text-sm text-muted-foreground">Loading globe...</div>
+    </div>
+  ),
+})
 
 function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -202,7 +212,7 @@ export default function DashboardPage() {
             {isGlobalOrg ? 'Global workspace activity' : 'Latest activity in your workspace'}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <div className="size-2 rounded-full bg-emerald-500" />
             {onlineCount} online
@@ -212,9 +222,38 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick nav cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link href="/messages" className="group">
+      {/* Live Globe — shows real-time message activity */}
+      <div className="relative -mx-4 md:mx-0">
+        <LiveGlobe />
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-3 text-xs text-muted-foreground pb-2 md:pb-4">
+          <div className="flex items-center gap-1">
+            <div className="size-2 rounded-full bg-violet-500 animate-pulse" />
+            <span>{onlineCount} online</span>
+          </div>
+          <span className="text-neutral-700">&middot;</span>
+          <span>{orgMembers.length} members worldwide</span>
+        </div>
+      </div>
+
+      {/* Prominent Messages CTA (mobile) */}
+      <Link href="/messages" className="block md:hidden">
+        <Card className="border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-violet-500/20">
+              <MessageSquare className="size-6 text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Messages</p>
+              <p className="text-xs text-muted-foreground">{activeChannelCount} channels &middot; {recentMessageCount} messages</p>
+            </div>
+            <ArrowRight className="size-5 text-violet-400" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Quick nav cards (desktop: 3-col, mobile: 2-col with messages hidden since it has its own CTA above) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Link href="/messages" className="group hidden md:block">
           <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer border-violet-500/20 hover:border-violet-500/40">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-violet-500/10">
@@ -230,7 +269,7 @@ export default function DashboardPage() {
         </Link>
         <Link href="/tickets" className="group">
           <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
-            <CardContent className="p-4 flex items-center gap-3">
+            <CardContent className="p-3 md:p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-amber-500/10">
                 <KanbanSquare className="size-5 text-amber-500" />
               </div>
@@ -244,7 +283,7 @@ export default function DashboardPage() {
         </Link>
         <Link href="/canvas" className="group">
           <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
-            <CardContent className="p-4 flex items-center gap-3">
+            <CardContent className="p-3 md:p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10">
                 <PenTool className="size-5 text-blue-500" />
               </div>
@@ -291,10 +330,10 @@ export default function DashboardPage() {
 
               return (
                 <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 md:p-4">
                     {/* Post header */}
-                    <div className="flex items-start gap-3">
-                      <Avatar className="size-9 shrink-0">
+                    <div className="flex items-start gap-2.5 md:gap-3">
+                      <Avatar className="size-8 md:size-9 shrink-0">
                         {actor?.avatarUrl && <AvatarImage src={actor.avatarUrl} />}
                         <AvatarFallback className={`text-xs text-white ${avatarColor(actorName)}`}>
                           {getInitials(actorName)}

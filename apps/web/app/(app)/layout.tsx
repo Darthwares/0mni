@@ -9,6 +9,7 @@ import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
 import { NotificationPrompt } from "@/components/notification-prompt"
 import { CommandPalette } from "@/components/command-palette"
+import { MobileTabBar } from "@/components/mobile-tab-bar"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -67,8 +68,8 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           <SidebarInset>
             {!isFullScreen && (
               <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-                <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+                <SidebarTrigger className="-ml-1 hidden md:flex" />
+                <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4 hidden md:block" />
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
@@ -76,15 +77,20 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-                <div className="ml-auto">
+                <div className="ml-auto hidden md:block">
                   <PresenceBar />
                 </div>
               </header>
             )}
-            <main className={isFullScreen ? "flex-1 overflow-hidden h-screen" : "flex-1 overflow-auto"}>
+            <main className={
+              isFullScreen
+                ? "flex-1 overflow-hidden h-[100dvh] md:h-screen"
+                : "flex-1 overflow-auto pb-16 md:pb-0"
+            }>
               {children}
             </main>
           </SidebarInset>
+          <MobileTabBar />
           <NotificationPrompt />
           <CommandPalette />
           <KeyboardShortcutsDialog open={showHelp} onOpenChange={setShowHelp} />

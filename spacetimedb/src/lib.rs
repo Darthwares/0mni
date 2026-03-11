@@ -1388,6 +1388,17 @@ pub fn create_task(
     org_id: u64,
 ) -> Result<(), String> {
     require_org_access(ctx, org_id)?;
+    if title.len() > 200 {
+        return Err("Task title exceeds maximum length of 200 characters".to_string());
+    }
+    if description.len() > 5_000 {
+        return Err("Task description exceeds maximum length of 5,000 characters".to_string());
+    }
+    if let Some(ref assignee_id) = assignee {
+        if ctx.db.employee().id().find(assignee_id).is_none() {
+            return Err("Assignee does not exist as an employee".to_string());
+        }
+    }
     let now = ctx.timestamp;
 
     let task = ctx.db.task().insert(Task {
@@ -1644,6 +1655,9 @@ pub fn edit_message(ctx: &ReducerContext, message_id: u64, new_content: String) 
     let msg = ctx.db.message().id().find(&message_id).ok_or("Message not found")?;
     if msg.sender != who { return Err("You can only edit your own messages".to_string()); }
     if new_content.trim().is_empty() { return Err("Message cannot be empty".to_string()); }
+    if new_content.len() > 10_000 {
+        return Err("Message content exceeds maximum length of 10,000 characters".to_string());
+    }
     ctx.db.message().id().update(Message {
         content: new_content,
         edited_at: Some(ctx.timestamp),
@@ -1711,6 +1725,12 @@ pub fn create_document(
     let who = ctx.sender();
     let now = ctx.timestamp;
     if title.trim().is_empty() { return Err("Title cannot be empty".to_string()); }
+    if title.len() > 200 {
+        return Err("Document title exceeds maximum length of 200 characters".to_string());
+    }
+    if content.len() > 100_000 {
+        return Err("Document content exceeds maximum length of 100,000 characters".to_string());
+    }
     ctx.db.document().insert(Document {
         id: 0, org_id, title, content, doc_type, parent_id,
         created_by: who, last_edited_by: Some(who),
@@ -2336,6 +2356,9 @@ pub fn send_message(
     if content.trim().is_empty() {
         return Err("Message cannot be empty".to_string());
     }
+    if content.len() > 10_000 {
+        return Err("Message content exceeds maximum length of 10,000 characters".to_string());
+    }
 
     // If context is a channel, verify org access and channel membership
     if context_type == ContextType::Channel {
@@ -2442,6 +2465,15 @@ pub fn create_channel(
     require_org_access(ctx, org_id)?;
     let who = ctx.sender();
     let now = ctx.timestamp;
+
+    if name.len() > 80 {
+        return Err("Channel name exceeds maximum length of 80 characters".to_string());
+    }
+    if let Some(ref desc) = description {
+        if desc.len() > 500 {
+            return Err("Channel description exceeds maximum length of 500 characters".to_string());
+        }
+    }
 
     let clean_name = name.trim().to_lowercase().replace(' ', "-");
     if clean_name.is_empty() {
@@ -2773,6 +2805,15 @@ pub fn send_audio_frame(
         return Err("Call is not active".to_string());
     }
 
+    let sender_hex = who.to_hex().to_string();
+    if !sess.participants.contains(&sender_hex) {
+        return Err("Sender is not a participant of this call".to_string());
+    }
+    let to_hex = to.to_hex().to_string();
+    if !sess.participants.contains(&to_hex) {
+        return Err("Recipient is not a participant of this call".to_string());
+    }
+
     if pcm16le.len() > 64_000 {
         return Err("Audio frame too large".to_string());
     }
@@ -2808,6 +2849,15 @@ pub fn send_video_frame(
 
     if sess.state != CallState::Active {
         return Err("Call is not active".to_string());
+    }
+
+    let sender_hex = who.to_hex().to_string();
+    if !sess.participants.contains(&sender_hex) {
+        return Err("Sender is not a participant of this call".to_string());
+    }
+    let to_hex = to.to_hex().to_string();
+    if !sess.participants.contains(&to_hex) {
+        return Err("Recipient is not a participant of this call".to_string());
     }
 
     if sess.call_type != CallType::Video && sess.call_type != CallType::ScreenShare {

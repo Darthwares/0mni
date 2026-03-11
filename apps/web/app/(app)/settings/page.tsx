@@ -195,12 +195,12 @@ export default function SettingsPage() {
     return <UsersIcon className="size-3.5 text-neutral-400" />
   }
 
-  // Find current user's employee record
+  // Find current user's employee record — must match by SpacetimeDB identity
   const currentEmployee = useMemo(() => {
-    const sub = auth.user?.profile?.sub
-    if (!sub) return null
-    return allEmployees.find((e) => e.name !== '') ?? null
-  }, [allEmployees, auth.user?.profile?.sub])
+    if (!identity) return null
+    const myHex = identity.toHexString()
+    return allEmployees.find((e) => e.id.toHexString() === myHex) ?? null
+  }, [allEmployees, identity])
 
   // Populate form from employee data
   useEffect(() => {

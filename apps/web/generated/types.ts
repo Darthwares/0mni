@@ -944,6 +944,14 @@ export const TypingIndicator = __t.object("TypingIndicator", {
 });
 export type TypingIndicator = __Infer<typeof TypingIndicator>;
 
+export const UserLocation = __t.object("UserLocation", {
+  userId: __t.identity(),
+  latitude: __t.f64(),
+  longitude: __t.f64(),
+  updatedAt: __t.timestamp(),
+});
+export type UserLocation = __Infer<typeof UserLocation>;
+
 export const VideoFrameEvent = __t.object("VideoFrameEvent", {
   sessionId: __t.uuid(),
   from: __t.identity(),

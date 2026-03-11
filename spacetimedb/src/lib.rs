@@ -1117,6 +1117,20 @@ pub struct ResourcePresence {
 }
 
 // ============================================================================
+// USER LOCATION (for globe visualization)
+// ============================================================================
+
+#[spacetimedb::table(accessor = user_location, public)]
+#[derive(Clone)]
+pub struct UserLocation {
+    #[primary_key]
+    pub user_id: Identity,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub updated_at: Timestamp,
+}
+
+// ============================================================================
 // DOCUMENT VISIBILITY
 // ============================================================================
 
@@ -1886,6 +1900,42 @@ pub fn clear_resource_presence(ctx: &ReducerContext) -> Result<(), String> {
     for p in old {
         ctx.db.resource_presence().id().delete(&p.id);
     }
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - USER LOCATION
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn set_user_location(ctx: &ReducerContext, latitude: f64, longitude: f64) -> Result<(), String> {
+    let who = ctx.sender();
+
+    // Validate coordinates
+    if latitude < -90.0 || latitude > 90.0 {
+        return Err("Latitude must be between -90 and 90".to_string());
+    }
+    if longitude < -180.0 || longitude > 180.0 {
+        return Err("Longitude must be between -180 and 180".to_string());
+    }
+
+    if let Some(_existing) = ctx.db.user_location().user_id().find(&who) {
+        ctx.db.user_location().user_id().update(UserLocation {
+            user_id: who,
+            latitude,
+            longitude,
+            updated_at: ctx.timestamp,
+        });
+    } else {
+        ctx.db.user_location().insert(UserLocation {
+            user_id: who,
+            latitude,
+            longitude,
+            updated_at: ctx.timestamp,
+        });
+    }
+
+    log::info!("User {:?} shared location: ({}, {})", who, latitude, longitude);
     Ok(())
 }
 

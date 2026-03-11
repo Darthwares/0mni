@@ -6,7 +6,7 @@ import { useTable, useSpacetimeDB } from 'spacetimedb/react'
 import { tables } from '@/generated'
 import { useOrg } from '@/components/org-context'
 
-// Deterministic geo coordinates from an identity hex string
+// Deterministic geo coordinates from an identity hex string (fallback when no real location)
 function hexToGeo(hex: string): [number, number] {
   let h = 0
   for (let i = 0; i < Math.min(hex.length, 16); i++) {
@@ -44,11 +44,26 @@ export function LiveGlobe() {
   const [allMessages] = useTable(tables.message)
   const [allChannels] = useTable(tables.channel)
   const [allEmployees] = useTable(tables.employee)
+  const [allUserLocations] = useTable(tables.user_location)
 
   const employeeMap = useMemo(
     () => new Map(allEmployees.map(e => [e.id.toHexString(), e])),
     [allEmployees]
   )
+
+  // Build a map of user_id hex -> real [lat, lng] from the user_location table
+  const locationMap = useMemo(() => {
+    const map = new Map<string, [number, number]>()
+    for (const loc of allUserLocations) {
+      map.set(loc.userId.toHexString(), [loc.latitude, loc.longitude])
+    }
+    return map
+  }, [allUserLocations])
+
+  // Get coordinates for a user: prefer real location, fall back to hash
+  function getUserGeo(hex: string): [number, number] {
+    return locationMap.get(hex) ?? hexToGeo(hex)
+  }
 
   const orgChannelIds = useMemo(() => {
     return new Set(
@@ -58,7 +73,7 @@ export function LiveGlobe() {
     )
   }, [allChannels, currentOrgId])
 
-  // Get recent messages (last 30 seconds) as arcs
+  // Get recent messages (last 60 seconds) as arcs
   const recentArcs: ArcData[] = useMemo(() => {
     const now = Date.now()
     const cutoff = now - 60_000 // last 60 seconds
@@ -75,7 +90,7 @@ export function LiveGlobe() {
 
         const senderHex = msg.sender.toHexString()
         const sender = employeeMap.get(senderHex)
-        const [sLat, sLng] = hexToGeo(senderHex)
+        const [sLat, sLng] = getUserGeo(senderHex)
 
         // Find channel to get a "destination" — use the channel ID hash as destination point
         const channelIdStr = msg.contextId.toString()
@@ -94,17 +109,22 @@ export function LiveGlobe() {
     }
 
     return arcs.sort((a, b) => b.timestamp - a.timestamp).slice(0, 20)
-  }, [allMessages, orgChannelIds, employeeMap])
+  }, [allMessages, orgChannelIds, employeeMap, locationMap])
 
-  // Marker locations from active employees
+  // Marker locations from active employees — use real location when available
   const markers = useMemo(() => {
     return allEmployees
       .filter(e => e.status.tag === 'Online' || e.status.tag === 'Busy')
       .map(e => {
-        const [lat, lng] = hexToGeo(e.id.toHexString())
-        return { location: [lat, lng] as [number, number], size: 0.04 }
+        const hex = e.id.toHexString()
+        const [lat, lng] = getUserGeo(hex)
+        const hasRealLocation = locationMap.has(hex)
+        return {
+          location: [lat, lng] as [number, number],
+          size: hasRealLocation ? 0.06 : 0.03, // Larger dot for users with real location
+        }
       })
-  }, [allEmployees])
+  }, [allEmployees, locationMap])
 
   const onResize = useCallback(() => {
     if (canvasRef.current) {

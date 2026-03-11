@@ -73,6 +73,7 @@ import SendVideoFrameReducer from "./send_video_frame_reducer";
 import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
 import SetResourcePresenceReducer from "./set_resource_presence_reducer";
 import SetTypingStatusReducer from "./set_typing_status_reducer";
+import SetUserLocationReducer from "./set_user_location_reducer";
 import ShareDocumentReducer from "./share_document_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
@@ -120,6 +121,7 @@ import TaskRow from "./task_table";
 import TaskWatcherRow from "./task_watcher_table";
 import TicketRow from "./ticket_table";
 import TypingIndicatorRow from "./typing_indicator_table";
+import UserLocationRow from "./user_location_table";
 import VideoFrameEventRow from "./video_frame_event_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -439,6 +441,17 @@ const tablesSchema = __schema({
       { name: 'typing_indicator_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TypingIndicatorRow),
+  user_location: __table({
+    name: 'user_location',
+    indexes: [
+      { name: 'user_id', algorithm: 'btree', columns: [
+        'userId',
+      ] },
+    ],
+    constraints: [
+      { name: 'user_location_user_id_key', constraint: 'unique', columns: ['userId'] },
+    ],
+  }, UserLocationRow),
   video_frame_event: __table({
     name: 'video_frame_event',
     indexes: [
@@ -490,6 +503,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_document_visibility", SetDocumentVisibilityReducer),
   __reducerSchema("set_resource_presence", SetResourcePresenceReducer),
   __reducerSchema("set_typing_status", SetTypingStatusReducer),
+  __reducerSchema("set_user_location", SetUserLocationReducer),
   __reducerSchema("share_document", ShareDocumentReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),

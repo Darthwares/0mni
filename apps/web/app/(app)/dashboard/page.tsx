@@ -1,10 +1,10 @@
 'use client'
 
-import { useTable, useSpacetimeDB } from 'spacetimedb/react'
+import { useTable, useSpacetimeDB, useReducer } from 'spacetimedb/react'
 import { useMemo, useState, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { tables } from '@/generated'
+import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -106,6 +106,7 @@ export default function DashboardPage() {
   const [allActivityLogs] = useTable(tables.activity_log)
 
   const myHex = identity?.toHexString() ?? ''
+  const setUserLocation = useReducer(reducers.setUserLocation)
 
   // Location sharing state
   const [locationShared, setLocationShared] = useState<boolean | null>(null)
@@ -118,11 +119,10 @@ export default function DashboardPage() {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        localStorage.setItem('0mni-location-shared', JSON.stringify({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          ts: Date.now(),
-        }))
+        const { latitude, longitude } = pos.coords
+        localStorage.setItem('0mni-location-shared', JSON.stringify({ latitude, longitude, ts: Date.now() }))
+        // Persist to SpacetimeDB so globe shows real location
+        try { setUserLocation({ latitude, longitude }) } catch {}
         setLocationShared(true)
       },
       () => {
@@ -131,6 +131,19 @@ export default function DashboardPage() {
       }
     )
   }
+
+  // On mount, if location was previously shared, re-sync to DB
+  useEffect(() => {
+    const stored = localStorage.getItem('0mni-location-shared')
+    if (stored && stored !== 'denied') {
+      try {
+        const { latitude, longitude } = JSON.parse(stored)
+        if (latitude && longitude) {
+          setUserLocation({ latitude, longitude }).catch(() => {})
+        }
+      } catch {}
+    }
+  }, [setUserLocation])
 
   const employeeMap = useMemo(
     () => new Map(allEmployees.map(e => [e.id.toHexString(), e])),
@@ -253,14 +266,6 @@ export default function DashboardPage() {
       {/* Live Globe — shows real-time message activity */}
       <div className="relative -mx-4 md:mx-0">
         <LiveGlobe />
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-3 text-xs text-muted-foreground pb-2 md:pb-4">
-          <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-violet-500 animate-pulse" />
-            <span>{onlineCount} online</span>
-          </div>
-          <span className="text-neutral-700">&middot;</span>
-          <span>{orgMembers.length} members worldwide</span>
-        </div>
       </div>
 
       {/* Location participate button */}
@@ -297,13 +302,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-      {locationShared === true && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 text-xs text-emerald-600 dark:text-emerald-400">
-          <Check className="size-3.5" />
-          <span>You&apos;re on the globe! Your location helps build the community map.</span>
-        </div>
-      )}
-
       {/* Prominent Messages CTA (mobile) */}
       <Link href="/messages" className="block md:hidden">
         <Card className="border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">

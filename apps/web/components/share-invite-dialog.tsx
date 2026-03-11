@@ -22,7 +22,7 @@ import {
   Sparkles,
   MessageCircle,
 } from "lucide-react"
-import { useOrg } from "@/components/org-context"
+import { useOrg, displayOrgName } from "@/components/org-context"
 import { useTable, useReducer } from "spacetimedb/react"
 import { tables, reducers } from "@/generated"
 
@@ -77,8 +77,8 @@ export function ShareInviteDialog({ open, onOpenChange }: ShareInviteDialogProps
   const shareUrl = isGlobalOrg ? appUrl : inviteUrl
 
   const shareText = isGlobalOrg
-    ? "Join Za Warudo on Omni — the global workspace where everyone can collaborate, chat, and build together."
-    : `Join ${currentOrg?.name || "our team"} on Omni — the AI operating platform.`
+    ? "Join World on Omni — the global workspace where everyone can collaborate, chat, and build together."
+    : `Join ${displayOrgName(currentOrg?.name) || "our team"} on Omni — the AI operating platform.`
 
   const handleCopy = useCallback(async (text: string) => {
     await navigator.clipboard.writeText(text)
@@ -149,17 +149,17 @@ export function ShareInviteDialog({ open, onOpenChange }: ShareInviteDialogProps
             <>
               <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                 <Globe className="size-5" />
-                Share Za Warudo
+                Share World
               </DialogTitle>
               <DialogDescription>
-                Invite anyone to join the global workspace. Everyone who signs up automatically joins Za Warudo.
+                Invite anyone to join the global workspace. Everyone who signs up automatically joins World.
               </DialogDescription>
             </>
           ) : (
             <>
               <DialogTitle className="flex items-center gap-2">
                 <Users className="size-5" />
-                Invite to {currentOrg?.name || "Organization"}
+                Invite to {displayOrgName(currentOrg?.name) || "Organization"}
               </DialogTitle>
               <DialogDescription>
                 Share an invite link or send email invitations to grow your team.
@@ -188,7 +188,7 @@ export function ShareInviteDialog({ open, onOpenChange }: ShareInviteDialogProps
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Anyone with this link can sign up and join Za Warudo instantly.
+                Anyone with this link can sign up and join World instantly.
               </p>
             </div>
           )}

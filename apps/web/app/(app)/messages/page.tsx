@@ -28,9 +28,19 @@ import {
 } from '@/components/ui/tooltip'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuLabel,
+} from '@/components/ui/context-menu'
 import { PresenceBar } from '@/components/presence-bar'
+import { PresenceAvatars } from '@/components/presence-avatars'
 import { MentionInput, RenderMentions } from '@/components/mention-input'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useResourcePresence } from '@/hooks/use-resource-presence'
 import {
   Hash,
   Lock,
@@ -53,6 +63,8 @@ import {
   Trash2,
   ArrowLeft,
   Menu,
+  Copy,
+  ExternalLink,
 } from 'lucide-react'
 
 // ---- Types ------------------------------------------------------------------
@@ -97,7 +109,7 @@ function statusColor(tag: string): string {
     case 'Online': return 'text-emerald-500'
     case 'Busy': return 'text-amber-500'
     case 'InCall': return 'text-blue-500'
-    default: return 'text-neutral-500'
+    default: return 'text-muted-foreground'
   }
 }
 
@@ -181,6 +193,7 @@ export default function MessagesPage() {
   const [deletingMsgId, setDeletingMsgId] = useState<bigint | null>(null)
   // Mobile: show channel list vs chat. On desktop, both are visible.
   const [mobileShowSidebar, setMobileShowSidebar] = useState(true)
+  const [pendingDmTarget, setPendingDmTarget] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const threadEndRef = useRef<HTMLDivElement>(null)
@@ -189,6 +202,10 @@ export default function MessagesPage() {
   const lastTypingSentRef = useRef<number>(0)
 
   const myHex = identity?.toHexString() ?? ''
+
+  // Track presence in current channel
+  const channelPresenceId = view ? Number(view.channelId) : null
+  const { presentUsers: channelPresence } = useResourcePresence('Channel', channelPresenceId)
 
   // ---- Derived data ---------------------------------------------------------
 
@@ -331,6 +348,18 @@ export default function MessagesPage() {
     }
   }, [channels, view, isMobile])
 
+  // Auto-navigate to newly created DM channel
+  useEffect(() => {
+    if (!pendingDmTarget) return
+    const newDm = dmChannels.find((c) => c.members.includes(pendingDmTarget))
+    if (newDm) {
+      setView({ kind: 'dm', channelId: newDm.id, employeeId: pendingDmTarget })
+      setThread(null)
+      if (isMobile) setMobileShowSidebar(false)
+      setPendingDmTarget(null)
+    }
+  }, [dmChannels, pendingDmTarget, isMobile])
+
   // ---- Handlers -------------------------------------------------------------
 
   const currentChannel = useMemo(() => {
@@ -415,12 +444,13 @@ export default function MessagesPage() {
       if (isMobile) setMobileShowSidebar(false)
       return
     }
-    // Create new DM channel
+    // Create new DM channel and set pending target to auto-navigate when it appears
     try {
+      setPendingDmTarget(targetHex)
       await createDmChannel({ targetIdentityHex: targetHex })
-      if (isMobile) setMobileShowSidebar(false)
     } catch (err) {
       console.error('Failed to create DM:', err)
+      setPendingDmTarget(null)
     }
   }
 
@@ -568,12 +598,12 @@ export default function MessagesPage() {
       {/* Search */}
       <div className="px-3 py-2">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Search channels & people"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-7 h-8 md:h-7 text-xs bg-neutral-800 border-neutral-700 text-neutral-200 placeholder:text-neutral-500 focus-visible:ring-violet-500"
+            className="pl-7 h-8 md:h-7 text-xs bg-accent border-border text-foreground/90 placeholder:text-muted-foreground focus-visible:ring-violet-500"
           />
         </div>
       </div>
@@ -583,16 +613,16 @@ export default function MessagesPage() {
         <div className="px-2 pt-2">
           <button
             onClick={() => setChannelsCollapsed(!channelsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-muted-foreground hover:text-foreground/90 transition-colors"
           >
             {channelsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Channels</span>
-            <span className="ml-auto text-neutral-600">{filteredChannels.length}</span>
+            <span className="ml-auto text-muted-foreground/60">{filteredChannels.length}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowCreateChannel(true) }}
-                  className="ml-1 p-0.5 rounded hover:bg-neutral-700 text-neutral-500 hover:text-neutral-300"
+                  className="ml-1 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground/80"
                 >
                   <Plus className="h-3 w-3" />
                 </button>
@@ -604,29 +634,46 @@ export default function MessagesPage() {
           {!channelsCollapsed && filteredChannels.map((channel) => {
             const isActive = view?.kind === 'channel' && view.channelId === channel.id
             return (
-              <button
-                key={channel.id.toString()}
-                onClick={() => selectChannel(channel.id)}
-                className={`w-full flex items-center gap-1.5 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
-                  isActive
-                    ? 'bg-violet-600/20 text-white font-medium'
-                    : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
-                }`}
-              >
-                {channel.isPrivate ? <Lock className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" /> : <Hash className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" />}
-                <span className="truncate">{channel.name}</span>
-              </button>
+              <ContextMenu key={channel.id.toString()}>
+                <ContextMenuTrigger>
+                  <button
+                    onClick={() => selectChannel(channel.id)}
+                    className={`w-full flex items-center gap-1.5 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
+                      isActive
+                        ? 'bg-violet-600/20 text-white font-medium'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground/90'
+                    }`}
+                  >
+                    {channel.isPrivate ? <Lock className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" /> : <Hash className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-50" />}
+                    <span className="truncate">{channel.name}</span>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuLabel>#{channel.name}</ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => selectChannel(channel.id)}>
+                    <MessageSquare className="size-3.5" /> Open channel
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => navigator.clipboard.writeText(channel.name)}>
+                    <Copy className="size-3.5" /> Copy channel name
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem>
+                    <Users className="size-3.5" /> {channel.members.length} members
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             )
           })}
         </div>
 
-        <Separator className="my-2 mx-3 bg-neutral-800" />
+        <Separator className="my-2 mx-3 bg-accent" />
 
         {/* Direct Messages */}
         <div className="px-2 pb-4">
           <button
             onClick={() => setDmsCollapsed(!dmsCollapsed)}
-            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="w-full flex items-center gap-1 px-1.5 py-1.5 md:py-1 text-xs font-medium text-muted-foreground hover:text-foreground/90 transition-colors"
           >
             {dmsCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             <span>Direct Messages</span>
@@ -641,26 +688,39 @@ export default function MessagesPage() {
                 const selfDm = isSelfDm(ch)
                 const isActive = view?.kind === 'dm' && view.channelId === ch.id
                 return (
-                  <button
-                    key={ch.id.toString()}
-                    onClick={() => selectDm(ch.id, partner.id.toHexString())}
-                    className={`w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
-                      isActive
-                        ? 'bg-violet-600/20 text-white font-medium'
-                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
-                    }`}
-                  >
-                    <div className="relative shrink-0">
-                      <Avatar className="h-6 md:h-5 w-6 md:w-5">
-                        <AvatarFallback className={`text-[8px] text-white ${avatarColor(partner.name)}`}>
-                          {getInitials(partner.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-900 ${statusDot(partner.status.tag)}`} />
-                    </div>
-                    <span className="truncate">{partner.name}{selfDm ? ' (you)' : ''}</span>
-                    {partner.employeeType.tag === 'AiAgent' && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
-                  </button>
+                  <ContextMenu key={ch.id.toString()}>
+                    <ContextMenuTrigger>
+                      <button
+                        onClick={() => selectDm(ch.id, partner.id.toHexString())}
+                        className={`w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm transition-colors text-left ${
+                          isActive
+                            ? 'bg-violet-600/20 text-white font-medium'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground/90'
+                        }`}
+                      >
+                        <div className="relative shrink-0">
+                          <Avatar className="h-6 md:h-5 w-6 md:w-5">
+                            <AvatarFallback className={`text-[8px] text-white ${avatarColor(partner.name)}`}>
+                              {getInitials(partner.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(partner.status.tag)}`} />
+                        </div>
+                        <span className="truncate">{partner.name}{selfDm ? ' (you)' : ''}</span>
+                        {partner.employeeType.tag === 'AiAgent' && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuLabel>{partner.name}</ContextMenuLabel>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => selectDm(ch.id, partner.id.toHexString())}>
+                        <MessageSquare className="size-3.5" /> Open conversation
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => navigator.clipboard.writeText(partner.name)}>
+                        <Copy className="size-3.5" /> Copy name
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 )
               })}
 
@@ -668,7 +728,13 @@ export default function MessagesPage() {
               {filteredEmployees
                 .filter((emp) => {
                   const empHex = emp.id.toHexString()
-                  return !dmChannels.some((ch) => ch.members.includes(empHex))
+                  const isSelf = empHex === myHex
+                  if (isSelf) {
+                    // Show self if no self-DM channel exists yet
+                    return !dmChannels.some((ch) => ch.members.length === 1 && ch.members[0] === myHex)
+                  }
+                  // For others, check if a DM already exists between us
+                  return !dmChannels.some((ch) => ch.members.includes(empHex) && ch.members.length <= 2)
                 })
                 .map((emp) => {
                   const isAI = emp.employeeType.tag === 'AiAgent'
@@ -677,7 +743,7 @@ export default function MessagesPage() {
                     <button
                       key={emp.id.toHexString()}
                       onClick={() => handleOpenDm(emp)}
-                      className="w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-2 py-2 md:py-1 rounded text-sm text-muted-foreground hover:bg-accent hover:text-foreground/80 transition-colors text-left"
                     >
                       <div className="relative shrink-0">
                         <Avatar className="h-6 md:h-5 w-6 md:w-5">
@@ -685,7 +751,7 @@ export default function MessagesPage() {
                             {getInitials(emp.name)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-900 ${statusDot(emp.status.tag)}`} />
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(emp.status.tag)}`} />
                       </div>
                       <span className="truncate">{emp.name}{isSelf ? ' (you)' : ''}</span>
                       {isAI && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
@@ -704,9 +770,9 @@ export default function MessagesPage() {
   const threadPanelContent = thread && (
     <div className="flex flex-col h-full">
       {/* Thread header */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-neutral-800 shrink-0">
-        <span className="font-semibold text-sm text-neutral-100">Thread</span>
-        <button onClick={() => setThread(null)} className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200">
+      <div className="h-12 flex items-center justify-between px-4 border-b border-border shrink-0">
+        <span className="font-semibold text-sm text-foreground">Thread</span>
+        <button onClick={() => setThread(null)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground/90">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -720,7 +786,7 @@ export default function MessagesPage() {
             const isParent = msg.id === thread.parentId
 
             return (
-              <div key={msg.id.toString()} className={`${isParent ? 'pb-3 mb-3 border-b border-neutral-800' : ''}`}>
+              <div key={msg.id.toString()} className={`${isParent ? 'pb-3 mb-3 border-b border-border' : ''}`}>
                 <div className="flex items-start gap-2.5 py-1">
                   <Avatar className="h-7 w-7 shrink-0 mt-0.5">
                     <AvatarFallback className={`text-[10px] text-white ${avatarColor(senderName)}`}>
@@ -729,18 +795,18 @@ export default function MessagesPage() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 mb-0.5">
-                      <span className="font-semibold text-sm text-neutral-100">{senderName}</span>
-                      <span className="text-[11px] text-neutral-600">{formatTime(msg.sentAt)}</span>
+                      <span className="font-semibold text-sm text-foreground">{senderName}</span>
+                      <span className="text-[11px] text-muted-foreground/60">{formatTime(msg.sentAt)}</span>
                       {msg.editedAt != null && !msg.deleted && (
-                        <span className="text-[10px] text-neutral-600">(edited)</span>
+                        <span className="text-[10px] text-muted-foreground/60">(edited)</span>
                       )}
                     </div>
                     {msg.deleted ? (
-                      <p className="text-sm text-neutral-500 italic">[Message deleted]</p>
+                      <p className="text-sm text-muted-foreground italic">[Message deleted]</p>
                     ) : (
                       <RenderMentions
                         text={msg.content}
-                        className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed"
+                        className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed"
                       />
                     )}
                   </div>
@@ -753,14 +819,14 @@ export default function MessagesPage() {
       </ScrollArea>
 
       {/* Thread composer */}
-      <div className="shrink-0 px-4 py-3 border-t border-neutral-800 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3">
-        <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
+      <div className="shrink-0 px-4 py-3 border-t border-border pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3">
+        <div className="bg-muted border border-border rounded-lg focus-within:border-violet-600 transition-colors">
           <MentionInput
             value={threadText}
             onChange={setThreadText}
             onSubmit={handleThreadReply}
             placeholder="Reply..."
-            className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2"
+            className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2"
           />
           <div className="flex justify-end px-3 pb-2">
             <Button
@@ -781,13 +847,13 @@ export default function MessagesPage() {
 
   if (connectionError) {
     return (
-      <div className="flex h-full items-center justify-center bg-neutral-950 text-neutral-300">
+      <div className="flex h-full items-center justify-center bg-background text-foreground/80">
         <div className="text-center max-w-md px-8">
           <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
             <span className="text-red-400 text-xl">!</span>
           </div>
           <p className="text-sm font-medium mb-2">Connection Error</p>
-          <p className="text-xs text-neutral-500">{connectionError.message || 'Failed to connect to SpacetimeDB'}</p>
+          <p className="text-xs text-muted-foreground">{connectionError.message || 'Failed to connect to SpacetimeDB'}</p>
         </div>
       </div>
     )
@@ -795,7 +861,7 @@ export default function MessagesPage() {
 
   if (!isActive) {
     return (
-      <div className="flex h-full items-center justify-center bg-neutral-950 text-neutral-300">
+      <div className="flex h-full items-center justify-center bg-background text-foreground/80">
         <div className="text-center">
           <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-lg">Ω</span>
@@ -811,17 +877,17 @@ export default function MessagesPage() {
   // ---- MOBILE LAYOUT --------------------------------------------------------
   if (isMobile) {
     return (
-      <div className="flex flex-col h-[100dvh] bg-neutral-950">
+      <div className="flex flex-col h-[100dvh] bg-background">
         {mobileShowSidebar ? (
           // Mobile: Channel list view
           <div className="flex flex-col h-full">
             {/* Mobile header */}
-            <div className="h-12 flex items-center gap-2 px-4 border-b border-neutral-800 shrink-0">
-              <SidebarTrigger className="text-neutral-400 hover:text-neutral-100" />
+            <div className="h-12 flex items-center gap-2 px-4 border-b border-border shrink-0">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-purple-600 rounded flex items-center justify-center shrink-0">
                 <span className="text-white font-mono font-black text-[10px]">0</span>
               </div>
-              <span className="font-semibold text-sm text-neutral-100">Messages</span>
+              <span className="font-semibold text-sm text-foreground">Messages</span>
               <Circle className={`h-2 w-2 shrink-0 ${isReady ? 'fill-green-400 text-green-400' : 'fill-yellow-400 text-yellow-400 animate-pulse'}`} />
             </div>
             {channelSidebarContent}
@@ -830,16 +896,16 @@ export default function MessagesPage() {
           // Mobile: Chat view
           <div className="flex flex-col h-full">
             {/* Mobile chat header */}
-            <div className="shrink-0 flex items-center gap-2 px-3 h-12 border-b border-neutral-800 bg-neutral-950">
+            <div className="shrink-0 flex items-center gap-2 px-3 h-12 border-b border-border bg-background">
               <button
                 onClick={() => setMobileShowSidebar(true)}
-                className="p-1.5 -ml-1 rounded-lg hover:bg-neutral-800 text-neutral-400"
+                className="p-1.5 -ml-1 rounded-lg hover:bg-accent text-muted-foreground"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
               {view?.kind === 'channel' && currentChannel ? (
-                <div className="flex items-center gap-1.5 font-semibold text-neutral-100 text-sm min-w-0">
-                  {currentChannel.isPrivate ? <Lock className="h-4 w-4 text-neutral-500 shrink-0" /> : <Hash className="h-4 w-4 text-neutral-500 shrink-0" />}
+                <div className="flex items-center gap-1.5 font-semibold text-foreground text-sm min-w-0">
+                  {currentChannel.isPrivate ? <Lock className="h-4 w-4 text-muted-foreground shrink-0" /> : <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
                   <span className="truncate">{currentChannel.name}</span>
                 </div>
               ) : view?.kind === 'dm' ? (
@@ -853,9 +919,9 @@ export default function MessagesPage() {
                           {getInitials(partner.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-semibold text-sm text-neutral-100 truncate">{partner.name}</span>
+                      <span className="font-semibold text-sm text-foreground truncate">{partner.name}</span>
                       {view.employeeId === myHex && (
-                        <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-neutral-800 text-neutral-400 border-0 shrink-0">
+                        <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-accent text-muted-foreground border-0 shrink-0">
                           you
                         </Badge>
                       )}
@@ -866,7 +932,7 @@ export default function MessagesPage() {
               {currentChannel && (
                 <div className="ml-auto flex items-center gap-1">
                   {currentChannel.members.length > 0 && (
-                    <span className="text-xs text-neutral-500 flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       {currentChannel.members.length}
                     </span>
@@ -881,15 +947,15 @@ export default function MessagesPage() {
                 <div className="px-3 py-4">
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center mb-3">
-                        {view?.kind === 'channel' ? <Hash className="h-6 w-6 text-neutral-500" /> : <AtSign className="h-6 w-6 text-neutral-500" />}
+                      <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center mb-3">
+                        {view?.kind === 'channel' ? <Hash className="h-6 w-6 text-muted-foreground" /> : <AtSign className="h-6 w-6 text-muted-foreground" />}
                       </div>
-                      <p className="font-semibold text-neutral-300">
+                      <p className="font-semibold text-foreground/80">
                         {view?.kind === 'channel'
                           ? `#${currentChannel?.name}`
                           : `Start chatting`}
                       </p>
-                      <p className="text-xs text-neutral-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {currentChannel?.description ?? 'Send a message to get started'}
                       </p>
                     </div>
@@ -898,9 +964,9 @@ export default function MessagesPage() {
                   {groupByDate(messages).map((group) => (
                     <div key={group.date}>
                       <div className="flex items-center gap-3 my-3">
-                        <div className="flex-1 h-px bg-neutral-800" />
-                        <span className="text-[11px] font-medium text-neutral-500 bg-neutral-950 px-2">{group.date}</span>
-                        <div className="flex-1 h-px bg-neutral-800" />
+                        <div className="flex-1 h-px bg-accent" />
+                        <span className="text-[11px] font-medium text-muted-foreground bg-background px-2">{group.date}</span>
+                        <div className="flex-1 h-px bg-accent" />
                       </div>
 
                       {group.messages.map((msg: any, idx: number) => {
@@ -921,7 +987,7 @@ export default function MessagesPage() {
                             <div className={`flex items-start gap-2.5 py-0.5 ${isSameAuthor ? '' : 'pt-1'}`}>
                               <div className="w-8 shrink-0 flex justify-center pt-0.5">
                                 {isSameAuthor ? (
-                                  <span className="text-[10px] text-neutral-600 mt-0.5">
+                                  <span className="text-[10px] text-muted-foreground/60 mt-0.5">
                                     {formatTime(msg.sentAt)}
                                   </span>
                                 ) : (
@@ -936,25 +1002,25 @@ export default function MessagesPage() {
                               <div className="flex-1 min-w-0">
                                 {!isSameAuthor && (
                                   <div className="flex items-baseline gap-2 mb-0.5">
-                                    <span className="font-semibold text-sm text-neutral-100">{senderName}</span>
+                                    <span className="font-semibold text-sm text-foreground">{senderName}</span>
                                     {sender?.employeeType.tag === 'AiAgent' && (
                                       <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1 h-3.5 bg-violet-900/40 text-violet-300 border-0">
                                         <Bot className="h-2 w-2" /> AI
                                       </Badge>
                                     )}
-                                    <span className="text-[11px] text-neutral-600">{formatTime(msg.sentAt)}</span>
+                                    <span className="text-[11px] text-muted-foreground/60">{formatTime(msg.sentAt)}</span>
                                   </div>
                                 )}
 
                                 {msg.deleted ? (
-                                  <p className="text-sm text-neutral-500 italic">[Message deleted]</p>
+                                  <p className="text-sm text-muted-foreground italic">[Message deleted]</p>
                                 ) : editingMsgId === msg.id ? (
                                   <div className="space-y-1" onKeyDown={(e) => { if (e.key === 'Escape') handleCancelEdit() }}>
                                     <MentionInput
                                       value={editText}
                                       onChange={setEditText}
                                       onSubmit={handleSaveEdit}
-                                      className="text-sm bg-neutral-800 border-neutral-600 text-neutral-200 rounded px-2 py-1"
+                                      className="text-sm bg-accent border-border text-foreground/90 rounded px-2 py-1"
                                     />
                                     <div className="flex items-center gap-2 text-[11px]">
                                       <button onClick={handleCancelEdit} className="text-violet-400">Cancel</button>
@@ -964,7 +1030,7 @@ export default function MessagesPage() {
                                 ) : (
                                   <RenderMentions
                                     text={msg.content}
-                                    className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed"
+                                    className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed"
                                   />
                                 )}
 
@@ -973,13 +1039,13 @@ export default function MessagesPage() {
                                   <div className="flex items-center gap-1 mt-1.5">
                                     <button
                                       onClick={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)}
-                                      className="p-1 rounded hover:bg-neutral-800 text-neutral-600 active:text-neutral-300"
+                                      className="p-1 rounded hover:bg-accent text-muted-foreground/60 active:text-foreground/80"
                                     >
                                       <SmilePlus className="h-3.5 w-3.5" />
                                     </button>
                                     <button
                                       onClick={() => setThread({ parentId: msg.id })}
-                                      className="p-1 rounded hover:bg-neutral-800 text-neutral-600 active:text-neutral-300"
+                                      className="p-1 rounded hover:bg-accent text-muted-foreground/60 active:text-foreground/80"
                                     >
                                       <MessageSquare className="h-3.5 w-3.5" />
                                     </button>
@@ -987,13 +1053,13 @@ export default function MessagesPage() {
                                       <>
                                         <button
                                           onClick={() => handleStartEdit(msg)}
-                                          className="p-1 rounded hover:bg-neutral-800 text-neutral-600 active:text-neutral-300"
+                                          className="p-1 rounded hover:bg-accent text-muted-foreground/60 active:text-foreground/80"
                                         >
                                           <Pencil className="h-3.5 w-3.5" />
                                         </button>
                                         <button
                                           onClick={() => setDeletingMsgId(msg.id)}
-                                          className="p-1 rounded hover:bg-neutral-800 text-neutral-600 active:text-red-400"
+                                          className="p-1 rounded hover:bg-accent text-muted-foreground/60 active:text-red-400"
                                         >
                                           <Trash2 className="h-3.5 w-3.5" />
                                         </button>
@@ -1004,12 +1070,12 @@ export default function MessagesPage() {
 
                                 {/* Emoji picker */}
                                 {showEmojiFor === msg.id && (
-                                  <div className="flex items-center gap-0.5 bg-neutral-800 border border-neutral-700 rounded-lg p-1 mt-1 shadow-xl">
+                                  <div className="flex items-center gap-0.5 bg-accent border border-border rounded-lg p-1 mt-1 shadow-xl">
                                     {EMOJI_LIST.map((e) => (
                                       <button
                                         key={e.name}
                                         onClick={() => handleReaction(msg.id, e.name)}
-                                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-neutral-700 text-sm"
+                                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-accent text-sm"
                                       >
                                         {e.emoji}
                                       </button>
@@ -1027,7 +1093,7 @@ export default function MessagesPage() {
                                         className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${
                                           data.myReaction
                                             ? 'bg-violet-900/30 border-violet-600/50 text-violet-300'
-                                            : 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                                            : 'bg-accent border-border text-muted-foreground'
                                         }`}
                                       >
                                         <span>{emojiForName(emoji)}</span>
@@ -1060,7 +1126,7 @@ export default function MessagesPage() {
 
               {/* Typing indicators */}
               {typingUsers.length > 0 && (
-                <div className="shrink-0 px-3 py-1 text-xs text-neutral-400 animate-pulse">
+                <div className="shrink-0 px-3 py-1 text-xs text-muted-foreground animate-pulse">
                   {typingUsers.length === 1
                     ? `${typingUsers[0]} is typing...`
                     : `${typingUsers.join(', ')} are typing...`}
@@ -1075,8 +1141,8 @@ export default function MessagesPage() {
               )}
 
               {/* Composer */}
-              <div className="shrink-0 px-3 py-2 border-t border-neutral-800 pb-[calc(0.5rem+3.5rem+env(safe-area-inset-bottom))]">
-                <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
+              <div className="shrink-0 px-3 py-2 border-t border-border pb-[calc(0.5rem+3.5rem+env(safe-area-inset-bottom))]">
+                <div className="bg-muted border border-border rounded-lg focus-within:border-violet-600 transition-colors">
                   <MentionInput
                     value={messageText}
                     onChange={(val) => { setMessageText(val); handleTyping() }}
@@ -1088,7 +1154,7 @@ export default function MessagesPage() {
                           ? `Message ${employeeMap.get(view.employeeId)?.name ?? ''}`
                           : 'Type a message...'
                     }
-                    className="min-h-[40px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
+                    className="min-h-[40px] max-h-[120px] resize-none border-0 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
                   />
                   <div className="flex items-center justify-end px-3 pb-2">
                     <Button
@@ -1108,22 +1174,22 @@ export default function MessagesPage() {
 
         {/* Thread Sheet (mobile) */}
         <Sheet open={thread !== null} onOpenChange={(open) => { if (!open) setThread(null) }}>
-          <SheetContent side="bottom" className="h-[85dvh] p-0 bg-neutral-950 border-neutral-800 rounded-t-2xl">
+          <SheetContent side="bottom" className="h-[85dvh] p-0 bg-background border-border rounded-t-2xl">
             {threadPanelContent}
           </SheetContent>
         </Sheet>
 
         {/* Delete confirmation */}
         <Dialog open={deletingMsgId !== null} onOpenChange={(open) => { if (!open) setDeletingMsgId(null) }}>
-          <DialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100 sm:max-w-sm">
+          <DialogContent className="bg-muted border-border text-foreground sm:max-w-sm">
             <DialogHeader>
               <DialogTitle>Delete message</DialogTitle>
-              <DialogDescription className="text-neutral-400">
+              <DialogDescription className="text-muted-foreground">
                 Are you sure you want to delete this message? This cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setDeletingMsgId(null)} className="text-neutral-400">
+              <Button variant="ghost" onClick={() => setDeletingMsgId(null)} className="text-muted-foreground">
                 Cancel
               </Button>
               <Button onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700 text-white">
@@ -1154,19 +1220,19 @@ export default function MessagesPage() {
   // ---- DESKTOP LAYOUT -------------------------------------------------------
 
   return (
-    <div className="flex h-full overflow-hidden bg-neutral-950">
+    <div className="flex h-full overflow-hidden bg-background">
       {/* ================================================================== */}
       {/* SLACK SIDEBAR                                                       */}
       {/* ================================================================== */}
-      <aside className="w-64 shrink-0 flex flex-col bg-neutral-900 border-r border-neutral-800">
+      <aside className="w-64 shrink-0 flex flex-col bg-muted border-r border-border">
         {/* Workspace header */}
-        <div className="h-12 flex items-center justify-between px-4 border-b border-neutral-800">
+        <div className="h-12 flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-2 min-w-0">
-            <SidebarTrigger className="-ml-1 text-neutral-400 hover:text-neutral-100" />
+            <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
             <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-purple-600 rounded flex items-center justify-center shrink-0">
               <span className="text-white font-mono font-black text-[10px]">0</span>
             </div>
-            <span className="font-semibold text-sm text-neutral-100 truncate">Messages</span>
+            <span className="font-semibold text-sm text-foreground truncate">Messages</span>
             <Circle className={`h-2 w-2 shrink-0 ${isReady ? 'fill-green-400 text-green-400' : 'fill-yellow-400 text-yellow-400 animate-pulse'}`} />
           </div>
           <PresenceBar />
@@ -1178,36 +1244,37 @@ export default function MessagesPage() {
       {/* ================================================================== */}
       {/* MAIN CHAT AREA                                                      */}
       {/* ================================================================== */}
-      <main className="flex-1 flex flex-col min-w-0 bg-neutral-950">
+      <main className="flex-1 flex flex-col min-w-0 bg-background">
         {view === null ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-neutral-800 flex items-center justify-center mx-auto">
-                <MessageSquare className="h-8 w-8 text-neutral-500" />
+              <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mx-auto">
+                <MessageSquare className="h-8 w-8 text-muted-foreground" />
               </div>
-              <p className="text-lg font-semibold text-neutral-300">Welcome to Omni Messages</p>
-              <p className="text-sm text-neutral-500">Select a channel or start a conversation</p>
+              <p className="text-lg font-semibold text-foreground/80">Welcome to Omni Messages</p>
+              <p className="text-sm text-muted-foreground">Select a channel or start a conversation</p>
             </div>
           </div>
         ) : (
           <>
             {/* Channel header */}
-            <div className="shrink-0 flex items-center gap-3 px-5 h-12 border-b border-neutral-800 bg-neutral-950">
+            <div className="shrink-0 flex items-center gap-3 px-5 h-12 border-b border-border bg-background">
               {view.kind === 'channel' && currentChannel ? (
                 <>
-                  <div className="flex items-center gap-1.5 font-semibold text-neutral-100">
-                    {currentChannel.isPrivate ? <Lock className="h-4 w-4 text-neutral-500" /> : <Hash className="h-4 w-4 text-neutral-500" />}
+                  <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                    {currentChannel.isPrivate ? <Lock className="h-4 w-4 text-muted-foreground" /> : <Hash className="h-4 w-4 text-muted-foreground" />}
                     <span>{currentChannel.name}</span>
                   </div>
                   {currentChannel.description && (
                     <>
-                      <Separator orientation="vertical" className="h-4 bg-neutral-700 data-[orientation=vertical]:h-4" />
-                      <span className="text-xs text-neutral-500 truncate">{currentChannel.description}</span>
+                      <Separator orientation="vertical" className="h-4 bg-muted-foreground/20 data-[orientation=vertical]:h-4" />
+                      <span className="text-xs text-muted-foreground truncate">{currentChannel.description}</span>
                     </>
                   )}
                   <div className="ml-auto flex items-center gap-2">
+                    <PresenceAvatars users={channelPresence} size="xs" />
                     {currentChannel.members.length > 0 && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-neutral-400 hover:text-neutral-200 gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground/90 gap-1">
                         <Users className="h-3.5 w-3.5" />
                         {currentChannel.members.length}
                       </Button>
@@ -1226,10 +1293,10 @@ export default function MessagesPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="flex items-center gap-2 font-semibold text-neutral-100 text-sm">
+                        <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
                           {partner.name}
                           {view.employeeId === myHex && (
-                            <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-neutral-800 text-neutral-400 border-0">
+                            <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-accent text-muted-foreground border-0">
                               you
                             </Badge>
                           )}
@@ -1239,7 +1306,7 @@ export default function MessagesPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 text-[11px] text-neutral-500">
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                           <div className={`h-1.5 w-1.5 rounded-full ${statusDot(partner.status.tag)}`} />
                           {view.employeeId === myHex ? 'Jot down notes, links, and ideas' : partner.status.tag}
                         </div>
@@ -1258,15 +1325,15 @@ export default function MessagesPage() {
                   <div className="px-5 py-4">
                     {messages.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-14 h-14 rounded-xl bg-neutral-800 flex items-center justify-center mb-3">
-                          {view.kind === 'channel' ? <Hash className="h-7 w-7 text-neutral-500" /> : <AtSign className="h-7 w-7 text-neutral-500" />}
+                        <div className="w-14 h-14 rounded-xl bg-accent flex items-center justify-center mb-3">
+                          {view.kind === 'channel' ? <Hash className="h-7 w-7 text-muted-foreground" /> : <AtSign className="h-7 w-7 text-muted-foreground" />}
                         </div>
-                        <p className="font-semibold text-neutral-300 text-lg">
+                        <p className="font-semibold text-foreground/80 text-lg">
                           {view.kind === 'channel'
                             ? `This is the beginning of #${currentChannel?.name}`
                             : `Start a conversation`}
                         </p>
-                        <p className="text-sm text-neutral-500 mt-1 max-w-sm">
+                        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
                           {currentChannel?.description ?? 'Send a message to get started'}
                         </p>
                       </div>
@@ -1276,9 +1343,9 @@ export default function MessagesPage() {
                       <div key={group.date}>
                         {/* Date divider */}
                         <div className="flex items-center gap-3 my-4">
-                          <div className="flex-1 h-px bg-neutral-800" />
-                          <span className="text-[11px] font-medium text-neutral-500 bg-neutral-950 px-2">{group.date}</span>
-                          <div className="flex-1 h-px bg-neutral-800" />
+                          <div className="flex-1 h-px bg-accent" />
+                          <span className="text-[11px] font-medium text-muted-foreground bg-background px-2">{group.date}</span>
+                          <div className="flex-1 h-px bg-accent" />
                         </div>
 
                         {group.messages.map((msg: any, idx: number) => {
@@ -1293,20 +1360,21 @@ export default function MessagesPage() {
                           const replyCount = threadCounts.get(msg.id.toString()) ?? 0
 
                           return (
+                            <ContextMenu key={msg.id.toString()}>
+                              <ContextMenuTrigger>
                             <div
-                              key={msg.id.toString()}
-                              className={`relative group px-2 -mx-2 rounded ${isHovered ? 'bg-neutral-900/50' : 'hover:bg-neutral-900/30'} ${isSameAuthor ? '' : 'mt-3'}`}
+                              className={`relative group px-2 -mx-2 rounded ${isHovered ? 'bg-muted/50' : 'hover:bg-muted/30'} ${isSameAuthor ? '' : 'mt-3'}`}
                               onMouseEnter={() => setHoveredMsgId(msg.id)}
                               onMouseLeave={() => { setHoveredMsgId(null); if (showEmojiFor === msg.id) setShowEmojiFor(null) }}
                             >
                               {/* Action toolbar */}
                               {isHovered && editingMsgId !== msg.id && (
-                                <div className="absolute -top-3 right-2 flex items-center bg-neutral-800 border border-neutral-700 rounded-md shadow-lg z-10">
+                                <div className="absolute -top-3 right-2 flex items-center bg-accent border border-border rounded-md shadow-lg z-10">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
                                         onClick={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)}
-                                        className="p-1.5 hover:bg-neutral-700 rounded-l-md text-neutral-400 hover:text-neutral-200"
+                                        className="p-1.5 hover:bg-accent rounded-l-md text-muted-foreground hover:text-foreground/90"
                                       >
                                         <SmilePlus className="h-3.5 w-3.5" />
                                       </button>
@@ -1317,7 +1385,7 @@ export default function MessagesPage() {
                                     <TooltipTrigger asChild>
                                       <button
                                         onClick={() => setThread({ parentId: msg.id })}
-                                        className="p-1.5 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200"
+                                        className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
                                       >
                                         <MessageSquare className="h-3.5 w-3.5" />
                                       </button>
@@ -1328,7 +1396,7 @@ export default function MessagesPage() {
                                     <TooltipTrigger asChild>
                                       <button
                                         onClick={() => handleTogglePin(msg)}
-                                        className={`p-1.5 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 ${pinnedMessageIds.has(msg.id.toString()) ? 'text-amber-400' : ''}`}
+                                        className={`p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90 ${pinnedMessageIds.has(msg.id.toString()) ? 'text-amber-400' : ''}`}
                                       >
                                         <Pin className="h-3.5 w-3.5" />
                                       </button>
@@ -1343,7 +1411,7 @@ export default function MessagesPage() {
                                         <TooltipTrigger asChild>
                                           <button
                                             onClick={() => handleStartEdit(msg)}
-                                            className="p-1.5 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200"
+                                            className="p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground/90"
                                           >
                                             <Pencil className="h-3.5 w-3.5" />
                                           </button>
@@ -1354,7 +1422,7 @@ export default function MessagesPage() {
                                         <TooltipTrigger asChild>
                                           <button
                                             onClick={() => setDeletingMsgId(msg.id)}
-                                            className="p-1.5 hover:bg-neutral-700 rounded-r-md text-neutral-400 hover:text-red-400"
+                                            className="p-1.5 hover:bg-accent rounded-r-md text-muted-foreground hover:text-red-400"
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </button>
@@ -1368,12 +1436,12 @@ export default function MessagesPage() {
 
                               {/* Emoji picker */}
                               {showEmojiFor === msg.id && (
-                                <div className="absolute -top-10 right-2 flex items-center gap-0.5 bg-neutral-800 border border-neutral-700 rounded-lg p-1 shadow-xl z-20">
+                                <div className="absolute -top-10 right-2 flex items-center gap-0.5 bg-accent border border-border rounded-lg p-1 shadow-xl z-20">
                                   {EMOJI_LIST.map((e) => (
                                     <button
                                       key={e.name}
                                       onClick={() => handleReaction(msg.id, e.name)}
-                                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-neutral-700 text-sm"
+                                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-accent text-sm"
                                     >
                                       {e.emoji}
                                     </button>
@@ -1384,7 +1452,7 @@ export default function MessagesPage() {
                               <div className={`flex items-start gap-3 py-0.5 ${isSameAuthor ? '' : 'pt-1'}`}>
                                 <div className="w-9 shrink-0 flex justify-center pt-0.5">
                                   {isSameAuthor ? (
-                                    <span className="text-[10px] text-neutral-600 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="text-[10px] text-muted-foreground/60 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                       {formatTime(msg.sentAt)}
                                     </span>
                                   ) : (
@@ -1399,15 +1467,15 @@ export default function MessagesPage() {
                                 <div className="flex-1 min-w-0">
                                   {!isSameAuthor && (
                                     <div className="flex items-baseline gap-2 mb-0.5">
-                                      <span className="font-semibold text-sm text-neutral-100">{senderName}</span>
+                                      <span className="font-semibold text-sm text-foreground">{senderName}</span>
                                       {sender?.employeeType.tag === 'AiAgent' && (
                                         <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1 h-3.5 bg-violet-900/40 text-violet-300 border-0">
                                           <Bot className="h-2 w-2" /> AI
                                         </Badge>
                                       )}
-                                      <span className="text-[11px] text-neutral-600">{formatTime(msg.sentAt)}</span>
+                                      <span className="text-[11px] text-muted-foreground/60">{formatTime(msg.sentAt)}</span>
                                       {msg.editedAt != null && !msg.deleted && (
-                                        <span className="text-[10px] text-neutral-600">(edited)</span>
+                                        <span className="text-[10px] text-muted-foreground/60">(edited)</span>
                                       )}
                                       {pinnedMessageIds.has(msg.id.toString()) && (
                                         <span className="text-[10px] text-amber-500" title="Pinned">📌</span>
@@ -1416,27 +1484,27 @@ export default function MessagesPage() {
                                   )}
 
                                   {msg.deleted ? (
-                                    <p className="text-sm text-neutral-500 italic">[Message deleted]</p>
+                                    <p className="text-sm text-muted-foreground italic">[Message deleted]</p>
                                   ) : editingMsgId === msg.id ? (
                                     <div className="space-y-1" onKeyDown={(e) => { if (e.key === 'Escape') handleCancelEdit() }}>
                                       <MentionInput
                                         value={editText}
                                         onChange={setEditText}
                                         onSubmit={handleSaveEdit}
-                                        className="text-sm bg-neutral-800 border-neutral-600 text-neutral-200 rounded px-2 py-1"
+                                        className="text-sm bg-accent border-border text-foreground/90 rounded px-2 py-1"
                                       />
                                       <div className="flex items-center gap-2 text-[11px]">
-                                        <span className="text-neutral-500">Escape to <button onClick={handleCancelEdit} className="text-violet-400 hover:underline">cancel</button> &middot; Enter to <button onClick={handleSaveEdit} className="text-violet-400 hover:underline">save</button></span>
+                                        <span className="text-muted-foreground">Escape to <button onClick={handleCancelEdit} className="text-violet-400 hover:underline">cancel</button> &middot; Enter to <button onClick={handleSaveEdit} className="text-violet-400 hover:underline">save</button></span>
                                       </div>
                                     </div>
                                   ) : (
                                     <div className="flex items-baseline gap-2">
                                       <RenderMentions
                                         text={msg.content}
-                                        className="text-sm text-neutral-200 whitespace-pre-wrap break-words leading-relaxed"
+                                        className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed"
                                       />
                                       {isSameAuthor && msg.editedAt != null && (
-                                        <span className="text-[10px] text-neutral-600 shrink-0">(edited)</span>
+                                        <span className="text-[10px] text-muted-foreground/60 shrink-0">(edited)</span>
                                       )}
                                       {isSameAuthor && pinnedMessageIds.has(msg.id.toString()) && (
                                         <span className="text-[10px] text-amber-500 shrink-0" title="Pinned">📌</span>
@@ -1454,7 +1522,7 @@ export default function MessagesPage() {
                                           className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${
                                             data.myReaction
                                               ? 'bg-violet-900/30 border-violet-600/50 text-violet-300'
-                                              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
+                                              : 'bg-accent border-border text-muted-foreground hover:border-border'
                                           }`}
                                         >
                                           <span>{emojiForName(emoji)}</span>
@@ -1477,6 +1545,33 @@ export default function MessagesPage() {
                                 </div>
                               </div>
                             </div>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent>
+                                <ContextMenuItem onClick={() => setThread({ parentId: msg.id })}>
+                                  <Reply className="size-3.5" /> Reply in thread
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => setShowEmojiFor(msg.id)}>
+                                  <SmilePlus className="size-3.5" /> Add reaction
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => handleTogglePin(msg)}>
+                                  <Pin className="size-3.5" /> {pinnedMessageIds.has(msg.id.toString()) ? 'Unpin' : 'Pin'} message
+                                </ContextMenuItem>
+                                <ContextMenuItem onClick={() => navigator.clipboard.writeText(msg.content)}>
+                                  <Copy className="size-3.5" /> Copy text
+                                </ContextMenuItem>
+                                {msg.sender.toHexString() === myHex && !msg.deleted && (
+                                  <>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem onClick={() => handleStartEdit(msg)}>
+                                      <Pencil className="size-3.5" /> Edit message
+                                    </ContextMenuItem>
+                                    <ContextMenuItem variant="destructive" onClick={() => setDeletingMsgId(msg.id)}>
+                                      <Trash2 className="size-3.5" /> Delete message
+                                    </ContextMenuItem>
+                                  </>
+                                )}
+                              </ContextMenuContent>
+                            </ContextMenu>
                           )
                         })}
                       </div>
@@ -1487,7 +1582,7 @@ export default function MessagesPage() {
 
                 {/* Typing indicators */}
                 {typingUsers.length > 0 && (
-                  <div className="shrink-0 px-5 py-1 text-xs text-neutral-400 animate-pulse">
+                  <div className="shrink-0 px-5 py-1 text-xs text-muted-foreground animate-pulse">
                     {typingUsers.length === 1
                       ? `${typingUsers[0]} is typing...`
                       : `${typingUsers.join(', ')} are typing...`}
@@ -1500,8 +1595,8 @@ export default function MessagesPage() {
                     <p className="text-xs text-red-400">Failed to send: {sendError}</p>
                   </div>
                 )}
-                <div className="shrink-0 px-5 py-3 border-t border-neutral-800">
-                  <div className="bg-neutral-900 border border-neutral-700 rounded-lg focus-within:border-violet-600 transition-colors">
+                <div className="shrink-0 px-5 py-3 border-t border-border">
+                  <div className="bg-muted border border-border rounded-lg focus-within:border-violet-600 transition-colors">
                     <MentionInput
                       value={messageText}
                       onChange={(val) => { setMessageText(val); handleTyping() }}
@@ -1513,7 +1608,7 @@ export default function MessagesPage() {
                             ? `Message ${employeeMap.get(view.employeeId)?.name ?? ''}`
                             : 'Type a message...'
                       }
-                      className="min-h-[40px] max-h-[200px] resize-none border-0 bg-transparent text-sm text-neutral-200 placeholder:text-neutral-600 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
+                      className="min-h-[40px] max-h-[200px] resize-none border-0 bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none px-3 py-2.5"
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
                       <div className="flex items-center gap-1">
@@ -1536,7 +1631,7 @@ export default function MessagesPage() {
               {/* THREAD PANEL (Desktop)                                        */}
               {/* ============================================================ */}
               {thread && (
-                <div className="w-96 shrink-0 border-l border-neutral-800 bg-neutral-950">
+                <div className="w-96 shrink-0 border-l border-border bg-background">
                   {threadPanelContent}
                 </div>
               )}
@@ -1549,15 +1644,15 @@ export default function MessagesPage() {
       {/* DELETE MESSAGE CONFIRMATION DIALOG                                  */}
       {/* ================================================================== */}
       <Dialog open={deletingMsgId !== null} onOpenChange={(open) => { if (!open) setDeletingMsgId(null) }}>
-        <DialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100 sm:max-w-sm">
+        <DialogContent className="bg-muted border-border text-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete message</DialogTitle>
-            <DialogDescription className="text-neutral-400">
+            <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete this message? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeletingMsgId(null)} className="text-neutral-400">
+            <Button variant="ghost" onClick={() => setDeletingMsgId(null)} className="text-muted-foreground">
               Cancel
             </Button>
             <Button
@@ -1607,42 +1702,42 @@ function CreateChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100 sm:max-w-md">
+      <DialogContent className="bg-muted border-border text-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create a channel</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label className="text-neutral-300">Channel name</Label>
+            <Label className="text-foreground/80">Channel name</Label>
             <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-'))}
                 placeholder="e.g. marketing"
-                className="pl-9 bg-neutral-800 border-neutral-700 text-neutral-100 placeholder:text-neutral-500"
+                className="pl-9 bg-accent border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-neutral-300">Description <span className="text-neutral-500">(optional)</span></Label>
+            <Label className="text-foreground/80">Description <span className="text-muted-foreground">(optional)</span></Label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What's this channel about?"
-              className="bg-neutral-800 border-neutral-700 text-neutral-100 placeholder:text-neutral-500"
+              className="bg-accent border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-neutral-300">Make private</Label>
-              <p className="text-xs text-neutral-500">Only invited members can see this channel</p>
+              <Label className="text-foreground/80">Make private</Label>
+              <p className="text-xs text-muted-foreground">Only invited members can see this channel</p>
             </div>
             <Switch checked={isPrivate} onCheckedChange={setIsPrivate} />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-neutral-400">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-muted-foreground">
             Cancel
           </Button>
           <Button

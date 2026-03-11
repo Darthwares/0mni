@@ -41,7 +41,7 @@ import {
   Send,
 } from 'lucide-react'
 import { useAuth } from 'react-oidc-context'
-import { useOrg } from '@/components/org-context'
+import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
 
 export default function SettingsPage() {
@@ -107,7 +107,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           type: 'invite-email',
           email: inviteEmail.trim(),
-          orgName: currentOrg?.name || 'Omni',
+          orgName: displayOrgName(currentOrg?.name) || 'Omni',
           inviterName: currentEmployee?.name || undefined,
         }),
       })
@@ -144,7 +144,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           type: 'invite-link',
           email: linkEmailAddress.trim(),
-          orgName: currentOrg?.name || 'Omni',
+          orgName: displayOrgName(currentOrg?.name) || 'Omni',
           inviteCode: code,
           inviterName: currentEmployee?.name || undefined,
         }),
@@ -315,7 +315,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Building2 className="size-4" />
-                  {currentOrg.name}
+                  {displayOrgName(currentOrg.name)}
                 </CardTitle>
                 <CardDescription>
                   {currentOrg.domain && <>Domain: {currentOrg.domain} &middot; </>}

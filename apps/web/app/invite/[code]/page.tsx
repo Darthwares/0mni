@@ -95,11 +95,11 @@ function InviteContent() {
             <span className="text-white font-bold text-2xl">O</span>
           </div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-            {org ? `Join ${org.name}` : 'Join Organization'}
+            {org ? `Join ${org.name === 'Za Warudo' ? 'World' : org.name}` : 'Join Organization'}
           </h1>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             {org
-              ? `You've been invited to join ${org.name} on Omni`
+              ? `You've been invited to join ${org.name === 'Za Warudo' ? 'World' : org.name} on Omni`
               : 'Complete your profile to accept this invite'}
           </p>
         </div>

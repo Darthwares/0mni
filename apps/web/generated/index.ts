@@ -38,6 +38,7 @@ import AcceptCallReducer from "./accept_call_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
+import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
@@ -69,9 +70,13 @@ import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
+import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
+import SetResourcePresenceReducer from "./set_resource_presence_reducer";
 import SetTypingStatusReducer from "./set_typing_status_reducer";
+import ShareDocumentReducer from "./share_document_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
+import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
@@ -110,6 +115,7 @@ import OrganizationRow from "./organization_table";
 import PinnedMessageRow from "./pinned_message_table";
 import PullRequestRow from "./pull_request_table";
 import ReactionRow from "./reaction_table";
+import ResourcePresenceRow from "./resource_presence_table";
 import TaskRow from "./task_table";
 import TaskWatcherRow from "./task_watcher_table";
 import TicketRow from "./ticket_table";
@@ -378,6 +384,17 @@ const tablesSchema = __schema({
       { name: 'reaction_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ReactionRow),
+  resource_presence: __table({
+    name: 'resource_presence',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'resource_presence_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ResourcePresenceRow),
   task: __table({
     name: 'task',
     indexes: [
@@ -438,6 +455,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
+  __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
@@ -469,9 +487,13 @@ const reducersSchema = __reducers(
   __reducerSchema("send_message", SendMessageReducer),
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
+  __reducerSchema("set_document_visibility", SetDocumentVisibilityReducer),
+  __reducerSchema("set_resource_presence", SetResourcePresenceReducer),
   __reducerSchema("set_typing_status", SetTypingStatusReducer),
+  __reducerSchema("share_document", ShareDocumentReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),
+  __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),

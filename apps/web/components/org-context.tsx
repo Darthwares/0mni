@@ -73,6 +73,13 @@ export function useOrg() {
   return useContext(OrgContext)
 }
 
+/** Map legacy DB org names to display names (UI-only, no DB writes) */
+export function displayOrgName(name: string | undefined | null): string {
+  if (!name) return 'World'
+  if (name === 'Za Warudo') return 'World'
+  return name
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { identity, isActive, getConnection } = useSpacetimeDB()
   const selectOrg = useReducer(reducers.selectOrg)
@@ -201,7 +208,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   }, [identity, memberships])
 
   // Grace period: after subscriptions are ready, wait for client_connected auto-join
-  // before declaring 'no-org' (the server auto-joins Za Warudo on connect)
+  // before declaring 'no-org' (the server auto-joins World on connect)
   const [graceExpired, setGraceExpired] = useState(false)
   useEffect(() => {
     if (!ready) {
@@ -225,7 +232,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     return 'no-org'
   }, [identity, ready, myMemberships, myPendingMemberships, graceExpired])
 
-  // Auto-select org: prefer DB-saved selection, then Za Warudo (global), then first
+  // Auto-select org: prefer DB-saved selection, then World (global), then first
   const currentOrgId = useMemo(() => {
     if (myMemberships.length === 0) return null
     // Use saved selection from DB if it's a valid membership
@@ -233,7 +240,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       const savedExists = myMemberships.some((m) => Number(m.orgId) === savedOrgId)
       if (savedExists) return savedOrgId
     }
-    // Prefer global org (Za Warudo) as default
+    // Prefer global org (World) as default
     const globalOrg = organizations.find((o) => o.isGlobal)
     if (globalOrg) {
       const hasGlobal = myMemberships.some((m) => Number(m.orgId) === Number(globalOrg.id))

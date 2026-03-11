@@ -207,6 +207,25 @@ html {
   animation: gradient-shift 8s ease infinite;
 }
 
+@keyframes cell-ripple {
+  0% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+}
+
+.animate-cell-ripple {
+  animation: cell-ripple var(--duration, 600ms) ease-out var(--delay, 0ms);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,7 +1,7 @@
 'use client'
 
 import { useTable, useSpacetimeDB } from 'spacetimedb/react'
-import { useMemo, useState, Suspense } from 'react'
+import { useMemo, useState, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { tables } from '@/generated'
@@ -18,6 +18,9 @@ import {
   Activity,
   Users,
   Globe,
+  MapPin,
+  Check,
+  X,
   ArrowRight,
   FileText,
   CheckCircle2,
@@ -103,6 +106,31 @@ export default function DashboardPage() {
   const [allActivityLogs] = useTable(tables.activity_log)
 
   const myHex = identity?.toHexString() ?? ''
+
+  // Location sharing state
+  const [locationShared, setLocationShared] = useState<boolean | null>(null)
+  useEffect(() => {
+    const stored = localStorage.getItem('0mni-location-shared')
+    setLocationShared(stored !== null && stored !== 'denied' ? true : stored === 'denied' ? false : null)
+  }, [])
+
+  const handleShareLocation = () => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        localStorage.setItem('0mni-location-shared', JSON.stringify({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          ts: Date.now(),
+        }))
+        setLocationShared(true)
+      },
+      () => {
+        localStorage.setItem('0mni-location-shared', 'denied')
+        setLocationShared(false)
+      }
+    )
+  }
 
   const employeeMap = useMemo(
     () => new Map(allEmployees.map(e => [e.id.toHexString(), e])),
@@ -204,7 +232,7 @@ export default function DashboardPage() {
             {isGlobalOrg ? (
               <span className="flex items-center gap-2">
                 <Globe className="size-5 text-amber-500" />
-                Za Warudo
+                World
               </span>
             ) : 'Feed'}
           </h1>
@@ -234,6 +262,47 @@ export default function DashboardPage() {
           <span>{orgMembers.length} members worldwide</span>
         </div>
       </div>
+
+      {/* Location participate button */}
+      {locationShared === null && (
+        <Card className="border-amber-500/20 bg-amber-500/5">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10">
+              <MapPin className="size-5 text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Join the Globe</p>
+              <p className="text-xs text-muted-foreground">Share your location to appear on the live community map</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                onClick={handleShareLocation}
+              >
+                <Globe className="size-3.5 mr-1.5" />
+                Participate
+              </Button>
+              <button
+                onClick={() => {
+                  localStorage.setItem('0mni-location-shared', 'denied')
+                  setLocationShared(false)
+                }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {locationShared === true && (
+        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 text-xs text-emerald-600 dark:text-emerald-400">
+          <Check className="size-3.5" />
+          <span>You&apos;re on the globe! Your location helps build the community map.</span>
+        </div>
+      )}
 
       {/* Prominent Messages CTA (mobile) */}
       <Link href="/messages" className="block md:hidden">

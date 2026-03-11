@@ -30,6 +30,16 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Label } from '@/components/ui/label'
 import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuLabel,
+} from '@/components/ui/context-menu'
+import { PresenceAvatars } from '@/components/presence-avatars'
+import { useResourcePresence } from '@/hooks/use-resource-presence'
+import {
   Search,
   Plus,
   PenTool,
@@ -48,6 +58,13 @@ import {
   ChevronRight,
   Check,
   Loader2,
+  Share2,
+  Lock,
+  Globe,
+  Copy,
+  Eye,
+  EyeOff,
+  Users,
 } from 'lucide-react'
 
 // Dynamic imports for heavy editors
@@ -197,6 +214,9 @@ export default function CanvasPage() {
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
   const deleteDocument = useReducer(reducers.deleteDocument)
+  const shareDocument = useReducer(reducers.shareDocument)
+  const unshareDocument = useReducer(reducers.unshareDocument)
+  const setDocVisibility = useReducer(reducers.setDocumentVisibility)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -213,8 +233,13 @@ export default function CanvasPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [shareDocId, setShareDocId] = useState<bigint | null>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Track presence when editing a canvas
+  const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
 
   // Ref to hold latest documents for use inside debounced callbacks (avoids stale closures)
   const canvasDocumentsRef = useRef<SpacetimeDocument[]>([])
@@ -471,6 +496,16 @@ export default function CanvasPage() {
             </Badge>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <PresenceAvatars users={canvasPresence} size="sm" label="Also here:" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setShareDocId(activeDoc.id); setShowShareDialog(true) }}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Share2 className="size-3.5" />
+              Share
+            </Button>
             <PresenceBar />
             {/* Save status indicator */}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -640,6 +675,10 @@ export default function CanvasPage() {
                     setMoveDocId(doc.id)
                     setShowMoveDialog(true)
                   }}
+                  onShare={() => {
+                    setShareDocId(doc.id)
+                    setShowShareDialog(true)
+                  }}
                 />
               ))}
             </div>
@@ -661,6 +700,10 @@ export default function CanvasPage() {
                   onMove={() => {
                     setMoveDocId(doc.id)
                     setShowMoveDialog(true)
+                  }}
+                  onShare={() => {
+                    setShareDocId(doc.id)
+                    setShowShareDialog(true)
                   }}
                 />
               ))}
@@ -813,6 +856,115 @@ export default function CanvasPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="size-4" />
+              Share Canvas
+            </DialogTitle>
+          </DialogHeader>
+          {shareDocId && (() => {
+            const shareDoc = canvasDocuments.find((d) => d.id === shareDocId)
+            if (!shareDoc) return null
+            const isPrivate = shareDoc.visibility?.tag === 'Private'
+            return (
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Visibility</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isPrivate ? 'Only you and shared people can see this' : 'Everyone in the org can see this'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await setDocVisibility({
+                          documentId: shareDocId,
+                          visibility: { tag: isPrivate ? 'Public' : 'Private' } as any,
+                        })
+                      } catch (e) { console.error(e) }
+                    }}
+                    className="gap-1.5"
+                  >
+                    {isPrivate ? <><Lock className="size-3.5" /> Private</> : <><Globe className="size-3.5" /> Public</>}
+                  </Button>
+                </div>
+
+                {isPrivate && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium mb-2">Shared with</p>
+                      {shareDoc.sharedWith.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Not shared with anyone yet.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {shareDoc.sharedWith.map((hex) => {
+                            const emp = employeeMap.get(hex)
+                            return (
+                              <div key={hex} className="flex items-center justify-between rounded-lg px-2 py-1.5 bg-muted">
+                                <span className="text-sm">{emp?.name ?? `user-${hex.slice(0, 8)}`}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      await unshareDocument({ documentId: shareDocId, targetIdentityHex: hex })
+                                    } catch (e) { console.error(e) }
+                                  }}
+                                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Add people</p>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {employees
+                          .filter((e) => {
+                            const hex = e.id.toHexString()
+                            return hex !== identity?.toHexString() && !shareDoc.sharedWith.includes(hex)
+                          })
+                          .map((emp) => (
+                            <button
+                              key={emp.id.toHexString()}
+                              onClick={async () => {
+                                try {
+                                  await shareDocument({ documentId: shareDocId, targetIdentityHex: emp.id.toHexString() })
+                                } catch (e) { console.error(e) }
+                              }}
+                              className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left"
+                            >
+                              <div className="size-6 rounded-full bg-violet-600 flex items-center justify-center text-[9px] text-white font-medium">
+                                {emp.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </div>
+                              <span>{emp.name}</span>
+                              <Plus className="size-3.5 ml-auto text-muted-foreground" />
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShareDialog(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -825,18 +977,23 @@ function CanvasCard({
   onOpen,
   onDelete,
   onMove,
+  onShare,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
+  onShare: () => void
 }) {
   const isFolder = doc.docType.tag === 'Folder'
   const isWhiteboard = doc.docType.tag === 'Whiteboard'
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
+  const isPrivate = doc.visibility?.tag === 'Private'
 
   return (
+    <ContextMenu>
+      <ContextMenuTrigger>
     <div
       onClick={onOpen}
       className="group relative rounded-xl border bg-card cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden"
@@ -878,6 +1035,7 @@ function CanvasCard({
             <FileText className="size-3.5 text-blue-400 shrink-0" />
           )}
           <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
+          {isPrivate && <Lock className="size-3 text-muted-foreground shrink-0" />}
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <Clock className="size-3" />
@@ -885,11 +1043,26 @@ function CanvasCard({
           {lastEditor && (
             <span className="ml-1">Last edited by {lastEditor.name}</span>
           )}
+          {(doc.sharedWith?.length ?? 0) > 0 && (
+            <span className="flex items-center gap-0.5 ml-1">
+              <Users className="size-2.5" />
+              {doc.sharedWith.length} shared
+            </span>
+          )}
         </div>
       </div>
 
       {/* Action buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onShare() }}
+            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
+            title="Share"
+          >
+            <Share2 className="size-3.5" />
+          </button>
+        )}
         {!isFolder && (
           <button
             onClick={(e) => { e.stopPropagation(); onMove() }}
@@ -907,6 +1080,33 @@ function CanvasCard({
         </button>
       </div>
     </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuLabel>{doc.title}</ContextMenuLabel>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onOpen}>
+          {isFolder ? <FolderOpen className="size-3.5" /> : <FileText className="size-3.5" />}
+          Open
+        </ContextMenuItem>
+        {!isFolder && (
+          <ContextMenuItem onClick={onShare}>
+            <Share2 className="size-3.5" /> Share
+          </ContextMenuItem>
+        )}
+        {!isFolder && (
+          <ContextMenuItem onClick={onMove}>
+            <MoveRight className="size-3.5" /> Move to folder
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem onClick={() => navigator.clipboard.writeText(doc.title)}>
+          <Copy className="size-3.5" /> Copy title
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 className="size-3.5" /> Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -916,12 +1116,14 @@ function CanvasListItem({
   onOpen,
   onDelete,
   onMove,
+  onShare,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
+  onShare: () => void
 }) {
   const isFolder = doc.docType.tag === 'Folder'
   const isWhiteboard = doc.docType.tag === 'Whiteboard'

@@ -2,6 +2,7 @@
 
 import { useAuth } from 'react-oidc-context'
 import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   Bot,
@@ -31,24 +32,119 @@ import {
   Lock,
   Gauge,
   Boxes,
+  MapPin,
 } from 'lucide-react'
-import Aurora from '@/components/reactbits/Aurora'
-import BlurText from '@/components/reactbits/BlurText'
 import GradientText from '@/components/reactbits/GradientText'
 import ShinyText from '@/components/reactbits/ShinyText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import StarBorder from '@/components/reactbits/StarBorder'
+import { WebcamPixelGrid } from '@/components/ui/webcam-pixel-grid'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
+import { GlowingEffect } from '@/components/ui/glowing-effect'
+import { TextHoverEffect } from '@/components/ui/text-hover-effect'
 
 export default function LandingPage() {
   const auth = useAuth()
   const router = useRouter()
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false)
+  const [locationShared, setLocationShared] = useState(false)
+  const [showWebcam, setShowWebcam] = useState(false)
 
   const handleSignIn = () => auth.signinRedirect()
   const goToDashboard = () => router.push('/dashboard')
 
+  // Show location prompt after a short delay
+  useEffect(() => {
+    const hasShared = localStorage.getItem('0mni-location-shared')
+    if (!hasShared) {
+      const timer = setTimeout(() => setShowLocationPrompt(true), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  const handleShareLocation = () => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        // Store locally so we don't re-prompt
+        localStorage.setItem('0mni-location-shared', JSON.stringify({ latitude, longitude, ts: Date.now() }))
+        setLocationShared(true)
+        setTimeout(() => setShowLocationPrompt(false), 2000)
+      },
+      () => {
+        // User denied - don't nag
+        localStorage.setItem('0mni-location-shared', 'denied')
+        setShowLocationPrompt(false)
+      }
+    )
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white overflow-hidden">
+      {/* ─── Location Share Prompt ─── */}
+      {showLocationPrompt && (
+        <div className="fixed bottom-6 right-6 z-[60] max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-500">
+          <div className="relative rounded-2xl border border-violet-500/20 bg-neutral-900/95 backdrop-blur-xl p-5 shadow-2xl shadow-violet-500/10">
+            <GlowingEffect spread={30} glow disabled={false} blur={8} borderWidth={1} />
+            <button
+              onClick={() => {
+                localStorage.setItem('0mni-location-shared', 'denied')
+                setShowLocationPrompt(false)
+              }}
+              className="absolute top-3 right-3 text-neutral-500 hover:text-white transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+            {locationShared ? (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
+                  <Check className="size-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">Location shared!</p>
+                  <p className="text-xs text-neutral-400">You&apos;re now on the globe</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/10">
+                    <MapPin className="size-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Join the Globe</p>
+                    <p className="text-xs text-neutral-400">See yourself on our live community map</p>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500 mb-4">
+                  Share your approximate location to appear on the real-time globe tracker and see other community members around the world.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleShareLocation}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium transition-all hover:bg-violet-500"
+                  >
+                    <Globe className="size-3.5" />
+                    Share Location
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('0mni-location-shared', 'denied')
+                      setShowLocationPrompt(false)
+                    }}
+                    className="rounded-lg px-4 py-2 text-sm text-neutral-400 hover:text-white transition-colors"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ─── Navbar ─── */}
       <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-neutral-950/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -97,16 +193,26 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ─── Hero Section ─── */}
-      <section className="relative min-h-screen flex items-center justify-center pt-16">
-        {/* Aurora Background */}
-        <div className="absolute inset-0 opacity-40">
-          <Aurora
-            colorStops={['#7C3AED', '#A78BFA', '#5B21B6']}
-            amplitude={1.2}
-            blend={0.6}
-            speed={0.8}
-          />
+      {/* ─── Hero Section with WebcamPixelGrid ─── */}
+      <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+        {/* Webcam Pixel Grid Background */}
+        <div className="absolute inset-0 opacity-30">
+          {showWebcam ? (
+            <WebcamPixelGrid
+              gridCols={80}
+              gridRows={50}
+              maxElevation={12}
+              motionSensitivity={0.5}
+              colorMode="monochrome"
+              monochromeColor="#8b5cf6"
+              backgroundColor="#0a0a0a"
+              darken={0.3}
+              borderOpacity={0.04}
+              onWebcamError={() => setShowWebcam(false)}
+            />
+          ) : (
+            <BackgroundRippleEffect rows={10} cols={30} cellSize={64} />
+          )}
         </div>
 
         {/* Gradient Orbs */}
@@ -137,16 +243,10 @@ export default function LandingPage() {
             </GradientText>
           </h1>
 
-          {/* Subtitle with BlurText animation */}
-          <div className="mb-6">
-            <BlurText
-              text="The operating system for hybrid teams"
-              className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white/90 justify-center"
-              delay={100}
-              animateBy="words"
-              direction="bottom"
-            />
-          </div>
+          {/* Subtitle */}
+          <h2 className="mb-6 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white/90">
+            The operating system for hybrid teams
+          </h2>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-neutral-400 leading-relaxed">
             Replace entire departments with AI employees that cost pennies per task.
@@ -155,7 +255,7 @@ export default function LandingPage() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <StarBorder
               color="#8B5CF6"
               speed="4s"
@@ -188,10 +288,22 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {/* Hero Dashboard Mockup */}
+          {/* Enable webcam toggle */}
+          {!showWebcam && (
+            <button
+              onClick={() => setShowWebcam(true)}
+              className="mb-12 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/5 px-4 py-2 text-xs text-violet-300 hover:bg-violet-500/10 transition-colors"
+            >
+              <div className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+              Enable webcam for interactive hero
+            </button>
+          )}
+
+          {/* Hero Dashboard Mockup with GlowingEffect */}
           <div className="relative mx-auto max-w-4xl">
             <div className="absolute -inset-4 rounded-2xl bg-gradient-to-r from-violet-600/20 via-purple-600/20 to-violet-600/20 blur-2xl" />
             <div className="relative overflow-hidden rounded-xl border border-white/10 bg-neutral-900/80 shadow-2xl shadow-violet-500/10 p-6">
+              <GlowingEffect spread={40} glow disabled={false} blur={6} borderWidth={1} />
               {/* Fake browser chrome */}
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex gap-1.5">
@@ -277,9 +389,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Features Section ─── */}
-      <section id="features" className="relative py-32">
+      {/* ─── Features Section with BackgroundRippleEffect ─── */}
+      <section id="features" className="relative py-32 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900/50 to-neutral-950" />
+        {/* Ripple effect behind features */}
+        <div className="absolute inset-0 opacity-15 pointer-events-none">
+          <BackgroundRippleEffect rows={6} cols={24} cellSize={72} />
+        </div>
         <div className="relative z-10 mx-auto max-w-7xl px-6">
           <div className="text-center mb-20">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300">
@@ -433,7 +549,8 @@ export default function LandingPage() {
                   <p className="text-2xl font-black text-red-400 line-through opacity-60">$1,200</p>
                   <p className="text-xs text-neutral-500 mt-1">per employee / month (SaaS stack)</p>
                 </div>
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                <div className="relative rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 overflow-hidden">
+                  <GlowingEffect spread={20} glow disabled={false} blur={4} borderWidth={1} />
                   <p className="text-2xl font-black text-emerald-400">$99</p>
                   <p className="text-xs text-neutral-500 mt-1">flat / month (<span className="font-mono">0</span>MNI)</p>
                 </div>
@@ -602,9 +719,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Technology Differentiator Section ─── */}
+      {/* ─── Technology Differentiator Section with BackgroundRippleEffect ─── */}
       <section id="technology" className="relative py-32 border-t border-white/5 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900/30 to-neutral-950" />
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <BackgroundRippleEffect rows={8} cols={20} cellSize={80} />
+        </div>
         <div className="absolute top-1/4 left-0 w-[500px] h-[500px] rounded-full bg-cyan-600/5 blur-[150px]" />
         <div className="absolute bottom-1/4 right-0 w-[400px] h-[400px] rounded-full bg-violet-600/5 blur-[120px]" />
 
@@ -812,8 +932,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* 0MNI */}
+            {/* 0MNI - with GlowingEffect */}
             <div className="relative rounded-2xl border border-emerald-500/30 bg-neutral-900/80 p-8 overflow-hidden ring-1 ring-emerald-500/20">
+              <GlowingEffect spread={30} glow disabled={false} blur={6} borderWidth={2} />
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-[60px]" />
               <div className="absolute -top-px left-4 right-4 h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent" />
               <div className="relative">
@@ -884,16 +1005,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Final CTA ─── */}
-      <section className="relative py-32 border-t border-white/5">
-        <div className="absolute inset-0 opacity-30">
-          <Aurora
-            colorStops={['#5B21B6', '#7C3AED', '#8B5CF6']}
-            amplitude={0.8}
-            blend={0.4}
-            speed={0.5}
-          />
+      {/* ─── Final CTA with BackgroundRippleEffect ─── */}
+      <section className="relative py-32 border-t border-white/5 overflow-hidden">
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <BackgroundRippleEffect rows={8} cols={24} cellSize={64} />
         </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-neutral-950/80 via-transparent to-neutral-950/80" />
 
         <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-5xl sm:text-6xl font-black tracking-tighter mb-6">
@@ -933,10 +1050,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Footer ─── */}
+      {/* ─── Footer with TextHoverEffect ─── */}
       <footer className="border-t border-white/5 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-6 py-12">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="mx-auto max-w-7xl px-6">
+          {/* Text Hover Effect */}
+          <div className="h-40 flex items-center justify-center">
+            <TextHoverEffect text="0MNI" />
+          </div>
+
+          <div className="pb-12 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
                 <span className="font-mono text-sm font-black text-white">0</span>
@@ -997,7 +1119,8 @@ function StepCard({ step, title, description, icon }: { step: string; title: str
   return (
     <div className="relative group">
       <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-violet-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="relative rounded-2xl border border-white/5 bg-neutral-900/80 p-8 h-full">
+      <div className="relative rounded-2xl border border-white/5 bg-neutral-900/80 p-8 h-full overflow-hidden">
+        <GlowingEffect spread={20} glow disabled={false} blur={4} borderWidth={1} />
         <span className="text-5xl font-black text-violet-500/20 absolute top-6 right-6">{step}</span>
         <div className="mb-4">{icon}</div>
         <h3 className="text-lg font-bold mb-2">{title}</h3>

@@ -65,11 +65,11 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Badge } from "@/components/ui/badge"
 import { useTable, useReducer } from "spacetimedb/react"
 import { tables, reducers } from "@/generated"
-import { useOrg } from "@/components/org-context"
+import { useOrg, displayOrgName } from "@/components/org-context"
 import { useAuth } from "react-oidc-context"
 import { ShareInviteDialog } from "@/components/share-invite-dialog"
 
-// globalHidden: true means hidden when in Za Warudo (global org)
+// globalHidden: true means hidden when in World (global org)
 const navSections = [
   {
     label: "Overview",
@@ -111,6 +111,7 @@ const navSections = [
   },
   {
     label: "AI Platform",
+    globalHidden: true,
     items: [
       { title: "AI Employees", href: "/ai-employees", icon: Bot },
       { title: "Agent Studio", href: "/agent-studio", icon: Sparkles },
@@ -215,7 +216,7 @@ export function AppSidebar() {
           {isGlobalOrg && (
             <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400 group-data-[collapsible=icon]:hidden">
               <AlertTriangle className="size-3.5 shrink-0" />
-              <span>You are in Za Warudo — visible to everyone</span>
+              <span>You are in World — visible to everyone</span>
             </div>
           )}
 
@@ -241,11 +242,11 @@ export function AppSidebar() {
                             ? "truncate font-bold text-amber-600 dark:text-amber-400"
                             : "truncate font-bold"
                         }>
-                          {currentOrg?.name || 'OMNI'}
+                          {displayOrgName(currentOrg?.name)}
                         </span>
                         {isGlobalOrg ? (
                           <Badge className="h-4 rounded px-1 py-0 text-[9px] font-semibold uppercase leading-none bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25 hover:bg-amber-500/15">
-                            Za Warudo
+                            World
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="h-4 rounded px-1 py-0 text-[9px] font-semibold uppercase leading-none">
@@ -299,7 +300,7 @@ export function AppSidebar() {
                               ? "flex-1 truncate text-amber-600 dark:text-amber-400 font-medium"
                               : "flex-1 truncate"
                           }>
-                            {org.name}
+                            {displayOrgName(org.name)}
                           </span>
                           {count > 0 && (
                             <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -381,7 +382,7 @@ export function AppSidebar() {
                 size="sm"
               >
                 <Share2 className="size-4 group-data-[collapsible=icon]:mr-0 mr-2 transition-transform duration-200 hover:scale-110" />
-                <span className="group-data-[collapsible=icon]:hidden">Share Za Warudo</span>
+                <span className="group-data-[collapsible=icon]:hidden">Share World</span>
               </Button>
             ) : (
               <Button

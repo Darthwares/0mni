@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 import {
   DocumentType,
+  DocumentVisibility,
   AutoSyncSource,
 } from "./types";
 
@@ -27,6 +28,10 @@ export default __t.row({
   createdBy: __t.identity().name("created_by"),
   lastEditedBy: __t.option(__t.identity()).name("last_edited_by"),
   editors: __t.array(__t.string()),
+  get visibility() {
+    return DocumentVisibility;
+  },
+  sharedWith: __t.array(__t.string()).name("shared_with"),
   aiGenerated: __t.bool().name("ai_generated"),
   aiMaintained: __t.bool().name("ai_maintained"),
   get autoSyncWith() {

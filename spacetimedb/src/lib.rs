@@ -727,6 +727,10 @@ pub struct Document {
     pub last_edited_by: Option<Identity>,
     pub editors: Vec<String>, // Identity hex strings (Humans and AI)
 
+    // Visibility & sharing
+    pub visibility: DocumentVisibility,
+    pub shared_with: Vec<String>, // Identity hex strings
+
     // AI Features
     pub ai_generated: bool,
     pub ai_maintained: bool,
@@ -1090,6 +1094,41 @@ pub struct TypingIndicator {
 }
 
 // ============================================================================
+// RESOURCE PRESENCE (who's viewing what)
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum ResourceType {
+    Canvas,
+    Ticket,
+    Channel,
+}
+
+#[spacetimedb::table(accessor = resource_presence, public)]
+#[derive(Clone)]
+pub struct ResourcePresence {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub user_id: Identity,
+    pub resource_type: ResourceType,
+    pub resource_id: u64,
+    pub last_seen_at: Timestamp,
+}
+
+// ============================================================================
+// DOCUMENT VISIBILITY
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum DocumentVisibility {
+    /// Visible to everyone in the org
+    Public,
+    /// Only visible to creator and shared_with users
+    Private,
+}
+
+// ============================================================================
 // TASK WATCHERS (follow/watch)
 // ============================================================================
 
@@ -1133,7 +1172,7 @@ pub fn init(ctx: &ReducerContext) {
     } else {
         ctx.db.organization().insert(Organization {
             id: 0,
-            name: "Za Warudo".to_string(),
+            name: "World".to_string(),
             domain: None,
             auto_approve_domain: false,
             is_global: true,
@@ -1143,7 +1182,7 @@ pub fn init(ctx: &ReducerContext) {
     };
     let global_org_id = global_org.id;
 
-    // Seed default channels if none exist (using Za Warudo's org_id)
+    // Seed default channels if none exist (using World org_id)
     let has_channels = ctx.db.channel().iter().next().is_some();
     if !has_channels {
         let now = ctx.timestamp;
@@ -1203,7 +1242,7 @@ pub fn client_connected(ctx: &ReducerContext) {
         ctx.db.employee().id().update(updated);
         log::info!("Client reconnected: {} ({})", existing.name, who.to_abbreviated_hex());
     } else {
-        // Create new human employee — default selected org to Za Warudo
+        // Create new human employee — default selected org to World
         let name = format!("user-{}", who.to_abbreviated_hex());
         log::info!("New client connected, creating employee: {} ({})", name, who.to_abbreviated_hex());
         ctx.db.employee().insert(Employee {
@@ -1249,7 +1288,7 @@ pub fn client_connected(ctx: &ReducerContext) {
             });
         }
 
-        // Auto-join user to all Za Warudo public channels
+        // Auto-join user to all World public channels
         let hex = who.to_hex().to_string();
         let global_channels: Vec<Channel> = ctx.db.channel().iter()
             .filter(|ch| ch.org_id == global_org.id && !ch.is_private)
@@ -1735,6 +1774,8 @@ pub fn create_document(
         id: 0, org_id, title, content, doc_type, parent_id,
         created_by: who, last_edited_by: Some(who),
         editors: vec![who.to_hex().to_string()],
+        visibility: DocumentVisibility::Public,
+        shared_with: vec![],
         ai_generated: false, ai_maintained: false, auto_sync_with: None,
         created_at: now, updated_at: now,
     });
@@ -1762,6 +1803,89 @@ pub fn delete_document(ctx: &ReducerContext, document_id: u64) -> Result<(), Str
     let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
     require_org_access(ctx, doc.org_id)?;
     ctx.db.document().id().delete(&document_id);
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DOCUMENT SHARING
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn share_document(ctx: &ReducerContext, document_id: u64, target_identity_hex: String) -> Result<(), String> {
+    let who = ctx.sender();
+    let mut doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    // Only creator or existing editors can share
+    let who_hex = who.to_hex().to_string();
+    if doc.created_by != who && !doc.editors.contains(&who_hex) {
+        return Err("Only the creator or editors can share this document".to_string());
+    }
+    if !doc.shared_with.contains(&target_identity_hex) {
+        doc.shared_with.push(target_identity_hex);
+    }
+    ctx.db.document().id().update(doc);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unshare_document(ctx: &ReducerContext, document_id: u64, target_identity_hex: String) -> Result<(), String> {
+    let who = ctx.sender();
+    let mut doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    let who_hex = who.to_hex().to_string();
+    if doc.created_by != who && !doc.editors.contains(&who_hex) {
+        return Err("Only the creator or editors can modify sharing".to_string());
+    }
+    doc.shared_with.retain(|h| h != &target_identity_hex);
+    ctx.db.document().id().update(doc);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn set_document_visibility(ctx: &ReducerContext, document_id: u64, visibility: DocumentVisibility) -> Result<(), String> {
+    let who = ctx.sender();
+    let mut doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    let who_hex = who.to_hex().to_string();
+    if doc.created_by != who && !doc.editors.contains(&who_hex) {
+        return Err("Only the creator or editors can change visibility".to_string());
+    }
+    doc.visibility = visibility;
+    ctx.db.document().id().update(doc);
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - RESOURCE PRESENCE
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn set_resource_presence(ctx: &ReducerContext, resource_type: ResourceType, resource_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+    // Remove old presence for this user (across all resources)
+    let old: Vec<ResourcePresence> = ctx.db.resource_presence().iter()
+        .filter(|p| p.user_id == who)
+        .collect();
+    for p in old {
+        ctx.db.resource_presence().id().delete(&p.id);
+    }
+    // Insert new presence
+    ctx.db.resource_presence().insert(ResourcePresence {
+        id: 0, user_id: who, resource_type, resource_id, last_seen_at: now,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn clear_resource_presence(ctx: &ReducerContext) -> Result<(), String> {
+    let who = ctx.sender();
+    let old: Vec<ResourcePresence> = ctx.db.resource_presence().iter()
+        .filter(|p| p.user_id == who)
+        .collect();
+    for p in old {
+        ctx.db.resource_presence().id().delete(&p.id);
+    }
     Ok(())
 }
 
@@ -1870,7 +1994,7 @@ pub fn update_organization(
         return Err("Only admins can update organization settings".to_string());
     }
     let org = ctx.db.organization().id().find(&org_id).ok_or("Org not found")?;
-    if org.is_global { return Err("Cannot modify Za Warudo".to_string()); }
+    if org.is_global { return Err("Cannot modify World".to_string()); }
     ctx.db.organization().id().update(Organization { name, domain, ..org });
     Ok(())
 }
@@ -1893,12 +2017,12 @@ fn is_admin_or_owner_for_org(ctx: &ReducerContext, org_id: u64) -> bool {
     matches!(get_membership_role_for_org(ctx, org_id), Some(OrgMemberRole::Owner) | Some(OrgMemberRole::Admin))
 }
 
-/// Check if caller is a member of the given org (or if org is Global/Za Warudo)
+/// Check if caller is a member of the given org (or if org is Global/World)
 fn require_org_access(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
     let org = ctx.db.organization().id().find(&org_id)
         .ok_or("Organization not found")?;
     if org.is_global {
-        return Ok(()); // Everyone can access Za Warudo
+        return Ok(()); // Everyone can access World
     }
     let who = ctx.sender();
     for m in ctx.db.org_membership().iter() {

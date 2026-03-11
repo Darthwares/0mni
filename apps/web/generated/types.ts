@@ -371,6 +371,10 @@ export const Document = __t.object("Document", {
   createdBy: __t.identity(),
   lastEditedBy: __t.option(__t.identity()),
   editors: __t.array(__t.string()),
+  get visibility() {
+    return DocumentVisibility;
+  },
+  sharedWith: __t.array(__t.string()),
   aiGenerated: __t.bool(),
   aiMaintained: __t.bool(),
   get autoSyncWith() {
@@ -394,6 +398,13 @@ export const DocumentType = __t.enum("DocumentType", {
   Folder: __t.unit(),
 });
 export type DocumentType = __Infer<typeof DocumentType>;
+
+// The tagged union or sum type for the algebraic type `DocumentVisibility`.
+export const DocumentVisibility = __t.enum("DocumentVisibility", {
+  Public: __t.unit(),
+  Private: __t.unit(),
+});
+export type DocumentVisibility = __Infer<typeof DocumentVisibility>;
 
 export const Employee = __t.object("Employee", {
   id: __t.identity(),
@@ -771,6 +782,25 @@ export const Recommendation = __t.enum("Recommendation", {
   StrongNo: __t.unit(),
 });
 export type Recommendation = __Infer<typeof Recommendation>;
+
+export const ResourcePresence = __t.object("ResourcePresence", {
+  id: __t.u64(),
+  userId: __t.identity(),
+  get resourceType() {
+    return ResourceType;
+  },
+  resourceId: __t.u64(),
+  lastSeenAt: __t.timestamp(),
+});
+export type ResourcePresence = __Infer<typeof ResourcePresence>;
+
+// The tagged union or sum type for the algebraic type `ResourceType`.
+export const ResourceType = __t.enum("ResourceType", {
+  Canvas: __t.unit(),
+  Ticket: __t.unit(),
+  Channel: __t.unit(),
+});
+export type ResourceType = __Infer<typeof ResourceType>;
 
 // The tagged union or sum type for the algebraic type `Sentiment`.
 export const Sentiment = __t.enum("Sentiment", {

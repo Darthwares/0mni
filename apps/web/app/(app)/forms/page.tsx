@@ -41,7 +41,9 @@ import {
   EyeOff,
   Copy,
   Send,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
@@ -214,6 +216,33 @@ export default function FormsPage() {
 
     return analytics
   }, [activeFormId, activeFormResponses, questionsByForm, answersByResponse])
+
+  const handleExportResponses = useCallback(() => {
+    if (!activeFormId) return
+    const questions = questionsByForm.get(activeFormId) ?? []
+    const headers = ['Response #', 'Submitted', ...questions.map(q => q.questionText)]
+    const rows = activeFormResponses.map((resp, idx) => {
+      const answers = answersByResponse.get(resp.id.toString()) ?? []
+      const ansMap = new Map(answers.map(a => [a.questionId.toString(), a.value]))
+      return [
+        String(idx + 1),
+        formatDate(resp.submittedAt),
+        ...questions.map(q => ansMap.get(q.id.toString()) ?? ''),
+      ]
+    })
+    exportCSV('form-responses', headers, rows)
+  }, [activeFormId, activeFormResponses, questionsByForm, answersByResponse])
+
+  const handleExportFormsList = useCallback(() => {
+    exportCSV('forms', ['Title', 'Description', 'Status', 'Questions', 'Responses', 'Created'],
+      forms.map(f => [
+        f.title, f.description, f.status.tag,
+        String(questionsByForm.get(f.id)?.length ?? 0),
+        String(responseCountByForm.get(f.id) ?? 0),
+        formatDate(f.createdAt),
+      ])
+    )
+  }, [forms, questionsByForm, responseCountByForm])
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('')
@@ -398,10 +427,15 @@ export default function FormsPage() {
                 <BlurText text="Create and manage internal forms, surveys, and polls" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
               </div>
             </div>
-            <Button onClick={handleCreateForm}>
-              <Plus className="size-4" />
-              New Form
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportFormsList} className="gap-1.5">
+                <Download className="size-3.5" />Export
+              </Button>
+              <Button onClick={handleCreateForm}>
+                <Plus className="size-4" />
+                New Form
+              </Button>
+            </div>
           </div>
 
           {/* Stat cards */}
@@ -616,6 +650,14 @@ export default function FormsPage() {
         {/* ---- Responses Analytics View ---- */}
         {isResponses ? (
           <div className="max-w-4xl mx-auto w-full space-y-6">
+            {/* Export responses */}
+            {activeFormResponses.length > 0 && (
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={handleExportResponses} className="gap-1.5 h-8">
+                  <Download className="size-3.5" />Export Responses
+                </Button>
+              </div>
+            )}
             {/* Summary cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">

@@ -50,6 +50,13 @@ import {
   Contact,
   Wallet,
   Coffee,
+  Folder,
+  Image,
+  Sheet,
+  Video,
+  Archive,
+  File,
+  Palette,
 } from "lucide-react"
 
 const navigationItems = [
@@ -99,10 +106,15 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
-  const [allChannels] = useTable(tables.channel)
-  const [allEmployees] = useTable(tables.employee)
-  const [allTasks] = useTable(tables.task)
-  const [allDocuments] = useTable(tables.document)
+  const allChannels = useTable(tables.channel)
+  const allEmployees = useTable(tables.employee)
+  const allTasks = useTable(tables.task)
+  const allDocuments = useTable(tables.document)
+  const allDriveItems = useTable(tables.driveItem)
+  const allContacts = useTable(tables.contact)
+  const allInvoices = useTable(tables.invoice)
+  const allWhiteboards = useTable(tables.whiteboardBoard)
+  const allAgents = useTable(tables.agentConfig)
 
   // Global keyboard shortcut
   useEffect(() => {
@@ -222,18 +234,123 @@ export function CommandPalette() {
 
           {/* Documents */}
           {allDocuments.length > 0 && (
-            <CommandGroup heading="Documents">
-              {allDocuments.map((doc) => (
+            <>
+              <CommandGroup heading="Documents">
+                {allDocuments.map((doc) => (
+                  <CommandItem
+                    key={`doc-${doc.id}`}
+                    value={`doc-${doc.title} ${doc.docType?.tag ?? ""}`}
+                    onSelect={() => runCommand(() => router.push("/canvas"))}
+                  >
+                    <FileText className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">{doc.title}</span>
+                    <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                      {doc.docType?.tag ?? ""}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Drive Files */}
+          {allDriveItems.length > 0 && (
+            <>
+              <CommandGroup heading="Drive">
+                {allDriveItems.map((item) => {
+                  const typeTag = item.itemType?.tag ?? "Other"
+                  const Icon = typeTag === "Folder" ? Folder : typeTag === "Image" ? Image : typeTag === "Spreadsheet" ? Sheet : typeTag === "Video" ? Video : typeTag === "Archive" ? Archive : typeTag === "Code" ? Code2 : File
+                  return (
+                    <CommandItem
+                      key={`drive-${item.id}`}
+                      value={`drive-${item.name} ${typeTag}`}
+                      onSelect={() => runCommand(() => router.push("/drive"))}
+                    >
+                      <Icon className="mr-2 size-4 shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                      <span className="ml-2 shrink-0 text-xs text-muted-foreground">{typeTag}</span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Contacts */}
+          {allContacts.length > 0 && (
+            <>
+              <CommandGroup heading="Contacts">
+                {allContacts.map((c) => (
+                  <CommandItem
+                    key={`contact-${c.id}`}
+                    value={`contact-${c.name} ${c.email} ${c.company} ${c.contactType?.tag ?? ""}`}
+                    onSelect={() => runCommand(() => router.push("/contacts"))}
+                  >
+                    <Contact className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">{c.name}</span>
+                    {c.company && (
+                      <span className="ml-2 truncate text-xs text-muted-foreground">{c.company}</span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Invoices */}
+          {allInvoices.length > 0 && (
+            <>
+              <CommandGroup heading="Invoices">
+                {allInvoices.map((inv) => (
+                  <CommandItem
+                    key={`invoice-${inv.id}`}
+                    value={`invoice-${inv.invoiceNumber} ${inv.clientName} ${inv.status?.tag ?? ""}`}
+                    onSelect={() => runCommand(() => router.push("/invoicing"))}
+                  >
+                    <Receipt className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">{inv.invoiceNumber} — {inv.clientName}</span>
+                    <span className="ml-2 shrink-0 text-xs text-muted-foreground">{inv.status?.tag ?? ""}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Whiteboard Boards */}
+          {allWhiteboards.length > 0 && (
+            <>
+              <CommandGroup heading="Whiteboards">
+                {allWhiteboards.map((b) => (
+                  <CommandItem
+                    key={`wb-${b.id}`}
+                    value={`whiteboard-${b.title}`}
+                    onSelect={() => runCommand(() => router.push("/whiteboard"))}
+                  >
+                    <Palette className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">{b.title}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* AI Agents */}
+          {allAgents.length > 0 && (
+            <CommandGroup heading="AI Agents">
+              {allAgents.map((a) => (
                 <CommandItem
-                  key={`doc-${doc.id}`}
-                  value={`doc-${doc.title} ${doc.docType?.tag ?? ""}`}
-                  onSelect={() => runCommand(() => router.push("/canvas"))}
+                  key={`agent-${a.id}`}
+                  value={`agent-${a.name} ${a.department} ${a.model}`}
+                  onSelect={() => runCommand(() => router.push("/agent-studio"))}
                 >
-                  <FileText className="mr-2 size-4 shrink-0" />
-                  <span className="truncate">{doc.title}</span>
-                  <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                    {doc.docType?.tag ?? ""}
-                  </span>
+                  <Bot className="mr-2 size-4 shrink-0" />
+                  <span className="truncate">{a.name}</span>
+                  <span className="ml-2 shrink-0 text-xs text-muted-foreground">{a.department}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

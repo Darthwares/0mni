@@ -1,7 +1,7 @@
 'use client'
 
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -62,6 +62,8 @@ import {
   ArrowUpRight,
   Sparkles,
   Trophy,
+  Trash2,
+  GripVertical,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -268,6 +270,11 @@ export default function SalesPage() {
   const [allLeads] = useTable(tables.lead)
   const [allDeals] = useTable(tables.deal)
   const createLead = useSpacetimeReducer(reducers.createLead)
+  const updateLeadStatus = useSpacetimeReducer(reducers.updateLeadStatus)
+  const deleteLead = useSpacetimeReducer(reducers.deleteLead)
+  const createDeal = useSpacetimeReducer(reducers.createDeal)
+  const updateDealStage = useSpacetimeReducer(reducers.updateDealStage)
+  const deleteDeal = useSpacetimeReducer(reducers.deleteDeal)
 
   // ── Add Lead dialog state
   const [addLeadOpen, setAddLeadOpen] = useState(false)
@@ -275,6 +282,13 @@ export default function SalesPage() {
   const [newLeadEmail, setNewLeadEmail] = useState('')
   const [newLeadCompany, setNewLeadCompany] = useState('')
   const [newLeadSource, setNewLeadSource] = useState<string>('Inbound')
+
+  // ── Add Deal dialog state
+  const [addDealOpen, setAddDealOpen] = useState(false)
+  const [newDealName, setNewDealName] = useState('')
+  const [newDealValue, setNewDealValue] = useState('')
+  const [newDealStage, setNewDealStage] = useState<string>('Discovery')
+  const [newDealLeadId, setNewDealLeadId] = useState<string>('')
 
   function handleCreateLead() {
     if (!newLeadName.trim() || !newLeadEmail.trim() || currentOrgId === null) return
@@ -290,6 +304,22 @@ export default function SalesPage() {
     setNewLeadCompany('')
     setNewLeadSource('Inbound')
     setAddLeadOpen(false)
+  }
+
+  function handleCreateDeal() {
+    if (!newDealName.trim() || !newDealValue.trim() || currentOrgId === null) return
+    createDeal({
+      orgId: BigInt(currentOrgId),
+      name: newDealName.trim(),
+      value: parseFloat(newDealValue) || 0,
+      stageTag: newDealStage,
+      leadId: newDealLeadId ? BigInt(newDealLeadId) : undefined,
+    })
+    setNewDealName('')
+    setNewDealValue('')
+    setNewDealStage('Discovery')
+    setNewDealLeadId('')
+    setAddDealOpen(false)
   }
 
   // ── Leads filters
@@ -415,6 +445,61 @@ export default function SalesPage() {
               className="font-semibold"
             />
           </div>
+
+          <Dialog open={addDealOpen} onOpenChange={setAddDealOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10">
+                <Plus className="size-4 mr-1.5" />
+                New Deal
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Deal</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="deal-name">Deal Name *</Label>
+                  <Input id="deal-name" placeholder="Enterprise License - Acme" value={newDealName} onChange={(e) => setNewDealName(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="deal-value">Value ($) *</Label>
+                    <Input id="deal-value" type="number" placeholder="50000" value={newDealValue} onChange={(e) => setNewDealValue(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Stage</Label>
+                    <Select value={newDealStage} onValueChange={setNewDealStage}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {DEAL_STAGES.filter(s => s !== 'ClosedWon' && s !== 'ClosedLost').map(s => (
+                          <SelectItem key={s} value={s}>{stageLabel(s)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Link to Lead (optional)</Label>
+                  <Select value={newDealLeadId} onValueChange={setNewDealLeadId}>
+                    <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {leads.map(l => (
+                        <SelectItem key={l.id.toString()} value={l.id.toString()}>{l.name} — {l.company || l.email}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddDealOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateDeal} disabled={!newDealName.trim() || !newDealValue.trim()} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0">
+                  Create Deal
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
             <DialogTrigger asChild>
@@ -660,7 +745,8 @@ export default function SalesPage() {
                       <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Source</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Status</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Assigned</TableHead>
-                      <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold">Created</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Created</TableHead>
+                      <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold w-32" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -718,22 +804,33 @@ export default function SalesPage() {
                             {sourceLabel(lead.source.tag)}
                           </span>
                         </TableCell>
-                        <TableCell>
-                          <span
-                            className={[
-                              'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',
-                              leadStatusBadgeClass(lead.status.tag),
-                            ].join(' ')}
-                          >
-                            <span className={`size-1.5 rounded-full ${leadStatusDot(lead.status.tag)}`} />
-                            {lead.status.tag}
-                          </span>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Select value={lead.status.tag} onValueChange={(v) => { try { updateLeadStatus({ leadId: lead.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                            <SelectTrigger className={`h-7 w-[120px] text-xs border-0 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 ${leadStatusBadgeClass(lead.status.tag)} rounded-full px-2`}>
+                              <span className="flex items-center gap-1.5">
+                                <span className={`size-1.5 rounded-full ${leadStatusDot(lead.status.tag)}`} />
+                                <SelectValue />
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(['New', 'Contacted', 'Qualified', 'Unqualified', 'Converted', 'Lost'] as LeadStatusTag[]).map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs font-mono">
                           {shortIdentity(lead.assignedTo)}
                         </TableCell>
-                        <TableCell className="pr-4 text-muted-foreground text-xs">
+                        <TableCell className="text-muted-foreground text-xs">
                           {fmtDate(lead.createdAt)}
+                        </TableCell>
+                        <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500/60 hover:text-red-500 hover:bg-red-500/10" onClick={() => { if (confirm('Delete this lead?')) deleteLead({ leadId: lead.id }) }}>
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -884,13 +981,30 @@ export default function SalesPage() {
 
                           {/* Next best action */}
                           {deal.nextBestAction && (
-                            <div className="flex items-start gap-1.5 text-xs text-violet-600 dark:text-violet-400 bg-violet-500/10 rounded-md px-2 py-1.5">
+                            <div className="flex items-start gap-1.5 text-xs text-violet-600 dark:text-violet-400 bg-violet-500/10 rounded-md px-2 py-1.5 mb-2">
                               <Zap className="size-3 shrink-0 mt-0.5" />
                               <span className="leading-snug line-clamp-2 font-medium">
                                 {deal.nextBestAction}
                               </span>
                             </div>
                           )}
+
+                          {/* Actions — stage change + delete */}
+                          <div className="flex items-center gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity pt-1 border-t border-border/40">
+                            <Select value={deal.stage.tag} onValueChange={(v) => { try { updateDealStage({ dealId: deal.id, newStageTag: v }) } catch (e) { console.error(e) } }}>
+                              <SelectTrigger className="h-6 flex-1 text-[11px] border-0 bg-neutral-100 dark:bg-neutral-800 rounded px-1.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {DEAL_STAGES.map(s => (
+                                  <SelectItem key={s} value={s}>{stageLabel(s)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 shrink-0" onClick={() => { if (confirm('Delete this deal?')) deleteDeal({ dealId: deal.id }) }}>
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -1,7 +1,7 @@
 'use client'
 
-import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useTable, useReducer as useSpacetimeReducer, useSpacetimeDB } from 'spacetimedb/react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +53,7 @@ import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import ShinyText from '@/components/reactbits/ShinyText'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -167,13 +168,26 @@ type StatusFilter = (typeof STATUS_FILTERS)[number]
 // =============================================================================
 
 export default function SupportPage() {
+  const { identity } = useSpacetimeDB()
   const { currentOrgId } = useOrg()
   const [allTickets] = useTable(tables.ticket)
   const [allCustomers] = useTable(tables.customer)
   const [allMessages] = useTable(tables.message)
+  const [allEmployees] = useTable(tables.employee)
   const sendMessage = useSpacetimeReducer(reducers.sendMessage)
   const createTicket = useSpacetimeReducer(reducers.createTicket)
   const createCustomer = useSpacetimeReducer(reducers.createCustomer)
+  const updateTicketStatus = useSpacetimeReducer(reducers.updateTicketStatus)
+  const updateTicketPriority = useSpacetimeReducer(reducers.updateTicketPriority)
+  const assignTicket = useSpacetimeReducer(reducers.assignTicket)
+
+  const myHex = identity?.toHexString() ?? ''
+
+  // Agents available for assignment (employees in current org)
+  const orgAgents = useMemo(
+    () => allEmployees.filter((e) => e.orgId === BigInt(currentOrgId)),
+    [allEmployees, currentOrgId]
+  )
 
   const [selectedTicketId, setSelectedTicketId] = useState<bigint | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -626,20 +640,41 @@ export default function SupportPage() {
                     <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                       {selectedTicket.subject}
                     </h2>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="text-xs text-neutral-400 dark:text-neutral-500">
                         #{selectedTicket.id.toString()}
                       </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusColor(selectedTicket.status.tag)}`}
+
+                      {/* Interactive Status Select */}
+                      <Select
+                        value={selectedTicket.status.tag}
+                        onValueChange={(val) => updateTicketStatus({ ticketId: selectedTicket.id, statusTag: val })}
                       >
-                        {selectedTicket.status.tag}
-                      </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${priorityBg(selectedTicket.priority.tag)}`}
+                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${statusColor(selectedTicket.status.tag)}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['New', 'Open', 'Pending', 'Resolved', 'Closed'].map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Interactive Priority Select */}
+                      <Select
+                        value={selectedTicket.priority.tag}
+                        onValueChange={(val) => updateTicketPriority({ ticketId: selectedTicket.id, priorityTag: val })}
                       >
-                        {selectedTicket.priority.tag} priority
-                      </span>
+                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${priorityBg(selectedTicket.priority.tag)}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['Urgent', 'High', 'Medium', 'Low'].map((p) => (
+                            <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
                       {selectedTicket.category && (
                         <span className="text-xs text-neutral-500 dark:text-neutral-400">
                           {selectedTicket.category}
@@ -654,24 +689,81 @@ export default function SupportPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Quick action buttons */}
+                    {selectedTicket.status.tag !== 'Resolved' && selectedTicket.status.tag !== 'Closed' && (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => updateTicketStatus({ ticketId: selectedTicket.id, statusTag: 'Resolved' })}
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        Resolve
+                      </Button>
+                    )}
+                    {(selectedTicket.status.tag === 'Resolved' || selectedTicket.status.tag === 'Closed') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => updateTicketStatus({ ticketId: selectedTicket.id, statusTag: 'Open' })}
+                      >
+                        <AlertCircle className="h-3 w-3" />
+                        Reopen
+                      </Button>
+                    )}
+
+                    {/* Agent Assignment */}
+                    <Select
+                      value={selectedTicket.assignedTo?.toHexString() ?? '__unassigned'}
+                      onValueChange={(val) => {
+                        if (val === '__me') {
+                          assignTicket({ ticketId: selectedTicket.id, agentHex: myHex })
+                        } else if (val === '__unassigned') {
+                          assignTicket({ ticketId: selectedTicket.id, agentHex: '' })
+                        } else {
+                          assignTicket({ ticketId: selectedTicket.id, agentHex: val })
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-auto px-2 text-xs gap-1 min-w-[120px]">
+                        {selectedTicket.assignedTo ? (
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3 w-3 text-blue-500" />
+                            <span className="truncate max-w-[80px]">
+                              {(() => {
+                                const agent = orgAgents.find((e) => e.id.toHexString() === selectedTicket.assignedTo?.toHexString())
+                                return agent?.name ?? 'Assigned'
+                              })()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <CircleDot className="h-3 w-3" />
+                            Unassigned
+                          </div>
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__me" className="text-xs">
+                          <span className="font-medium">Assign to me</span>
+                        </SelectItem>
+                        <SelectItem value="__unassigned" className="text-xs text-muted-foreground">
+                          Unassign
+                        </SelectItem>
+                        {orgAgents.map((agent) => (
+                          <SelectItem key={agent.id.toHexString()} value={agent.id.toHexString()} className="text-xs">
+                            {agent.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     {selectedTicket.aiAutoResolved && (
                       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800">
                         <Bot className="h-3.5 w-3.5 text-violet-500" />
                         <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
                           AI Auto-Resolved
                         </span>
-                      </div>
-                    )}
-                    {selectedTicket.assignedTo && !selectedTicket.aiAutoResolved && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
-                        <User className="h-3.5 w-3.5 text-blue-500" />
-                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Assigned</span>
-                      </div>
-                    )}
-                    {!selectedTicket.assignedTo && !selectedTicket.aiAutoResolved && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
-                        <CircleDot className="h-3.5 w-3.5 text-neutral-400" />
-                        <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Unassigned</span>
                       </div>
                     )}
                   </div>

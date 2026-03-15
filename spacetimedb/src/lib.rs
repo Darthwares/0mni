@@ -3794,6 +3794,113 @@ pub fn create_ticket(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_ticket_status(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id)
+        .ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+
+    let status = match status_tag.as_str() {
+        "New" => TicketStatus::New,
+        "Open" => TicketStatus::Open,
+        "Pending" => TicketStatus::Pending,
+        "Resolved" => TicketStatus::Resolved,
+        "Closed" => TicketStatus::Closed,
+        _ => return Err(format!("Invalid status: {}", status_tag)),
+    };
+
+    let resolved_at = if matches!(status, TicketStatus::Resolved | TicketStatus::Closed) && ticket.resolved_at.is_none() {
+        Some(ctx.timestamp)
+    } else {
+        ticket.resolved_at
+    };
+
+    ctx.db.ticket().id().update(Ticket {
+        status,
+        resolved_at,
+        ..ticket
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_ticket_priority(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+    priority_tag: String,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id)
+        .ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+
+    let priority = match priority_tag.as_str() {
+        "Urgent" => Priority::Urgent,
+        "High" => Priority::High,
+        "Medium" => Priority::Medium,
+        "Low" => Priority::Low,
+        _ => return Err(format!("Invalid priority: {}", priority_tag)),
+    };
+
+    ctx.db.ticket().id().update(Ticket {
+        priority,
+        ..ticket
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn assign_ticket(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+    agent_hex: String,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id)
+        .ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+
+    let assigned_to = if agent_hex.is_empty() {
+        None
+    } else {
+        Some(Identity::from_hex(&agent_hex).map_err(|e| format!("Invalid identity: {:?}", e))?)
+    };
+
+    // If first assignment and status is New, move to Open
+    let status = if assigned_to.is_some() && matches!(ticket.status, TicketStatus::New) {
+        TicketStatus::Open
+    } else {
+        ticket.status.clone()
+    };
+
+    ctx.db.ticket().id().update(Ticket {
+        assigned_to,
+        status,
+        ..ticket
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_ticket_category(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+    category: String,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id)
+        .ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+
+    let cat = if category.is_empty() { None } else { Some(category) };
+    ctx.db.ticket().id().update(Ticket {
+        category: cat,
+        ..ticket
+    });
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - TIME TRACKING
 // ============================================================================

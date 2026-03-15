@@ -10,7 +10,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import {
   MessageSquare,
   KanbanSquare,
@@ -22,6 +26,8 @@ import {
   Check,
   X,
   ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
   FileText,
   CheckCircle2,
   AlertCircle,
@@ -30,12 +36,22 @@ import {
   Trash2,
   Star,
   Clock,
+  TrendingUp,
+  Headphones,
+  Bot,
+  Zap,
+  BarChart3,
+  Mail,
+  Shield,
+  Briefcase,
+  Code2,
+  Sparkles,
 } from 'lucide-react'
 
 const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
   ssr: false,
   loading: () => (
-    <div className="w-full aspect-square max-w-[500px] mx-auto flex items-center justify-center">
+    <div className="w-full aspect-square max-w-[420px] mx-auto flex items-center justify-center">
       <div className="animate-pulse text-sm text-muted-foreground">Loading globe...</div>
     </div>
   ),
@@ -95,6 +111,16 @@ function getActionVerb(action: string) {
   }
 }
 
+const actionColors: Record<string, string> = {
+  Created: 'bg-emerald-500',
+  Completed: 'bg-emerald-400',
+  Updated: 'bg-blue-500',
+  Deleted: 'bg-red-500',
+  Assigned: 'bg-violet-500',
+  Escalated: 'bg-amber-500',
+  Commented: 'bg-sky-500',
+}
+
 export default function DashboardPage() {
   const { identity } = useSpacetimeDB()
   const { currentOrgId, isGlobalOrg, orgMembers } = useOrg()
@@ -107,6 +133,7 @@ export default function DashboardPage() {
 
   const myHex = identity?.toHexString() ?? ''
   const setUserLocation = useReducer(reducers.setUserLocation)
+  const [feedTab, setFeedTab] = useState<'all' | 'messages' | 'activity'>('all')
 
   // Location sharing state
   const [locationShared, setLocationShared] = useState<boolean | null>(null)
@@ -121,7 +148,6 @@ export default function DashboardPage() {
       (pos) => {
         const { latitude, longitude } = pos.coords
         localStorage.setItem('0mni-location-shared', JSON.stringify({ latitude, longitude, ts: Date.now() }))
-        // Persist to SpacetimeDB so globe shows real location
         try { setUserLocation({ latitude, longitude }) } catch {}
         setLocationShared(true)
       },
@@ -132,7 +158,6 @@ export default function DashboardPage() {
     )
   }
 
-  // On mount, if location was previously shared, re-sync to DB
   useEffect(() => {
     const stored = localStorage.getItem('0mni-location-shared')
     if (stored && stored !== 'denied') {
@@ -172,7 +197,7 @@ export default function DashboardPage() {
     [allDocuments, currentOrgId]
   )
 
-  // Build unified feed items from activity logs + recent messages
+  // Unified feed
   type FeedItem = {
     id: string
     type: 'activity' | 'message'
@@ -187,8 +212,6 @@ export default function DashboardPage() {
 
   const feedItems = useMemo(() => {
     const items: FeedItem[] = []
-
-    // Activity logs
     for (const log of allActivityLogs) {
       try {
         items.push({
@@ -203,8 +226,6 @@ export default function DashboardPage() {
         })
       } catch {}
     }
-
-    // Recent messages (non-DM channels only, show as chat activity)
     for (const msg of orgMessages) {
       if (msg.content.startsWith('[system]')) continue
       const channel = orgChannels.find(c => c.id === msg.contextId)
@@ -220,9 +241,13 @@ export default function DashboardPage() {
         })
       } catch {}
     }
-
     return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50)
   }, [allActivityLogs, orgMessages, orgChannels])
+
+  const filteredFeed = useMemo(() => {
+    if (feedTab === 'all') return feedItems
+    return feedItems.filter(i => i.type === (feedTab === 'messages' ? 'message' : 'activity'))
+  }, [feedItems, feedTab])
 
   // Stats
   const recentMessageCount = orgMessages.length
@@ -230,78 +255,303 @@ export default function DashboardPage() {
   const openTaskCount = orgTasks.filter(t =>
     t.status.tag !== 'Completed' && t.status.tag !== 'Cancelled'
   ).length
+  const completedTaskCount = orgTasks.filter(t => t.status.tag === 'Completed').length
   const docCount = orgDocs.length
   const onlineCount = orgMembers.filter(m => {
     const emp = employeeMap.get(m.identity?.toHexString?.() ?? '')
     return emp && (emp.status.tag === 'Online' || emp.status.tag === 'Busy')
   }).length
 
+  // Action breakdown for mini chart
+  const actionBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const item of feedItems) {
+      if (item.action) {
+        counts[item.action] = (counts[item.action] || 0) + 1
+      }
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }, [feedItems])
+
+  // Quick stats cards config
+  const statCards = [
+    {
+      label: 'Messages',
+      value: recentMessageCount,
+      icon: MessageSquare,
+      color: 'text-violet-500',
+      bgColor: 'bg-violet-500/10',
+      spotColor: 'rgba(139, 92, 246, 0.15)',
+      href: '/messages',
+    },
+    {
+      label: 'Open Tasks',
+      value: openTaskCount,
+      icon: KanbanSquare,
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-500/10',
+      spotColor: 'rgba(245, 158, 11, 0.15)',
+      href: '/tickets',
+    },
+    {
+      label: 'Documents',
+      value: docCount,
+      icon: PenTool,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+      spotColor: 'rgba(59, 130, 246, 0.15)',
+      href: '/canvas',
+    },
+    {
+      label: 'Online Now',
+      value: onlineCount,
+      icon: Users,
+      color: 'text-emerald-500',
+      bgColor: 'bg-emerald-500/10',
+      spotColor: 'rgba(16, 185, 129, 0.15)',
+      href: '#',
+    },
+  ]
+
+  // Module nav cards — quick access to all Omni modules
+  const moduleCards = [
+    { label: 'Messages', desc: `${activeChannelCount} channels`, icon: MessageSquare, href: '/messages', color: 'text-violet-500', bg: 'bg-violet-500/10' },
+    { label: 'Tickets', desc: `${openTaskCount} open`, icon: KanbanSquare, href: '/tickets', color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { label: 'Canvas', desc: `${docCount} docs`, icon: PenTool, href: '/canvas', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { label: 'Email', desc: 'Inbox', icon: Mail, href: '/email', color: 'text-rose-500', bg: 'bg-rose-500/10' },
+    { label: 'Support', desc: 'Help desk', icon: Headphones, href: '/support', color: 'text-teal-500', bg: 'bg-teal-500/10' },
+    { label: 'Sales & CRM', desc: 'Pipeline', icon: Briefcase, href: '/sales', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+    { label: 'Engineering', desc: 'Code & PRs', icon: Code2, href: '/engineering', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+    { label: 'AI Agents', desc: 'Fleet', icon: Bot, href: '/ai-employees', color: 'text-pink-500', bg: 'bg-pink-500/10' },
+  ]
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      {/* Welcome header */}
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      {/* Hero header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {isGlobalOrg ? (
               <span className="flex items-center gap-2">
-                <Globe className="size-5 text-amber-500" />
-                World
+                <Globe className="size-6 text-amber-500" />
+                <GradientText colors={['#F59E0B', '#EF4444', '#8B5CF6']} animationSpeed={4} className="text-2xl font-bold">
+                  World
+                </GradientText>
               </span>
-            ) : 'Feed'}
+            ) : (
+              <GradientText colors={['#8B5CF6', '#3B82F6', '#10B981']} animationSpeed={4} className="text-2xl font-bold">
+                Dashboard
+              </GradientText>
+            )}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {isGlobalOrg ? 'Global workspace activity' : 'Latest activity in your workspace'}
+          <p className="text-sm text-muted-foreground mt-1">
+            {isGlobalOrg ? 'Global workspace overview' : 'Your workspace at a glance'}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-emerald-500" />
-            {onlineCount} online
+        <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">{onlineCount} online</span>
           </div>
-          <span>&middot;</span>
+          <span className="text-muted-foreground/50">&middot;</span>
           <span>{orgMembers.length} members</span>
         </div>
       </div>
 
-      {/* Live Globe — shows real-time message activity */}
-      <div className="relative -mx-4 md:mx-0">
-        <LiveGlobe />
+      {/* Stats row with SpotlightCards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {statCards.map((card) => (
+          <Link href={card.href} key={card.label}>
+            <SpotlightCard
+              className="rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow h-full"
+              spotlightColor={card.spotColor}
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2 rounded-lg ${card.bgColor}`}>
+                    <card.icon className={`size-4 ${card.color}`} />
+                  </div>
+                  <ArrowRight className="size-3.5 text-muted-foreground/40" />
+                </div>
+                <div className="text-2xl font-bold tabular-nums">
+                  <CountUp to={card.value} duration={1.2} separator="," />
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
+              </div>
+            </SpotlightCard>
+          </Link>
+        ))}
       </div>
 
-      {/* Location participate button */}
-      {locationShared === null && (
-        <Card className="border-amber-500/20 bg-amber-500/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10">
-              <MapPin className="size-5 text-amber-500" />
+      {/* Two-column layout: Globe + Module nav */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Live Globe */}
+        <div className="relative">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="relative -mx-0">
+                <LiveGlobe />
+              </div>
+              {/* Location participate strip */}
+              {locationShared === null && (
+                <div className="px-4 py-3 border-t bg-amber-500/5 flex items-center gap-3">
+                  <MapPin className="size-4 text-amber-500 shrink-0" />
+                  <p className="text-xs text-muted-foreground flex-1">Share your location to appear on the live globe</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                    onClick={handleShareLocation}
+                  >
+                    <Globe className="size-3 mr-1" />
+                    Join
+                  </Button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('0mni-location-shared', 'denied')
+                      setLocationShared(false)
+                    }}
+                    className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Module quick-access grid */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <Zap className="size-3.5 text-amber-500" />
+                Quick Access
+              </h3>
+              <Badge variant="outline" className="text-[10px] h-5">
+                {moduleCards.length} modules
+              </Badge>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Join the Globe</p>
-              <p className="text-xs text-muted-foreground">Share your location to appear on the live community map</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-                onClick={handleShareLocation}
-              >
-                <Globe className="size-3.5 mr-1.5" />
-                Participate
-              </Button>
-              <button
-                onClick={() => {
-                  localStorage.setItem('0mni-location-shared', 'denied')
-                  setLocationShared(false)
-                }}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <X className="size-3.5" />
-              </button>
+            <div className="grid grid-cols-2 gap-2">
+              {moduleCards.map((mod) => (
+                <Link href={mod.href} key={mod.label} className="group">
+                  <div className="flex items-center gap-2.5 p-2.5 rounded-lg border border-transparent hover:border-border hover:bg-accent/50 transition-all">
+                    <div className={`p-1.5 rounded-md ${mod.bg}`}>
+                      <mod.icon className={`size-3.5 ${mod.color}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{mod.label}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{mod.desc}</p>
+                    </div>
+                    <ArrowRight className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
+                  </div>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>
-      )}
+      </div>
+
+      {/* Task completion + action breakdown row */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Task completion rate */}
+        <SpotlightCard
+          className="rounded-xl border bg-card text-card-foreground shadow-sm"
+          spotlightColor="rgba(16, 185, 129, 0.12)"
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-500" />
+                Task Completion
+              </h3>
+              <Badge variant="secondary" className="text-[10px] h-5">
+                {completedTaskCount}/{orgTasks.length}
+              </Badge>
+            </div>
+            {orgTasks.length > 0 ? (
+              <>
+                <div className="flex items-end gap-3 mb-3">
+                  <div className="text-3xl font-bold tabular-nums">
+                    <CountUp
+                      to={Math.round((completedTaskCount / orgTasks.length) * 100)}
+                      duration={1.5}
+                    />
+                    <span className="text-lg text-muted-foreground">%</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-emerald-500 mb-1">
+                    <TrendingUp className="size-3" />
+                    on track
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000"
+                    style={{ width: `${(completedTaskCount / orgTasks.length) * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
+                  <span>{completedTaskCount} completed</span>
+                  <span>{openTaskCount} open</span>
+                </div>
+              </>
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                <KanbanSquare className="size-6 mx-auto mb-2 opacity-30" />
+                No tasks yet
+              </div>
+            )}
+          </div>
+        </SpotlightCard>
+
+        {/* Action breakdown */}
+        <SpotlightCard
+          className="rounded-xl border bg-card text-card-foreground shadow-sm"
+          spotlightColor="rgba(139, 92, 246, 0.12)"
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <BarChart3 className="size-3.5 text-violet-500" />
+                Activity Breakdown
+              </h3>
+              <Badge variant="secondary" className="text-[10px] h-5">
+                {feedItems.filter(i => i.type === 'activity').length} events
+              </Badge>
+            </div>
+            {actionBreakdown.length > 0 ? (
+              <div className="space-y-2.5">
+                {actionBreakdown.map(([action, count]) => {
+                  const total = feedItems.filter(i => i.type === 'activity').length
+                  const pct = total > 0 ? (count / total) * 100 : 0
+                  return (
+                    <div key={action} className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 w-24 shrink-0">
+                        {getActionIcon(action)}
+                        <span className="text-xs truncate">{action}</span>
+                      </div>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${actionColors[action] ?? 'bg-neutral-400'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                <Activity className="size-6 mx-auto mb-2 opacity-30" />
+                No activity yet
+              </div>
+            )}
+          </div>
+        </SpotlightCard>
+      </div>
+
       {/* Prominent Messages CTA (mobile) */}
       <Link href="/messages" className="block md:hidden">
         <Card className="border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
@@ -318,65 +568,23 @@ export default function DashboardPage() {
         </Card>
       </Link>
 
-      {/* Quick nav cards (desktop: 3-col, mobile: 2-col with messages hidden since it has its own CTA above) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Link href="/messages" className="group hidden md:block">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer border-violet-500/20 hover:border-violet-500/40">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/10">
-                <MessageSquare className="size-5 text-violet-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Messages</p>
-                <p className="text-xs text-muted-foreground">{activeChannelCount} channels</p>
-              </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/tickets" className="group">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
-            <CardContent className="p-3 md:p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <KanbanSquare className="size-5 text-amber-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Tickets</p>
-                <p className="text-xs text-muted-foreground">{openTaskCount} open</p>
-              </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/canvas" className="group">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
-            <CardContent className="p-3 md:p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <PenTool className="size-5 text-blue-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Canvas</p>
-                <p className="text-xs text-muted-foreground">{docCount} docs</p>
-              </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Activity feed */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between py-2">
-          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+      {/* Activity feed with tabs */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold flex items-center gap-1.5">
             <Activity className="size-3.5" />
-            Activity Feed
+            Live Feed
           </h2>
-          <Badge variant="outline" className="text-[10px]">
-            {feedItems.length} updates
-          </Badge>
+          <Tabs value={feedTab} onValueChange={(v) => setFeedTab(v as any)}>
+            <TabsList className="h-7">
+              <TabsTrigger value="all" className="text-xs px-2.5 h-5">All</TabsTrigger>
+              <TabsTrigger value="messages" className="text-xs px-2.5 h-5">Chat</TabsTrigger>
+              <TabsTrigger value="activity" className="text-xs px-2.5 h-5">Activity</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {feedItems.length === 0 ? (
+        {filteredFeed.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Activity className="size-8 text-muted-foreground/30 mx-auto mb-3" />
@@ -390,15 +598,14 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {feedItems.map((item) => {
+            {filteredFeed.map((item) => {
               const actor = employeeMap.get(item.actorHex)
               const actorName = actor?.name ?? `user-${item.actorHex.slice(0, 8)}`
               const isMe = item.actorHex === myHex
 
               return (
-                <Card key={item.id} className="overflow-hidden">
+                <Card key={item.id} className="overflow-hidden hover:shadow-sm transition-shadow">
                   <CardContent className="p-3 md:p-4">
-                    {/* Post header */}
                     <div className="flex items-start gap-2.5 md:gap-3">
                       <Avatar className="size-8 md:size-9 shrink-0">
                         {actor?.avatarUrl && <AvatarImage src={actor.avatarUrl} />}
@@ -426,7 +633,7 @@ export default function DashboardPage() {
                                 #{item.channelName}
                               </Badge>
                             </div>
-                            <p className="text-sm mt-2 text-foreground/90 whitespace-pre-wrap break-words line-clamp-4">
+                            <p className="text-sm mt-2 text-foreground/90 whitespace-pre-wrap break-words line-clamp-3">
                               {item.content}
                             </p>
                           </>

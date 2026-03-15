@@ -1566,6 +1566,18 @@ export const VideoFrameEvent = __t.object("VideoFrameEvent", {
 });
 export type VideoFrameEvent = __Infer<typeof VideoFrameEvent>;
 
+export const WhiteboardBoard = __t.object("WhiteboardBoard", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  elementsJson: __t.string(),
+  previewColor: __t.string(),
+  creator: __t.identity(),
+  modifiedAt: __t.timestamp(),
+  createdAt: __t.timestamp(),
+});
+export type WhiteboardBoard = __Infer<typeof WhiteboardBoard>;
+
 export const Workflow = __t.object("Workflow", {
   id: __t.u64(),
   orgId: __t.u64(),

@@ -6339,3 +6339,69 @@ pub fn delete_drive_item(
     ctx.db.drive_item().id().delete(&item_id);
     Ok(())
 }
+
+// ─── Whiteboard ───────────────────────────────────────────────
+
+#[spacetimedb::table(accessor = whiteboard_board, public)]
+pub struct WhiteboardBoard {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub elements_json: String,      // JSON array of draw elements
+    pub preview_color: String,
+    pub creator: Identity,
+    pub modified_at: Timestamp,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_whiteboard_board(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    preview_color: String,
+) -> Result<(), String> {
+    if title.is_empty() {
+        return Err("Title is required".to_string());
+    }
+    ctx.db.whiteboard_board().insert(WhiteboardBoard {
+        id: 0,
+        org_id,
+        title,
+        elements_json: "[]".to_string(),
+        preview_color,
+        creator: ctx.sender(),
+        modified_at: ctx.timestamp,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_whiteboard_board(
+    ctx: &ReducerContext,
+    board_id: u64,
+    title: String,
+    elements_json: String,
+) -> Result<(), String> {
+    let existing = ctx.db.whiteboard_board().id().find(board_id)
+        .ok_or("Board not found")?;
+    ctx.db.whiteboard_board().id().update(WhiteboardBoard {
+        title,
+        elements_json,
+        modified_at: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_whiteboard_board(
+    ctx: &ReducerContext,
+    board_id: u64,
+) -> Result<(), String> {
+    ctx.db.whiteboard_board().id().delete(&board_id);
+    Ok(())
+}

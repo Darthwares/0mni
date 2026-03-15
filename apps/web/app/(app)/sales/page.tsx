@@ -5,6 +5,7 @@ import { useMemo, useState, useCallback } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import {
@@ -64,6 +65,7 @@ import {
   Trophy,
   Trash2,
   GripVertical,
+  Download,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -714,9 +716,29 @@ export default function SalesPage() {
               </button>
             )}
 
-            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-              {filteredLeads.length} of {leads.length} leads
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {filteredLeads.length} of {leads.length} leads
+              </span>
+              {filteredLeads.length > 0 && (
+                <button
+                  onClick={() => exportCSV('leads', [
+                    { header: 'Name', accessor: (l: typeof filteredLeads[0]) => l.name },
+                    { header: 'Email', accessor: (l: typeof filteredLeads[0]) => l.email },
+                    { header: 'Company', accessor: (l: typeof filteredLeads[0]) => l.company },
+                    { header: 'Status', accessor: (l: typeof filteredLeads[0]) => l.status?.tag ?? '' },
+                    { header: 'Source', accessor: (l: typeof filteredLeads[0]) => l.source?.tag ?? '' },
+                    { header: 'Score', accessor: (l: typeof filteredLeads[0]) => l.score },
+                    { header: 'Phone', accessor: (l: typeof filteredLeads[0]) => l.phone },
+                    { header: 'Notes', accessor: (l: typeof filteredLeads[0]) => l.notes },
+                  ], filteredLeads)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Download className="size-3.5" />
+                  Export
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Leads table */}

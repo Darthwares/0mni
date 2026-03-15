@@ -5,6 +5,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import { Badge } from '@/components/ui/badge'
@@ -239,7 +240,61 @@ export default function ReportsPage() {
           <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="text-xs rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5">
             {Object.entries(rangeLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <button className="flex items-center gap-1.5 text-xs font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+          <button
+            onClick={() => {
+              const src = report.source
+              if (src === 'Tasks') {
+                exportCSV('report-tasks', [
+                  { header: 'Title', accessor: (t: any) => t.title },
+                  { header: 'Status', accessor: (t: any) => t.status?.tag ?? '' },
+                  { header: 'Priority', accessor: (t: any) => t.priority?.tag ?? '' },
+                  { header: 'Assignee', accessor: (t: any) => t.assignee?.toHexString?.()?.slice(0, 8) ?? 'Unassigned' },
+                  { header: 'Created', accessor: (t: any) => { try { return t.createdAt.toDate().toLocaleDateString() } catch { return '' } } },
+                ], tasks)
+              } else if (src === 'Tickets') {
+                exportCSV('report-tickets', [
+                  { header: 'Subject', accessor: (t: any) => t.subject },
+                  { header: 'Status', accessor: (t: any) => t.status?.tag ?? '' },
+                  { header: 'Priority', accessor: (t: any) => t.priority?.tag ?? '' },
+                  { header: 'AI Resolved', accessor: (t: any) => t.aiAutoResolved ? 'Yes' : 'No' },
+                  { header: 'Escalations', accessor: (t: any) => t.escalationCount ?? 0 },
+                ], tickets)
+              } else if (src === 'Leads') {
+                exportCSV('report-leads', [
+                  { header: 'Name', accessor: (l: any) => l.name },
+                  { header: 'Email', accessor: (l: any) => l.email },
+                  { header: 'Company', accessor: (l: any) => l.company },
+                  { header: 'Status', accessor: (l: any) => l.status?.tag ?? '' },
+                  { header: 'Source', accessor: (l: any) => l.source?.tag ?? '' },
+                  { header: 'Score', accessor: (l: any) => l.score ?? '' },
+                ], leads)
+              } else if (src === 'Candidates') {
+                exportCSV('report-candidates', [
+                  { header: 'Name', accessor: (c: any) => c.name },
+                  { header: 'Email', accessor: (c: any) => c.email },
+                  { header: 'Status', accessor: (c: any) => c.status?.tag ?? '' },
+                  { header: 'Position', accessor: (c: any) => c.position ?? '' },
+                ], candidates)
+              } else if (src === 'Team') {
+                exportCSV('report-team', [
+                  { header: 'Name', accessor: (e: any) => e.name },
+                  { header: 'Role', accessor: (e: any) => e.role },
+                  { header: 'Department', accessor: (e: any) => e.department?.tag ?? '' },
+                  { header: 'Type', accessor: (e: any) => e.employeeType?.tag ?? 'Human' },
+                  { header: 'Status', accessor: (e: any) => e.status?.tag ?? '' },
+                ], orgEmployees)
+              } else if (src === 'Activity') {
+                exportCSV('report-activity', [
+                  { header: 'Action', accessor: (a: any) => a.action?.tag ?? '' },
+                  { header: 'Entity Type', accessor: (a: any) => a.entityType ?? '' },
+                  { header: 'Entity ID', accessor: (a: any) => a.entityId ?? '' },
+                  { header: 'Metadata', accessor: (a: any) => a.metadata ?? '' },
+                  { header: 'Timestamp', accessor: (a: any) => { try { return a.timestamp.toDate().toLocaleString() } catch { return '' } } },
+                ], activity)
+              }
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+          >
             <Download className="size-3.5" /> Export CSV
           </button>
         </div>

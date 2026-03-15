@@ -25,7 +25,9 @@ import {
   Video,
   StickyNote,
   MoreHorizontal,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -608,6 +610,30 @@ export default function ContactsPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <BlurText text="Manage your contacts, leads, and relationships" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportCSV(
+                'contacts',
+                [
+                  { header: 'Name', accessor: (c: any) => c.name },
+                  { header: 'Email', accessor: (c: any) => c.email },
+                  { header: 'Phone', accessor: (c: any) => c.phone },
+                  { header: 'Company', accessor: (c: any) => c.company },
+                  { header: 'Title', accessor: (c: any) => c.title },
+                  { header: 'Type', accessor: (c: any) => c.contactType?.tag ?? '' },
+                  { header: 'Tags', accessor: (c: any) => c.tags },
+                  { header: 'Notes', accessor: (c: any) => c.notes },
+                  { header: 'Starred', accessor: (c: any) => c.starred ? 'Yes' : 'No' },
+                ],
+                sorted
+              )}
+              disabled={sorted.length === 0}
+            >
+              <Download className="size-3.5 mr-1.5" />
+              Export
+            </Button>
           <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
             <DialogTrigger render={<Button size="sm" className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-500/25 border-0" />}>
               <Plus className="size-4 mr-1.5" />
@@ -674,6 +700,7 @@ export default function ContactsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats */}

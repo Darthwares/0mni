@@ -93,6 +93,7 @@ import MarkAllNotificationsReadReducer from "../mark_all_notifications_read_redu
 import MarkEmailReadReducer from "../mark_email_read_reducer";
 import MarkKbArticleHelpfulReducer from "../mark_kb_article_helpful_reducer";
 import MarkNotificationReadReducer from "../mark_notification_read_reducer";
+import MoveDocumentReducer from "../move_document_reducer";
 import MoveDriveItemReducer from "../move_drive_item_reducer";
 import PauseAgentReducer from "../pause_agent_reducer";
 import PinMessageReducer from "../pin_message_reducer";
@@ -254,6 +255,7 @@ export type MarkAllNotificationsReadParams = __Infer<typeof MarkAllNotifications
 export type MarkEmailReadParams = __Infer<typeof MarkEmailReadReducer>;
 export type MarkKbArticleHelpfulParams = __Infer<typeof MarkKbArticleHelpfulReducer>;
 export type MarkNotificationReadParams = __Infer<typeof MarkNotificationReadReducer>;
+export type MoveDocumentParams = __Infer<typeof MoveDocumentReducer>;
 export type MoveDriveItemParams = __Infer<typeof MoveDriveItemReducer>;
 export type PauseAgentParams = __Infer<typeof PauseAgentReducer>;
 export type PinMessageParams = __Infer<typeof PinMessageReducer>;

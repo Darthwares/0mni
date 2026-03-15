@@ -121,6 +121,7 @@ import MarkAllNotificationsReadReducer from "./mark_all_notifications_read_reduc
 import MarkEmailReadReducer from "./mark_email_read_reducer";
 import MarkKbArticleHelpfulReducer from "./mark_kb_article_helpful_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
+import MoveDocumentReducer from "./move_document_reducer";
 import MoveDriveItemReducer from "./move_drive_item_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
@@ -1077,6 +1078,7 @@ const reducersSchema = __reducers(
   __reducerSchema("mark_email_read", MarkEmailReadReducer),
   __reducerSchema("mark_kb_article_helpful", MarkKbArticleHelpfulReducer),
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
+  __reducerSchema("move_document", MoveDocumentReducer),
   __reducerSchema("move_drive_item", MoveDriveItemReducer),
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_message", PinMessageReducer),

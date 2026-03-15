@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import AcceptCallReducer from "./accept_call_reducer";
 import AddApprovalCommentReducer from "./add_approval_comment_reducer";
+import AddContactInteractionReducer from "./add_contact_interaction_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
@@ -95,6 +96,7 @@ import DeleteCandidateReducer from "./delete_candidate_reducer";
 import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
 import DeleteCodeRepositoryReducer from "./delete_code_repository_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
+import DeleteContactInteractionReducer from "./delete_contact_interaction_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
@@ -242,6 +244,7 @@ import CannedResponseRow from "./canned_response_table";
 import ChannelRow from "./channel_table";
 import CodeRepositoryRow from "./code_repository_table";
 import ContactRow from "./contact_table";
+import ContactInteractionRow from "./contact_interaction_table";
 import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
@@ -461,6 +464,17 @@ const tablesSchema = __schema({
       { name: 'contact_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ContactRow),
+  contact_interaction: __table({
+    name: 'contact_interaction',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'contact_interaction_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ContactInteractionRow),
   customer: __table({
     name: 'customer',
     indexes: [
@@ -1069,6 +1083,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
+  __reducerSchema("add_contact_interaction", AddContactInteractionReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
@@ -1128,6 +1143,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_canned_response", DeleteCannedResponseReducer),
   __reducerSchema("delete_code_repository", DeleteCodeRepositoryReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
+  __reducerSchema("delete_contact_interaction", DeleteContactInteractionReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),

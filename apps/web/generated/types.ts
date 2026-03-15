@@ -471,6 +471,19 @@ export const Contact = __t.object("Contact", {
 });
 export type Contact = __Infer<typeof Contact>;
 
+export const ContactInteraction = __t.object("ContactInteraction", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  contactId: __t.u64(),
+  get interactionType() {
+    return InteractionType;
+  },
+  summary: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type ContactInteraction = __Infer<typeof ContactInteraction>;
+
 // The tagged union or sum type for the algebraic type `ContactType`.
 export const ContactType = __t.enum("ContactType", {
   Customer: __t.unit(),
@@ -854,6 +867,16 @@ export const FormStatus = __t.enum("FormStatus", {
   Closed: __t.unit(),
 });
 export type FormStatus = __Infer<typeof FormStatus>;
+
+// The tagged union or sum type for the algebraic type `InteractionType`.
+export const InteractionType = __t.enum("InteractionType", {
+  Call: __t.unit(),
+  Email: __t.unit(),
+  Meeting: __t.unit(),
+  Note: __t.unit(),
+  Other: __t.unit(),
+});
+export type InteractionType = __Infer<typeof InteractionType>;
 
 export const Interview = __t.object("Interview", {
   id: __t.u64(),

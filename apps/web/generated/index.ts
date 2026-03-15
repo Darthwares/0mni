@@ -43,6 +43,7 @@ import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
+import CreateCalEventReducer from "./create_cal_event_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
@@ -61,6 +62,7 @@ import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
+import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
@@ -122,6 +124,7 @@ import UnfavoriteDocumentReducer from "./unfavorite_document_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
+import UpdateCalEventReducer from "./update_cal_event_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
@@ -148,6 +151,7 @@ import AgentThoughtEventRow from "./agent_thought_event_table";
 import AiAgentDeploymentRow from "./ai_agent_deployment_table";
 import AudioFrameEventRow from "./audio_frame_event_table";
 import BugRow from "./bug_table";
+import CalEventRow from "./cal_event_table";
 import CallSessionRow from "./call_session_table";
 import CandidateRow from "./candidate_table";
 import ChannelRow from "./channel_table";
@@ -247,6 +251,17 @@ const tablesSchema = __schema({
       { name: 'bug_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, BugRow),
+  cal_event: __table({
+    name: 'cal_event',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'cal_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CalEventRow),
   call_session: __table({
     name: 'call_session',
     indexes: [
@@ -752,6 +767,7 @@ const reducersSchema = __reducers(
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_agent_deployment", CreateAgentDeploymentReducer),
+  __reducerSchema("create_cal_event", CreateCalEventReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
@@ -770,6 +786,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
+  __reducerSchema("delete_cal_event", DeleteCalEventReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
@@ -831,6 +848,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unpin_message", UnpinMessageReducer),
   __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
+  __reducerSchema("update_cal_event", UpdateCalEventReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),

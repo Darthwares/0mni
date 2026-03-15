@@ -222,6 +222,24 @@ export const BugStatus = __t.enum("BugStatus", {
 });
 export type BugStatus = __Infer<typeof BugStatus>;
 
+export const CalEvent = __t.object("CalEvent", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  description: __t.string(),
+  startTime: __t.timestamp(),
+  endTime: __t.timestamp(),
+  allDay: __t.bool(),
+  get category() {
+    return EventCategory;
+  },
+  location: __t.string(),
+  isVirtual: __t.bool(),
+  creator: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type CalEvent = __Infer<typeof CalEvent>;
+
 export const CallSession = __t.object("CallSession", {
   sessionId: __t.uuid(),
   get callType() {
@@ -568,6 +586,18 @@ export const EpicStatus = __t.enum("EpicStatus", {
   Cancelled: __t.unit(),
 });
 export type EpicStatus = __Infer<typeof EpicStatus>;
+
+// The tagged union or sum type for the algebraic type `EventCategory`.
+export const EventCategory = __t.enum("EventCategory", {
+  Meeting: __t.unit(),
+  Deadline: __t.unit(),
+  Interview: __t.unit(),
+  Standup: __t.unit(),
+  Review: __t.unit(),
+  Personal: __t.unit(),
+  Other: __t.unit(),
+});
+export type EventCategory = __Infer<typeof EventCategory>;
 
 export const FormAnswer = __t.object("FormAnswer", {
   id: __t.u64(),

@@ -5059,6 +5059,107 @@ pub fn duplicate_document(ctx: &ReducerContext, document_id: u64) -> Result<(), 
     Ok(())
 }
 
+// ── Document Tags ──────────────────────────────────────────────────────────
+
+#[spacetimedb::table(accessor = document_tag, public)]
+#[derive(Clone)]
+pub struct DocumentTag {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub document_id: u64,
+    pub tag: String,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_document_tag(
+    ctx: &ReducerContext,
+    document_id: u64,
+    tag: String,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    let tag_trimmed = tag.trim().to_lowercase();
+    if tag_trimmed.is_empty() {
+        return Err("Tag cannot be empty".to_string());
+    }
+    // Prevent duplicate tags on same doc
+    let exists = ctx.db.document_tag().iter()
+        .any(|t| t.document_id == document_id && t.tag == tag_trimmed);
+    if exists {
+        return Err("Tag already exists on this document".to_string());
+    }
+    ctx.db.document_tag().insert(DocumentTag {
+        id: 0,
+        org_id: doc.org_id,
+        document_id,
+        tag: tag_trimmed,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_document_tag(
+    ctx: &ReducerContext,
+    tag_id: u64,
+) -> Result<(), String> {
+    ctx.db.document_tag().id().delete(&tag_id);
+    Ok(())
+}
+
+// ── Document Pin ──────────────────────────────────────────────────────────
+
+#[spacetimedb::table(accessor = document_pin, public)]
+#[derive(Clone)]
+pub struct DocumentPin {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub document_id: u64,
+    pub pinned_by: Identity,
+    pub pinned_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn pin_document(
+    ctx: &ReducerContext,
+    document_id: u64,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    let already = ctx.db.document_pin().iter()
+        .any(|p| p.document_id == document_id && p.org_id == doc.org_id);
+    if already {
+        return Err("Document already pinned".to_string());
+    }
+    ctx.db.document_pin().insert(DocumentPin {
+        id: 0,
+        org_id: doc.org_id,
+        document_id,
+        pinned_by: ctx.sender(),
+        pinned_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unpin_document(
+    ctx: &ReducerContext,
+    document_id: u64,
+) -> Result<(), String> {
+    let pin = ctx.db.document_pin().iter()
+        .find(|p| p.document_id == document_id)
+        .ok_or("Document not pinned")?;
+    ctx.db.document_pin().id().delete(&pin.id);
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - EMAIL METADATA
 // ============================================================================

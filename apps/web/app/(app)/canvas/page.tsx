@@ -77,6 +77,11 @@ import {
   Maximize2,
   Minimize2,
   AlignLeft,
+  Pin,
+  PinOff,
+  CopyPlus,
+  Tag,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
@@ -366,6 +371,8 @@ export default function CanvasPage() {
   const [allMessages] = useTable(tables.message)
   const [allDocVersions] = useTable(tables.documentVersion)
   const [allFavorites] = useTable(tables.document_favorite)
+  const allDocTags = useTable(tables.documentTag) ?? []
+  const allDocPins = useTable(tables.documentPin) ?? []
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -379,6 +386,11 @@ export default function CanvasPage() {
   const favoriteDocument = useReducer(reducers.favoriteDocument)
   const unfavoriteDocument = useReducer(reducers.unfavoriteDocument)
   const moveDocumentReducer = useReducer(reducers.moveDocument)
+  const duplicateDocument = useReducer(reducers.duplicateDocument)
+  const addDocumentTag = useReducer(reducers.addDocumentTag)
+  const removeDocumentTag = useReducer(reducers.removeDocumentTag)
+  const pinDocument = useReducer(reducers.pinDocument)
+  const unpinDocument = useReducer(reducers.unpinDocument)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -428,6 +440,36 @@ export default function CanvasPage() {
       favoriteDocument({ documentId: id })
     }
   }, [starredIds, favoriteDocument, unfavoriteDocument])
+
+  // Pinned document IDs
+  const pinnedIds = useMemo(() => {
+    if (currentOrgId === null) return new Set<bigint>()
+    const set = new Set<bigint>()
+    for (const pin of allDocPins) {
+      if (Number(pin.orgId) === currentOrgId) set.add(pin.documentId)
+    }
+    return set
+  }, [allDocPins, currentOrgId])
+
+  const togglePin = useCallback((id: bigint) => {
+    if (pinnedIds.has(id)) {
+      unpinDocument({ documentId: id })
+    } else {
+      pinDocument({ documentId: id })
+    }
+  }, [pinnedIds, pinDocument, unpinDocument])
+
+  // Tags per document
+  const docTagsMap = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const t of allDocTags) {
+      const key = t.documentId.toString()
+      const existing = map.get(key) ?? []
+      existing.push(t.tag)
+      map.set(key, existing)
+    }
+    return map
+  }, [allDocTags])
 
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
@@ -539,8 +581,14 @@ export default function CanvasPage() {
     if (listFilter === 'documents') items = items.filter((d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Folder')
     else if (listFilter === 'whiteboards') items = items.filter((d) => d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder')
     else if (listFilter === 'starred') items = items.filter((d) => starredIds.has(d.id))
-    return items
-  }, [filteredDocuments, listFilter, starredIds])
+    // Sort: pinned first, then by updated_at desc
+    return [...items].sort((a, b) => {
+      const aPin = pinnedIds.has(a.id) ? 0 : 1
+      const bPin = pinnedIds.has(b.id) ? 0 : 1
+      if (aPin !== bPin) return aPin - bPin
+      return 0 // preserve existing sort
+    })
+  }, [filteredDocuments, listFilter, starredIds, pinnedIds])
 
   // Last edited by name
   const lastEditedByName = useMemo(() => {
@@ -912,6 +960,38 @@ export default function CanvasPage() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Tags bar */}
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-muted/30">
+          <Tag className="size-3 text-muted-foreground shrink-0" />
+          {(docTagsMap.get(activeDoc.id.toString()) ?? []).map(tag => {
+            const tagObj = allDocTags.find(t => t.documentId === activeDoc.id && t.tag === tag)
+            return (
+              <span key={tag} className="group inline-flex items-center gap-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 text-[10px] font-medium">
+                {tag}
+                {tagObj && (
+                  <button
+                    onClick={() => removeDocumentTag({ tagId: tagObj.id })}
+                    className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-500 transition-all"
+                  >
+                    <X className="size-2.5" />
+                  </button>
+                )}
+              </span>
+            )
+          })}
+          <input
+            type="text"
+            placeholder="Add tag..."
+            className="bg-transparent text-[10px] text-muted-foreground outline-none w-20 placeholder:text-muted-foreground/50"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                addDocumentTag({ documentId: activeDoc.id, tag: (e.target as HTMLInputElement).value.trim() })
+                ;(e.target as HTMLInputElement).value = ''
+              }
+            }}
+          />
         </div>
 
         {/* Editor body + sidebar */}
@@ -1350,6 +1430,8 @@ export default function CanvasPage() {
                   doc={doc}
                   employeeMap={employeeMap}
                   starred={starredIds.has(doc.id)}
+                  pinned={pinnedIds.has(doc.id)}
+                  tags={docTagsMap.get(doc.id.toString()) ?? []}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
@@ -1367,6 +1449,8 @@ export default function CanvasPage() {
                     setShareDocId(doc.id)
                     setShowShareDialog(true)
                   }}
+                  onDuplicate={() => duplicateDocument({ documentId: doc.id })}
+                  onTogglePin={() => togglePin(doc.id)}
                 />
               ))}
             </div>
@@ -1378,6 +1462,8 @@ export default function CanvasPage() {
                   doc={doc}
                   employeeMap={employeeMap}
                   starred={starredIds.has(doc.id)}
+                  pinned={pinnedIds.has(doc.id)}
+                  tags={docTagsMap.get(doc.id.toString()) ?? []}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
@@ -1395,6 +1481,8 @@ export default function CanvasPage() {
                     setShareDocId(doc.id)
                     setShowShareDialog(true)
                   }}
+                  onDuplicate={() => duplicateDocument({ documentId: doc.id })}
+                  onTogglePin={() => togglePin(doc.id)}
                 />
               ))}
             </div>
@@ -1664,20 +1752,28 @@ function CanvasCard({
   doc,
   employeeMap,
   starred,
+  pinned,
+  tags,
   onToggleStar,
   onOpen,
   onDelete,
   onMove,
   onShare,
+  onDuplicate,
+  onTogglePin,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
   starred: boolean
+  pinned: boolean
+  tags: string[]
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
   onShare: () => void
+  onDuplicate: () => void
+  onTogglePin: () => void
 }) {
   const isFolder = doc.docType.tag === 'Folder'
   const isWhiteboard = doc.docType.tag === 'Whiteboard'
@@ -1754,10 +1850,21 @@ function CanvasCard({
         </div>
       </div>
 
-      {/* Star indicator */}
-      {starred && (
-        <div className="absolute top-2 left-2">
-          <Star className="size-3.5 text-amber-400 fill-amber-400" />
+      {/* Star + Pin indicators */}
+      <div className="absolute top-2 left-2 flex gap-1">
+        {starred && <Star className="size-3.5 text-amber-400 fill-amber-400" />}
+        {pinned && <Pin className="size-3.5 text-blue-500" />}
+      </div>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div className="absolute bottom-[52px] left-2 right-2 flex gap-1 flex-wrap">
+          {tags.slice(0, 3).map(tag => (
+            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-medium">
+              <Tag className="size-2" />{tag}
+            </span>
+          ))}
+          {tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{tags.length - 3}</span>}
         </div>
       )}
 
@@ -1816,6 +1923,17 @@ function CanvasCard({
             <MoveRight className="size-3.5" /> Move to folder
           </ContextMenuItem>
         )}
+        {!isFolder && (
+          <ContextMenuItem onClick={onDuplicate}>
+            <CopyPlus className="size-3.5" /> Duplicate
+          </ContextMenuItem>
+        )}
+        {!isFolder && (
+          <ContextMenuItem onClick={onTogglePin}>
+            {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+            {pinned ? 'Unpin' : 'Pin to top'}
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onClick={() => navigator.clipboard.writeText(doc.title)}>
           <Copy className="size-3.5" /> Copy title
         </ContextMenuItem>
@@ -1832,20 +1950,28 @@ function CanvasListItem({
   doc,
   employeeMap,
   starred,
+  pinned,
+  tags,
   onToggleStar,
   onOpen,
   onDelete,
   onMove,
   onShare,
+  onDuplicate,
+  onTogglePin,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
   starred: boolean
+  pinned: boolean
+  tags: string[]
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
   onShare: () => void
+  onDuplicate: () => void
+  onTogglePin: () => void
 }) {
   const isFolder = doc.docType.tag === 'Folder'
   const isWhiteboard = doc.docType.tag === 'Whiteboard'
@@ -1915,9 +2041,20 @@ function CanvasListItem({
           <Trash2 className="size-3.5" />
         </button>
       </div>
-      {/* Star indicator in list view */}
-      {starred && !isFolder && (
-        <Star className="size-3 text-amber-400 fill-amber-400 shrink-0" />
+      {/* Indicators */}
+      <div className="flex items-center gap-1 shrink-0">
+        {pinned && <Pin className="size-3 text-blue-500 shrink-0" />}
+        {starred && !isFolder && <Star className="size-3 text-amber-400 fill-amber-400 shrink-0" />}
+      </div>
+      {tags.length > 0 && (
+        <div className="hidden md:flex items-center gap-1 shrink-0">
+          {tags.slice(0, 2).map(tag => (
+            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-medium">
+              <Tag className="size-2" />{tag}
+            </span>
+          ))}
+          {tags.length > 2 && <span className="text-[9px] text-muted-foreground">+{tags.length - 2}</span>}
+        </div>
       )}
     </div>
   )

@@ -37,6 +37,7 @@ import {
 import AcceptCallReducer from "./accept_call_reducer";
 import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddContactInteractionReducer from "./add_contact_interaction_reducer";
+import AddDocumentTagReducer from "./add_document_tag_reducer";
 import AddEventAttendeeReducer from "./add_event_attendee_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
@@ -150,9 +151,11 @@ import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import MoveDocumentReducer from "./move_document_reducer";
 import MoveDriveItemReducer from "./move_drive_item_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
+import PinDocumentReducer from "./pin_document_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RejectRequestReducer from "./reject_request_reducer";
+import RemoveDocumentTagReducer from "./remove_document_tag_reducer";
 import RemoveEventAttendeeReducer from "./remove_event_attendee_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveInvoiceLineItemReducer from "./remove_invoice_line_item_reducer";
@@ -194,6 +197,7 @@ import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
 import ToggleReportFavoriteReducer from "./toggle_report_favorite_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
 import UnfavoriteDocumentReducer from "./unfavorite_document_reducer";
+import UnpinDocumentReducer from "./unpin_document_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
 import UnresolveBlockerReducer from "./unresolve_blocker_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
@@ -267,6 +271,8 @@ import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
 import DocumentFavoriteRow from "./document_favorite_table";
+import DocumentPinRow from "./document_pin_table";
+import DocumentTagRow from "./document_tag_table";
 import DocumentVersionRow from "./document_version_table";
 import DriveItemRow from "./drive_item_table";
 import EmailLabelRow from "./email_label_table";
@@ -559,6 +565,28 @@ const tablesSchema = __schema({
       { name: 'document_favorite_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentFavoriteRow),
+  document_pin: __table({
+    name: 'document_pin',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_pin_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DocumentPinRow),
+  document_tag: __table({
+    name: 'document_tag',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_tag_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DocumentTagRow),
   document_version: __table({
     name: 'document_version',
     indexes: [
@@ -1124,6 +1152,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
   __reducerSchema("add_contact_interaction", AddContactInteractionReducer),
+  __reducerSchema("add_document_tag", AddDocumentTagReducer),
   __reducerSchema("add_event_attendee", AddEventAttendeeReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
@@ -1237,9 +1266,11 @@ const reducersSchema = __reducers(
   __reducerSchema("move_document", MoveDocumentReducer),
   __reducerSchema("move_drive_item", MoveDriveItemReducer),
   __reducerSchema("pause_agent", PauseAgentReducer),
+  __reducerSchema("pin_document", PinDocumentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("reject_request", RejectRequestReducer),
+  __reducerSchema("remove_document_tag", RemoveDocumentTagReducer),
   __reducerSchema("remove_event_attendee", RemoveEventAttendeeReducer),
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_invoice_line_item", RemoveInvoiceLineItemReducer),
@@ -1281,6 +1312,7 @@ const reducersSchema = __reducers(
   __reducerSchema("toggle_report_favorite", ToggleReportFavoriteReducer),
   __reducerSchema("trash_email", TrashEmailReducer),
   __reducerSchema("unfavorite_document", UnfavoriteDocumentReducer),
+  __reducerSchema("unpin_document", UnpinDocumentReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),
   __reducerSchema("unresolve_blocker", UnresolveBlockerReducer),
   __reducerSchema("unshare_document", UnshareDocumentReducer),

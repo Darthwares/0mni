@@ -53,10 +53,12 @@ import CompleteTaskWithVerificationReducer from "./complete_task_with_verificati
 import CreateAgentConfigReducer from "./create_agent_config_reducer";
 import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
 import CreateApprovalRequestReducer from "./create_approval_request_reducer";
+import CreateBugReducer from "./create_bug_reducer";
 import CreateCalEventReducer from "./create_cal_event_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
 import CreateCannedResponseReducer from "./create_canned_response_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
+import CreateCodeRepositoryReducer from "./create_code_repository_reducer";
 import CreateContactReducer from "./create_contact_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
@@ -74,6 +76,7 @@ import CreateLeadReducer from "./create_lead_reducer";
 import CreateNotificationReducer from "./create_notification_reducer";
 import CreateObjectiveReducer from "./create_objective_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
+import CreatePullRequestReducer from "./create_pull_request_reducer";
 import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTaskLabelReducer from "./create_task_label_reducer";
@@ -84,9 +87,11 @@ import CreateWorkflowReducer from "./create_workflow_reducer";
 import DeleteAgentConfigReducer from "./delete_agent_config_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
+import DeleteBugReducer from "./delete_bug_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteCandidateReducer from "./delete_candidate_reducer";
 import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
+import DeleteCodeRepositoryReducer from "./delete_code_repository_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
@@ -100,6 +105,7 @@ import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
+import DeletePullRequestReducer from "./delete_pull_request_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteStandupReducer from "./delete_standup_reducer";
 import DeleteTaskLabelReducer from "./delete_task_label_reducer";
@@ -177,6 +183,7 @@ import UnpinMessageReducer from "./unpin_message_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateAgentConfigReducer from "./update_agent_config_reducer";
+import UpdateBugStatusReducer from "./update_bug_status_reducer";
 import UpdateCalEventReducer from "./update_cal_event_reducer";
 import UpdateCandidateReducer from "./update_candidate_reducer";
 import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
@@ -198,6 +205,7 @@ import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
 import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
+import UpdatePrStatusReducer from "./update_pr_status_reducer";
 import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
 import UpdateTaskLabelReducer from "./update_task_label_reducer";
@@ -1060,10 +1068,12 @@ const reducersSchema = __reducers(
   __reducerSchema("create_agent_config", CreateAgentConfigReducer),
   __reducerSchema("create_agent_deployment", CreateAgentDeploymentReducer),
   __reducerSchema("create_approval_request", CreateApprovalRequestReducer),
+  __reducerSchema("create_bug", CreateBugReducer),
   __reducerSchema("create_cal_event", CreateCalEventReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
   __reducerSchema("create_canned_response", CreateCannedResponseReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
+  __reducerSchema("create_code_repository", CreateCodeRepositoryReducer),
   __reducerSchema("create_contact", CreateContactReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
@@ -1081,6 +1091,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_notification", CreateNotificationReducer),
   __reducerSchema("create_objective", CreateObjectiveReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
+  __reducerSchema("create_pull_request", CreatePullRequestReducer),
   __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_task_label", CreateTaskLabelReducer),
@@ -1091,9 +1102,11 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_config", DeleteAgentConfigReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
+  __reducerSchema("delete_bug", DeleteBugReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
   __reducerSchema("delete_candidate", DeleteCandidateReducer),
   __reducerSchema("delete_canned_response", DeleteCannedResponseReducer),
+  __reducerSchema("delete_code_repository", DeleteCodeRepositoryReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
@@ -1107,6 +1120,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
+  __reducerSchema("delete_pull_request", DeletePullRequestReducer),
   __reducerSchema("delete_sprint", DeleteSprintReducer),
   __reducerSchema("delete_standup", DeleteStandupReducer),
   __reducerSchema("delete_task_label", DeleteTaskLabelReducer),
@@ -1184,6 +1198,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_agent_config", UpdateAgentConfigReducer),
+  __reducerSchema("update_bug_status", UpdateBugStatusReducer),
   __reducerSchema("update_cal_event", UpdateCalEventReducer),
   __reducerSchema("update_candidate", UpdateCandidateReducer),
   __reducerSchema("update_candidate_status", UpdateCandidateStatusReducer),
@@ -1205,6 +1220,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),
   __reducerSchema("update_objective_status", UpdateObjectiveStatusReducer),
   __reducerSchema("update_organization", UpdateOrganizationReducer),
+  __reducerSchema("update_pr_status", UpdatePrStatusReducer),
   __reducerSchema("update_sprint", UpdateSprintReducer),
   __reducerSchema("update_task", UpdateTaskReducer),
   __reducerSchema("update_task_label", UpdateTaskLabelReducer),

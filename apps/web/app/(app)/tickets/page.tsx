@@ -12,6 +12,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 import {
   KanbanBoardProvider,
   KanbanBoard,
@@ -378,21 +381,78 @@ export default function TicketsPage() {
     setSelectedTaskIds(new Set())
   }
 
+  // Stats
+  const ticketStats = useMemo(() => {
+    const orgTasks = currentOrgId !== null
+      ? allTasks.filter((t) => Number(t.orgId) === currentOrgId)
+      : allTasks
+    const active = orgTasks.filter((t) => t.status.tag !== 'Cancelled' && t.status.tag !== 'Blocked')
+    const inProgress = active.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'SelfChecking')
+    const overdue = active.filter((t) => getDueDateStatus(t.dueAt) === 'overdue')
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const completedThisWeek = orgTasks.filter((t) => {
+      if (t.status.tag !== 'Completed') return false
+      try { return t.completedAt?.toDate()?.getTime() > weekAgo } catch { return false }
+    })
+    const urgent = active.filter((t) => t.priority.tag === 'Urgent')
+    return {
+      total: active.length,
+      inProgress: inProgress.length,
+      overdue: overdue.length,
+      completedThisWeek: completedThisWeek.length,
+      urgent: urgent.length,
+    }
+  }, [allTasks, currentOrgId])
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
-        <div className="flex items-center gap-2">
-          <KanbanSquare className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Tickets</h1>
-          <Badge variant="secondary" className="text-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
+            <KanbanSquare className="size-4 text-white" />
+          </div>
+          <GradientText
+            className="text-lg font-bold"
+            colors={['#8B5CF6', '#A855F7', '#C084FC', '#7C3AED']}
+            animationSpeed={6}
+          >
+            Tickets
+          </GradientText>
+          <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/10">
             {filteredTasks.length}
           </Badge>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Status filter pills */}
+          <div className="hidden lg:flex items-center gap-1 mr-1">
+            {(['all', 'Unclaimed', 'InProgress', 'NeedsReview', 'Completed'] as const).map((status) => {
+              const isActive = status === 'all'
+                ? filterType === 'all' && filterPriority === 'all'
+                : false
+              const label = status === 'all' ? 'All' : status === 'Unclaimed' ? 'Backlog' : status === 'InProgress' ? 'Active' : status === 'NeedsReview' ? 'Review' : 'Done'
+              const count = status === 'all'
+                ? filteredTasks.length
+                : filteredTasks.filter((t) => t.status.tag === status).length
+              return (
+                <button
+                  key={status}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                  {count > 0 && <span className="tabular-nums opacity-70">{count}</span>}
+                </button>
+              )
+            })}
+          </div>
+
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
@@ -434,10 +494,45 @@ export default function TicketsPage() {
 
           <PresenceBar />
 
-          <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
+          <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0">
             <Plus className="size-3.5" />
             Create
           </Button>
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="border-b px-4 py-2 shrink-0">
+        <div className="flex items-center gap-3 overflow-x-auto">
+          <div className="flex items-center gap-2 rounded-lg border bg-blue-500/5 border-blue-500/10 px-3 py-1.5">
+            <KanbanSquare className="size-3.5 text-blue-500" />
+            <span className="text-xs font-medium tabular-nums"><CountUp to={ticketStats.total} duration={1} /></span>
+            <span className="text-[10px] text-muted-foreground">Total</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border bg-amber-500/5 border-amber-500/10 px-3 py-1.5">
+            <Loader2 className="size-3.5 text-amber-500" />
+            <span className="text-xs font-medium tabular-nums"><CountUp to={ticketStats.inProgress} duration={1} /></span>
+            <span className="text-[10px] text-muted-foreground">In Progress</span>
+          </div>
+          {ticketStats.overdue > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border bg-red-500/5 border-red-500/10 px-3 py-1.5">
+              <AlertCircle className="size-3.5 text-red-500" />
+              <span className="text-xs font-medium tabular-nums text-red-600 dark:text-red-400"><CountUp to={ticketStats.overdue} duration={1} /></span>
+              <span className="text-[10px] text-red-500/70">Overdue</span>
+            </div>
+          )}
+          {ticketStats.urgent > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border bg-orange-500/5 border-orange-500/10 px-3 py-1.5">
+              <Flag className="size-3.5 text-orange-500" />
+              <span className="text-xs font-medium tabular-nums"><CountUp to={ticketStats.urgent} duration={1} /></span>
+              <span className="text-[10px] text-muted-foreground">Urgent</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 px-3 py-1.5">
+            <CheckCircle2 className="size-3.5 text-emerald-500" />
+            <span className="text-xs font-medium tabular-nums"><CountUp to={ticketStats.completedThisWeek} duration={1} /></span>
+            <span className="text-[10px] text-muted-foreground">Done this week</span>
+          </div>
         </div>
       </div>
 
@@ -479,14 +574,21 @@ export default function TicketsPage() {
                           <KanbanBoardCard
                             data={{ id: task.id.toString(), taskId: task.id.toString() }}
                             onClick={() => setSelectedTask(task)}
-                            className="w-full"
+                            className={`w-full border-l-2 ${
+                              task.priority.tag === 'Urgent' ? 'border-l-red-500' :
+                              task.priority.tag === 'High' ? 'border-l-orange-500' :
+                              task.priority.tag === 'Medium' ? 'border-l-amber-400' :
+                              'border-l-blue-400'
+                            }`}
                           >
                             {/* Top: ID + Priority */}
                             <div className="flex items-center justify-between w-full">
-                              <span className="font-mono text-[10px] text-muted-foreground">T-{task.id.toString()}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">T-{task.id.toString()}</span>
                               <div className="flex items-center gap-1.5">
                                 {task.aiConfidence != null && (
-                                  <Bot className="size-3 text-violet-400" />
+                                  <div className="flex items-center justify-center size-4 rounded bg-violet-500/10">
+                                    <Bot className="size-2.5 text-violet-400" />
+                                  </div>
                                 )}
                                 {priorityIcon(task.priority.tag)}
                               </div>
@@ -506,12 +608,14 @@ export default function TicketsPage() {
                                 const status = getDueDateStatus(task.dueAt)
                                 if (status === 'overdue' || status === 'soon') {
                                   return (
-                                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
-                                      status === 'overdue' ? 'text-red-500' : 'text-amber-500'
+                                    <Badge className={`text-[9px] h-4 px-1 ${
+                                      status === 'overdue'
+                                        ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/10'
+                                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10'
                                     }`}>
-                                      <CalendarClock className="size-3" />
+                                      <CalendarClock className="size-2.5 mr-0.5" />
                                       {status === 'overdue' ? 'Overdue' : 'Due soon'}
-                                    </span>
+                                    </Badge>
                                   )
                                 }
                                 return null
@@ -525,7 +629,7 @@ export default function TicketsPage() {
                                 employeeMap={employeeMap}
                                 onClaim={() => handleClaim(task.id)}
                               />
-                              <span className="text-[10px] text-muted-foreground">{formatTimeAgo(task.createdAt)}</span>
+                              <span className="text-[10px] text-muted-foreground tabular-nums">{formatTimeAgo(task.createdAt)}</span>
                             </div>
 
                             {/* Hover action buttons */}

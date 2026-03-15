@@ -72,7 +72,7 @@ const QUESTION_TYPE_CONFIG: Record<QuestionTypeKey, { icon: typeof Type; label: 
 const FILTER_TABS = ['all', 'Draft', 'Active', 'Closed'] as const
 type FilterTab = (typeof FILTER_TABS)[number]
 
-type ViewMode = 'list' | 'builder' | 'preview'
+type ViewMode = 'list' | 'builder' | 'preview' | 'responses'
 
 function formatDate(ts: { seconds: number } | bigint | number | Date | undefined): string {
   if (!ts) return ''
@@ -93,9 +93,11 @@ export default function FormsPage() {
   const { identity } = useSpacetimeDB()
 
   // SpacetimeDB data
-  const allFormDefs = useTable(tables.formDef) ?? []
-  const allQuestions = useTable(tables.formQuestion) ?? []
-  const allResponses = useTable(tables.formResponse) ?? []
+  const allFormDefs = useTable(tables.form_def) ?? []
+  const allQuestions = useTable(tables.form_question) ?? []
+  const allResponses = useTable(tables.form_response) ?? []
+  const allAnswers = useTable(tables.form_answer) ?? []
+  const [employees] = useTable(tables.employee)
 
   // Reducers
   const createForm = useReducer(reducers.createForm)
@@ -137,6 +139,81 @@ export default function FormsPage() {
     }
     return map
   }, [allResponses])
+
+  // Employee lookup
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, any>()
+    for (const e of employees) map.set(e.id.toHexString(), e)
+    return map
+  }, [employees])
+
+  // Answers grouped by responseId
+  const answersByResponse = useMemo(() => {
+    const map = new Map<string, typeof allAnswers>()
+    for (const a of allAnswers) {
+      const key = a.responseId.toString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(a)
+    }
+    return map
+  }, [allAnswers])
+
+  // Responses for active form (for responses view)
+  const activeFormResponses = useMemo(() => {
+    if (activeFormId === null) return []
+    return allResponses
+      .filter(r => r.formId === activeFormId)
+      .sort((a, b) => {
+        const aT = typeof a.submittedAt === 'bigint' ? Number(a.submittedAt) : 0
+        const bT = typeof b.submittedAt === 'bigint' ? Number(b.submittedAt) : 0
+        return bT - aT
+      })
+  }, [allResponses, activeFormId])
+
+  // Aggregated analytics for active form
+  const formAnalytics = useMemo(() => {
+    if (activeFormId === null || activeFormResponses.length === 0) return null
+    const questions = questionsByForm.get(activeFormId) ?? []
+    const analytics: Record<string, { question: any; valueCounts: Record<string, number>; values: string[]; avg?: number }> = {}
+
+    for (const q of questions) {
+      const qId = q.id.toString()
+      analytics[qId] = { question: q, valueCounts: {}, values: [] }
+    }
+
+    for (const resp of activeFormResponses) {
+      const answers = answersByResponse.get(resp.id.toString()) ?? []
+      for (const a of answers) {
+        const qId = a.questionId.toString()
+        if (!analytics[qId]) continue
+        const val = a.value
+        analytics[qId].values.push(val)
+        // For multi-choice/checkbox, split by comma
+        const q = analytics[qId].question
+        if (q.questionType.tag === 'Checkbox') {
+          for (const v of val.split(',')) {
+            const trimmed = v.trim()
+            if (trimmed) analytics[qId].valueCounts[trimmed] = (analytics[qId].valueCounts[trimmed] ?? 0) + 1
+          }
+        } else {
+          analytics[qId].valueCounts[val] = (analytics[qId].valueCounts[val] ?? 0) + 1
+        }
+      }
+    }
+
+    // Compute averages for numeric types
+    for (const qId of Object.keys(analytics)) {
+      const q = analytics[qId].question
+      if (q.questionType.tag === 'Rating' || q.questionType.tag === 'Scale') {
+        const nums = analytics[qId].values.map(Number).filter(n => !isNaN(n))
+        if (nums.length > 0) {
+          analytics[qId].avg = nums.reduce((s, n) => s + n, 0) / nums.length
+        }
+      }
+    }
+
+    return analytics
+  }, [activeFormId, activeFormResponses, questionsByForm, answersByResponse])
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('')
@@ -447,6 +524,7 @@ export default function FormsPage() {
   if (!activeForm) return null
 
   const isPreview = viewMode === 'preview'
+  const isResponses = viewMode === 'responses'
 
   return (
     <div className="flex flex-col h-full">
@@ -456,7 +534,7 @@ export default function FormsPage() {
         <Separator orientation="vertical" className="mr-2 !h-4" />
         <div className="flex items-center gap-2 flex-1">
           <ClipboardList className="size-4 text-pink-500" />
-          <span className="text-sm font-medium">{isPreview ? 'Preview' : 'Form Builder'}</span>
+          <span className="text-sm font-medium">{isResponses ? 'Responses' : isPreview ? 'Preview' : 'Form Builder'}</span>
         </div>
         <PresenceBar />
       </header>
@@ -470,7 +548,7 @@ export default function FormsPage() {
             </Button>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-                {isPreview ? 'Preview' : 'Form Builder'}
+                {isResponses ? 'Responses' : isPreview ? 'Preview' : 'Form Builder'}
               </h1>
               <p className="text-xs text-muted-foreground">Form #{activeForm.id.toString()}</p>
             </div>
@@ -487,6 +565,20 @@ export default function FormsPage() {
             >
               <Trash2 className="size-3.5" />
               Delete
+            </Button>
+            <Button
+              variant={isResponses ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode(isResponses ? 'builder' : 'responses')}
+              className="relative"
+            >
+              <BarChart3 className="size-3.5" />
+              Responses
+              {(responseCountByForm.get(activeForm.id) ?? 0) > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center size-5 rounded-full bg-pink-500 text-[10px] text-white font-medium">
+                  {responseCountByForm.get(activeForm.id)}
+                </span>
+              )}
             </Button>
             <Button
               variant={isPreview ? 'default' : 'outline'}
@@ -506,7 +598,7 @@ export default function FormsPage() {
                 </>
               )}
             </Button>
-            {!isPreview && (
+            {!isPreview && !isResponses && (
               <Select value={activeForm.status.tag} onValueChange={handleUpdateStatus}>
                 <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
@@ -521,8 +613,197 @@ export default function FormsPage() {
           </div>
         </div>
 
-        {/* ---- Preview Mode ---- */}
-        {isPreview ? (
+        {/* ---- Responses Analytics View ---- */}
+        {isResponses ? (
+          <div className="max-w-4xl mx-auto w-full space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Total Responses</p>
+                <p className="text-2xl font-bold tabular-nums">{activeFormResponses.length}</p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Questions</p>
+                <p className="text-2xl font-bold tabular-nums">{activeFormQuestions.length}</p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Completion Rate</p>
+                <p className="text-2xl font-bold tabular-nums">
+                  {activeFormResponses.length > 0 && activeFormQuestions.length > 0
+                    ? `${Math.round(
+                        (activeFormResponses.filter(r => {
+                          const answers = answersByResponse.get(r.id.toString()) ?? []
+                          return answers.length >= activeFormQuestions.filter(q => q.required).length
+                        }).length / activeFormResponses.length) * 100
+                      )}%`
+                    : '—'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Last Response</p>
+                <p className="text-sm font-medium">
+                  {activeFormResponses.length > 0
+                    ? formatDate(activeFormResponses[0].submittedAt)
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {activeFormResponses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex size-14 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
+                  <BarChart3 className="size-7 text-neutral-400" />
+                </div>
+                <h3 className="text-base font-semibold text-neutral-700 dark:text-neutral-300 mb-1">No responses yet</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Share your form to start collecting responses. Make sure the form status is Active.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Per-question analytics */}
+                {formAnalytics && activeFormQuestions.map(q => {
+                  const qId = q.id.toString()
+                  const data = formAnalytics[qId]
+                  if (!data) return null
+                  const qType = q.questionType.tag as QuestionTypeKey
+                  const totalValues = data.values.length
+                  const sortedEntries = Object.entries(data.valueCounts).sort((a, b) => b[1] - a[1])
+
+                  return (
+                    <div key={qId} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden">
+                      <div className="px-5 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {(() => { const cfg = QUESTION_TYPE_CONFIG[qType]; const Icon = cfg?.icon ?? Type; return <Icon className="size-3.5 text-pink-500" /> })()}
+                          <h4 className="text-sm font-semibold">{q.label || 'Untitled Question'}</h4>
+                          {q.required && <span className="text-[9px] text-pink-500 font-medium">Required</span>}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{totalValues} answer{totalValues !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="p-5">
+                        {/* Rating/Scale: show average + distribution */}
+                        {(qType === 'Rating' || qType === 'Scale') && data.avg !== undefined ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl font-bold tabular-nums">{data.avg.toFixed(1)}</span>
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: qType === 'Rating' ? (q.maxRating || 5) : 10 }, (_, i) => (
+                                  <Star key={i} className={`size-4 ${i < Math.round(data.avg!) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200 dark:text-neutral-700'}`} />
+                                ))}
+                              </div>
+                              <span className="text-xs text-muted-foreground">avg of {totalValues}</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {sortedEntries.map(([val, count]) => {
+                                const pct = totalValues > 0 ? (count / totalValues) * 100 : 0
+                                return (
+                                  <div key={val} className="flex items-center gap-2">
+                                    <span className="text-xs w-6 text-right tabular-nums text-muted-foreground">{val}</span>
+                                    <div className="flex-1 h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                      <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground w-8 tabular-nums">{count}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ) : (qType === 'MultipleChoice' || qType === 'Checkbox' || qType === 'Dropdown') ? (
+                          /* Choice-based: horizontal bar chart */
+                          <div className="space-y-2">
+                            {sortedEntries.map(([val, count]) => {
+                              const pct = totalValues > 0 ? (count / totalValues) * 100 : 0
+                              return (
+                                <div key={val} className="flex items-center gap-3">
+                                  <span className="text-xs flex-1 min-w-0 truncate">{val}</span>
+                                  <div className="w-40 h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden shrink-0">
+                                    <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-xs text-muted-foreground w-12 text-right tabular-nums shrink-0">{count} ({Math.round(pct)}%)</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : qType === 'Text' ? (
+                          /* Text: show recent responses */
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {data.values.slice(0, 20).map((val, i) => (
+                              <div key={i} className="rounded-lg bg-neutral-50 dark:bg-neutral-800/50 px-3 py-2 text-xs text-foreground/80">
+                                {val || <span className="text-muted-foreground italic">Empty</span>}
+                              </div>
+                            ))}
+                            {data.values.length > 20 && (
+                              <p className="text-[10px] text-muted-foreground text-center pt-1">
+                                + {data.values.length - 20} more responses
+                              </p>
+                            )}
+                          </div>
+                        ) : qType === 'Date' ? (
+                          /* Date: show list */
+                          <div className="flex flex-wrap gap-1.5">
+                            {sortedEntries.slice(0, 20).map(([val, count]) => (
+                              <span key={val} className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-[11px] text-muted-foreground">
+                                {val} <span className="ml-1 text-[9px] opacity-60">({count})</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No visualization available for this type.</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Individual responses table */}
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-neutral-100 dark:border-neutral-800">
+                    <h4 className="text-sm font-semibold">Individual Responses</h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                          <th className="px-4 py-2 text-left font-medium text-muted-foreground">#</th>
+                          {!activeForm.anonymous && (
+                            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Respondent</th>
+                          )}
+                          <th className="px-4 py-2 text-left font-medium text-muted-foreground">Submitted</th>
+                          {activeFormQuestions.map(q => (
+                            <th key={q.id.toString()} className="px-4 py-2 text-left font-medium text-muted-foreground max-w-[200px] truncate">
+                              {q.label || 'Untitled'}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeFormResponses.map((resp, idx) => {
+                          const answers = answersByResponse.get(resp.id.toString()) ?? []
+                          const answerMap = new Map(answers.map(a => [a.questionId.toString(), a.value]))
+                          const respondent = activeForm.anonymous ? null : employeeMap.get(resp.respondent.toHexString())
+                          return (
+                            <tr key={resp.id.toString()} className="border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
+                              <td className="px-4 py-2.5 text-muted-foreground">{idx + 1}</td>
+                              {!activeForm.anonymous && (
+                                <td className="px-4 py-2.5 font-medium">{respondent?.name ?? resp.respondent.toHexString().slice(0, 8) + '...'}</td>
+                              )}
+                              <td className="px-4 py-2.5 text-muted-foreground">{formatDate(resp.submittedAt)}</td>
+                              {activeFormQuestions.map(q => (
+                                <td key={q.id.toString()} className="px-4 py-2.5 max-w-[200px] truncate">
+                                  {answerMap.get(q.id.toString()) || <span className="text-muted-foreground">—</span>}
+                                </td>
+                              ))}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ) : isPreview ? (
           <div className="max-w-2xl mx-auto w-full">
             <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6">
               <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-1">

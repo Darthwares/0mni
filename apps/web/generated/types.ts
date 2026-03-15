@@ -46,6 +46,16 @@ export const ActivityLog = __t.object("ActivityLog", {
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 
+// The tagged union or sum type for the algebraic type `AgentDeploymentStatus`.
+export const AgentDeploymentStatus = __t.enum("AgentDeploymentStatus", {
+  Draft: __t.unit(),
+  Deploying: __t.unit(),
+  Active: __t.unit(),
+  Paused: __t.unit(),
+  Failed: __t.unit(),
+});
+export type AgentDeploymentStatus = __Infer<typeof AgentDeploymentStatus>;
+
 export const AgentThoughtEvent = __t.object("AgentThoughtEvent", {
   taskId: __t.u64(),
   agentId: __t.identity(),
@@ -57,6 +67,30 @@ export const AgentThoughtEvent = __t.object("AgentThoughtEvent", {
   timestamp: __t.timestamp(),
 });
 export type AgentThoughtEvent = __Infer<typeof AgentThoughtEvent>;
+
+export const AiAgentDeployment = __t.object("AiAgentDeployment", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  get department() {
+    return Department;
+  },
+  roleDescription: __t.string(),
+  systemPrompt: __t.string(),
+  model: __t.string(),
+  capabilities: __t.array(__t.string()),
+  selfVerificationThreshold: __t.f32(),
+  maxTaskDurationMinutes: __t.u32(),
+  get status() {
+    return AgentDeploymentStatus;
+  },
+  tasksCompleted: __t.u64(),
+  avgConfidence: __t.option(__t.f32()),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+  lastActive: __t.option(__t.timestamp()),
+});
+export type AiAgentDeployment = __Infer<typeof AiAgentDeployment>;
 
 export const AiCallParticipant = __t.object("AiCallParticipant", {
   agentId: __t.string(),

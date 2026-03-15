@@ -44,6 +44,9 @@ import {
   Star,
   Plus,
 } from 'lucide-react'
+import CountUp from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -300,7 +303,11 @@ export default function RecruitmentPage() {
       {/* Page heading */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Recruitment</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            <GradientText colors={['#8B5CF6', '#A855F7', '#D946EF']} animationSpeed={5} className="text-2xl font-semibold tracking-tight">
+              Recruitment
+            </GradientText>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Candidate pipeline, job postings, and interview scheduling
           </p>
@@ -379,69 +386,53 @@ export default function RecruitmentPage() {
           <div className="flex flex-col gap-6 mt-4">
             {/* KPI Cards */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Total Candidates
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold">
-                      {totalCandidates}
-                    </span>
-                    <Users className="size-5 text-muted-foreground mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
+              <SpotlightCard className="p-4">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide pb-2">
+                  Total Candidates
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-bold">
+                    <CountUp to={totalCandidates} duration={1.2} />
+                  </span>
+                  <Users className="size-5 text-muted-foreground mb-1" />
+                </div>
+              </SpotlightCard>
 
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    In Pipeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-blue-600">
-                      {inPipeline}
-                    </span>
-                    <Star className="size-5 text-blue-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
+              <SpotlightCard className="p-4" spotlightColor="rgba(59, 130, 246, 0.15)">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide pb-2">
+                  In Pipeline
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-bold text-blue-600">
+                    <CountUp to={inPipeline} duration={1.2} />
+                  </span>
+                  <Star className="size-5 text-blue-400 mb-1" />
+                </div>
+              </SpotlightCard>
 
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Interviews Scheduled
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-purple-600">
-                      {interviewsScheduled}
-                    </span>
-                    <CalendarCheck className="size-5 text-purple-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
+              <SpotlightCard className="p-4" spotlightColor="rgba(147, 51, 234, 0.15)">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide pb-2">
+                  Interviews Scheduled
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-bold text-purple-600">
+                    <CountUp to={interviewsScheduled} duration={1.2} />
+                  </span>
+                  <CalendarCheck className="size-5 text-purple-400 mb-1" />
+                </div>
+              </SpotlightCard>
 
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Hired
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-green-600">
-                      {hired}
-                    </span>
-                    <CheckCircle2 className="size-5 text-green-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
+              <SpotlightCard className="p-4" spotlightColor="rgba(34, 197, 94, 0.15)">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide pb-2">
+                  Hired
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-bold text-green-600">
+                    <CountUp to={hired} duration={1.2} />
+                  </span>
+                  <CheckCircle2 className="size-5 text-green-400 mb-1" />
+                </div>
+              </SpotlightCard>
             </div>
 
             {/* Search */}

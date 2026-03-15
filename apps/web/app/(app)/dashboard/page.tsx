@@ -31,6 +31,8 @@ import {
   Star,
   Clock,
 } from 'lucide-react'
+import CountUp from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
 
 const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
   ssr: false,
@@ -245,9 +247,15 @@ export default function DashboardPage() {
             {isGlobalOrg ? (
               <span className="flex items-center gap-2">
                 <Globe className="size-5 text-amber-500" />
-                World
+                <GradientText colors={['#F59E0B', '#F97316', '#EF4444']} animationSpeed={6} className="text-xl font-semibold">
+                  World
+                </GradientText>
               </span>
-            ) : 'Feed'}
+            ) : (
+              <GradientText colors={['#8B5CF6', '#6366F1', '#3B82F6']} animationSpeed={6} className="text-xl font-semibold">
+                Feed
+              </GradientText>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {isGlobalOrg ? 'Global workspace activity' : 'Latest activity in your workspace'}
@@ -328,7 +336,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Messages</p>
-                <p className="text-xs text-muted-foreground">{activeChannelCount} channels</p>
+                <p className="text-xs text-muted-foreground"><CountUp to={activeChannelCount} duration={1.2} className="font-medium" /> channels</p>
               </div>
               <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </CardContent>
@@ -342,7 +350,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Tickets</p>
-                <p className="text-xs text-muted-foreground">{openTaskCount} open</p>
+                <p className="text-xs text-muted-foreground"><CountUp to={openTaskCount} duration={1.2} className="font-medium" /> open</p>
               </div>
               <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </CardContent>
@@ -356,7 +364,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Canvas</p>
-                <p className="text-xs text-muted-foreground">{docCount} docs</p>
+                <p className="text-xs text-muted-foreground"><CountUp to={docCount} duration={1.2} className="font-medium" /> docs</p>
               </div>
               <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </CardContent>

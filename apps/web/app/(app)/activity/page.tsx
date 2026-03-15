@@ -19,6 +19,9 @@ import {
   Phone,
   Mail,
 } from 'lucide-react'
+import CountUp from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 const actionIcons: Record<string, typeof Activity> = {
   Created: Plus,
@@ -102,7 +105,11 @@ export default function ActivityPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Activity Feed</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          <GradientText colors={['#06B6D4', '#3B82F6', '#8B5CF6']} animationSpeed={5} className="text-2xl font-bold tracking-tight">
+            Activity Feed
+          </GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm">Real-time audit trail across all modules</p>
       </div>
 
@@ -114,15 +121,13 @@ export default function ActivityPage() {
           { label: 'Completed', value: actionCounts['Completed'] ?? 0, icon: CheckCircle },
           { label: 'Escalated', value: actionCounts['Escalated'] ?? 0, icon: AlertTriangle },
         ].map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+          <SpotlightCard key={stat.label} className="p-4">
+            <div className="flex flex-row items-center justify-between pb-2">
+              <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
               <stat.icon className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="text-2xl font-bold"><CountUp to={stat.value} duration={1.2} /></div>
+          </SpotlightCard>
         ))}
       </div>
 

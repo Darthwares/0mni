@@ -57,6 +57,9 @@ import {
   User,
   Plus,
 } from 'lucide-react'
+import CountUp from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -296,8 +299,10 @@ export default function SalesPage() {
       {/* ── Page title row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            Sales &amp; CRM
+          <h1 className="text-2xl font-semibold">
+            <GradientText colors={['#10B981', '#059669', '#047857']} animationSpeed={5} className="text-2xl font-semibold">
+              Sales &amp; CRM
+            </GradientText>
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Lead qualification and deal pipeline management
@@ -406,61 +411,45 @@ export default function SalesPage() {
 
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Users className="size-3.5" />
-                  Total Leads
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {kpis.total}
-                </p>
-              </CardContent>
-            </Card>
+            <SpotlightCard className="p-4">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground pb-1">
+                <Users className="size-3.5" />
+                Total Leads
+              </div>
+              <p className="text-3xl font-bold">
+                <CountUp to={kpis.total} duration={1.2} />
+              </p>
+            </SpotlightCard>
 
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <CheckCircle2 className="size-3.5 text-green-500" />
-                  Qualified
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-green-600">
-                  {kpis.qualified}
-                </p>
-              </CardContent>
-            </Card>
+            <SpotlightCard className="p-4" spotlightColor="rgba(34, 197, 94, 0.15)">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground pb-1">
+                <CheckCircle2 className="size-3.5 text-green-500" />
+                Qualified
+              </div>
+              <p className="text-3xl font-bold text-green-600">
+                <CountUp to={kpis.qualified} duration={1.2} />
+              </p>
+            </SpotlightCard>
 
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <TrendingUp className="size-3.5 text-emerald-500" />
-                  Converted
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-emerald-600">
-                  {kpis.converted}
-                </p>
-              </CardContent>
-            </Card>
+            <SpotlightCard className="p-4" spotlightColor="rgba(16, 185, 129, 0.15)">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground pb-1">
+                <TrendingUp className="size-3.5 text-emerald-500" />
+                Converted
+              </div>
+              <p className="text-3xl font-bold text-emerald-600">
+                <CountUp to={kpis.converted} duration={1.2} />
+              </p>
+            </SpotlightCard>
 
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <BarChart3 className="size-3.5 text-violet-500" />
-                  Avg Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {kpis.avgScore}
-                </p>
-              </CardContent>
-            </Card>
+            <SpotlightCard className="p-4" spotlightColor="rgba(139, 92, 246, 0.15)">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground pb-1">
+                <BarChart3 className="size-3.5 text-violet-500" />
+                Avg Score
+              </div>
+              <p className="text-3xl font-bold">
+                <CountUp to={kpis.avgScore} duration={1.2} />
+              </p>
+            </SpotlightCard>
           </div>
 
           {/* Filters */}

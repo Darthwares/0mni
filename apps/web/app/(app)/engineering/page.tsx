@@ -26,6 +26,9 @@ import {
   Database,
   Code2,
 } from 'lucide-react'
+import CountUp from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -147,17 +150,30 @@ function KpiCard({
   subtitle?: string
   accent?: string
 }) {
+  const numericValue = typeof value === 'number' ? value : null
+  const stringValue = typeof value === 'string' ? value : null
+  // Extract number from percentage strings like "42%"
+  const pctMatch = stringValue?.match(/^(\d+)%$/)
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+    <SpotlightCard className="p-0 border-border" spotlightColor={accent ? `color-mix(in oklch, currentColor, transparent 80%)` : 'rgba(255,255,255,0.08)'}>
+      <div className="pb-2 flex flex-row items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">{title}</span>
         <Icon className={`h-4 w-4 ${accent ?? 'text-muted-foreground'}`} />
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${accent ?? ''}`}>{value}</div>
+      </div>
+      <div>
+        <div className={`text-2xl font-bold ${accent ?? ''}`}>
+          {numericValue !== null ? (
+            <CountUp to={numericValue} duration={1.2} />
+          ) : pctMatch ? (
+            <><CountUp to={parseInt(pctMatch[1], 10)} duration={1.2} />%</>
+          ) : (
+            value
+          )}
+        </div>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-      </CardContent>
-    </Card>
+      </div>
+    </SpotlightCard>
   )
 }
 
@@ -225,7 +241,11 @@ export default function EngineeringPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Engineering</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          <GradientText colors={['#F97316', '#EF4444', '#EC4899']} animationSpeed={5} className="text-2xl font-bold tracking-tight">
+            Engineering
+          </GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           AI-powered code reviews, automated bug triage, and repository insights
         </p>
@@ -493,12 +513,12 @@ export default function EngineeringPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {repos.map(repo => (
-                <Card key={repo.id.toString()} className="flex flex-col">
-                  <CardHeader className="pb-3">
+                <SpotlightCard key={repo.id.toString()} className="flex flex-col p-0">
+                  <div className="pb-3 px-0">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold leading-tight">
+                      <span className="text-base font-semibold leading-tight">
                         {repo.name}
-                      </CardTitle>
+                      </span>
                       <PlatformBadge platform={repo.platform} />
                     </div>
                     <a
@@ -510,9 +530,8 @@ export default function EngineeringPage() {
                       <ExternalLink className="h-3 w-3 shrink-0" />
                       <span className="truncate">{repo.url}</span>
                     </a>
-                  </CardHeader>
-                  <CardContent className="pt-0 flex flex-col gap-3 flex-1">
-                    {/* Primary Languages */}
+                  </div>
+                  <div className="pt-0 flex flex-col gap-3 flex-1">
                     {repo.primaryLanguages.length > 0 && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1.5">Languages</p>
@@ -525,9 +544,7 @@ export default function EngineeringPage() {
                         </div>
                       </div>
                     )}
-
-                    {/* AI Index Status */}
-                    <div className="flex items-center justify-between pt-1 border-t">
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
                       <div className="flex items-center gap-1.5">
                         <Zap className={`h-3.5 w-3.5 ${repo.aiIndexed ? 'text-purple-500' : 'text-gray-300'}`} />
                         <span className="text-xs text-muted-foreground">
@@ -540,8 +557,8 @@ export default function EngineeringPage() {
                         </span>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </SpotlightCard>
               ))}
             </div>
           )}

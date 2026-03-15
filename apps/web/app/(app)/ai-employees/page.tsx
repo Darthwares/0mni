@@ -29,6 +29,8 @@ import {
   Plus,
   CircleDot,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -479,7 +481,11 @@ export default function AIEmployeesPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600">
                 <Bot className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">AI Employees</h1>
+              <h1 className="text-xl font-bold">
+                <GradientText colors={['#8B5CF6', '#D946EF', '#F43F5E']} animationSpeed={5} className="text-xl font-bold">
+                  AI Employees
+                </GradientText>
+              </h1>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Manage and monitor your AI workforce across all departments

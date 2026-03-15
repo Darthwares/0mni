@@ -66,6 +66,7 @@ import {
   EyeOff,
   Users,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -561,7 +562,11 @@ export default function CanvasPage() {
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
           <PenTool className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Canvas</h1>
+          <h1 className="text-lg font-bold">
+            <GradientText colors={['#8B5CF6', '#6366F1', '#EC4899']} animationSpeed={5} className="text-lg font-bold">
+              Canvas
+            </GradientText>
+          </h1>
           <Badge variant="secondary" className="text-xs">
             {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
           </Badge>

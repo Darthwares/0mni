@@ -35,7 +35,7 @@ const StarBorder: React.FC<StarBorderProps> = ({
         } as React.CSSProperties}
       />
       <div
-        className="relative z-10 bg-neutral-900 rounded-[calc(0.75rem-var(--star-thickness))] m-[var(--star-thickness)]"
+        className="relative z-10 bg-card rounded-[calc(0.75rem-var(--star-thickness))] m-[var(--star-thickness)]"
         style={{ '--star-thickness': `${thickness}px` } as React.CSSProperties}
       >
         {children}

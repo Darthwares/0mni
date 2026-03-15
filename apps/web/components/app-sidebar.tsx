@@ -39,6 +39,9 @@ import {
   Workflow,
   Network,
   FileBarChart,
+  Contact,
+  Wallet,
+  Coffee,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -113,6 +116,8 @@ const navSections = [
       { title: "Sales", href: "/sales", icon: TrendingUp, countKey: "leads" as const },
       { title: "Recruitment", href: "/recruitment", icon: Users, countKey: "candidates" as const },
       { title: "Invoicing", href: "/invoicing", icon: Receipt },
+      { title: "Expenses", href: "/expenses", icon: Wallet },
+      { title: "Contacts", href: "/contacts", icon: Contact },
       { title: "Goals & OKRs", href: "/goals", icon: Target },
     ],
   },
@@ -126,6 +131,7 @@ const navSections = [
       { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
       { title: "Whiteboard", href: "/whiteboard", icon: Presentation },
       { title: "Forms", href: "/forms", icon: ClipboardList },
+      { title: "Standups", href: "/standups", icon: Coffee, globalHidden: true },
       { title: "Time Tracking", href: "/time-tracking", icon: Timer, globalHidden: true },
       { title: "Approvals", href: "/approvals", icon: ClipboardCheck, globalHidden: true },
     ],

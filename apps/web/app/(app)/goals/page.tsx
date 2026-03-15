@@ -19,12 +19,16 @@ import {
   Building2,
   User,
   Trash2,
+  History,
+  MessageSquarePlus,
+  Clock,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -101,6 +105,7 @@ export default function GoalsPage() {
 
   const [allObjectives] = useTable(tables.objective)
   const [allKeyResults] = useTable(tables.keyResult)
+  const [allCheckIns] = useTable(tables.krCheckIn)
   const [employees] = useTable(tables.employee)
 
   const createObjective = useReducer(reducers.createObjective)
@@ -109,6 +114,8 @@ export default function GoalsPage() {
   const createKeyResult = useReducer(reducers.createKeyResult)
   const updateKrProgress = useReducer(reducers.updateKrProgress)
   const deleteKeyResult = useReducer(reducers.deleteKeyResult)
+  const addKrCheckIn = useReducer(reducers.addKrCheckIn)
+  const deleteKrCheckIn = useReducer(reducers.deleteKrCheckIn)
 
   const [selectedQuarter, setSelectedQuarter] = useState('Q1 2026')
   const [departmentFilter, setDepartmentFilter] = useState('All')
@@ -117,6 +124,12 @@ export default function GoalsPage() {
   const [editingKR, setEditingKR] = useState<{ krId: bigint } | null>(null)
   const [editKRValue, setEditKRValue] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+
+  // Check-in dialog state
+  const [checkInKR, setCheckInKR] = useState<{ krId: bigint; krTitle: string; currentValue: number; targetValue: number; unit: string } | null>(null)
+  const [checkInValue, setCheckInValue] = useState('')
+  const [checkInNote, setCheckInNote] = useState('')
+  const [expandedKRHistory, setExpandedKRHistory] = useState<Set<string>>(new Set())
 
   // Create form state
   const [newTitle, setNewTitle] = useState('')
@@ -150,6 +163,26 @@ export default function GoalsPage() {
     })
     return map
   }, [allKeyResults])
+
+  // Check-ins grouped by KR, sorted newest first
+  const checkInsByKR = useMemo(() => {
+    const map = new Map<string, typeof allCheckIns>()
+    allCheckIns.forEach(ci => {
+      const key = ci.krId.toString()
+      const list = map.get(key) ?? []
+      list.push(ci)
+      map.set(key, list)
+    })
+    // Sort each list by created_at descending
+    map.forEach((list) => {
+      list.sort((a, b) => {
+        const ta = typeof a.createdAt === 'bigint' ? a.createdAt : BigInt(0)
+        const tb = typeof b.createdAt === 'bigint' ? b.createdAt : BigInt(0)
+        return tb > ta ? 1 : tb < ta ? -1 : 0
+      })
+    })
+    return map
+  }, [allCheckIns])
 
   // Get objective progress
   const getObjectiveProgress = useCallback((objId: bigint): number => {
@@ -277,6 +310,41 @@ export default function GoalsPage() {
       console.error('Failed to delete KR:', e)
     }
   }, [deleteKeyResult])
+
+  const openCheckInDialog = useCallback((kr: any) => {
+    setCheckInKR({ krId: kr.id, krTitle: kr.title, currentValue: kr.currentValue, targetValue: kr.targetValue, unit: kr.unit })
+    setCheckInValue(String(kr.currentValue))
+    setCheckInNote('')
+  }, [])
+
+  const handleCheckIn = useCallback(async () => {
+    if (!checkInKR) return
+    const val = parseInt(checkInValue, 10)
+    if (isNaN(val) || val < 0) return
+    try {
+      await addKrCheckIn({ krId: checkInKR.krId, progressValue: val, note: checkInNote.trim() })
+    } catch (e) {
+      console.error('Failed to add check-in:', e)
+    }
+    setCheckInKR(null)
+  }, [checkInKR, checkInValue, checkInNote, addKrCheckIn])
+
+  const handleDeleteCheckIn = useCallback(async (checkInId: bigint) => {
+    try {
+      await deleteKrCheckIn({ checkInId })
+    } catch (e) {
+      console.error('Failed to delete check-in:', e)
+    }
+  }, [deleteKrCheckIn])
+
+  const toggleKRHistory = useCallback((krId: string) => {
+    setExpandedKRHistory(prev => {
+      const next = new Set(prev)
+      if (next.has(krId)) next.delete(krId)
+      else next.add(krId)
+      return next
+    })
+  }, [])
 
   const addKRField = useCallback(() => {
     setNewKRs(prev => [...prev, { title: '', target: '', unit: '%' }])
@@ -578,69 +646,165 @@ export default function GoalsPage() {
                           {krs.map(kr => {
                             const krProgress = getKRProgress(kr.targetValue, kr.currentValue)
                             const isEditing = editingKR?.krId === kr.id
+                            const krCheckIns = checkInsByKR.get(kr.id.toString()) ?? []
+                            const historyOpen = expandedKRHistory.has(kr.id.toString())
 
                             return (
-                              <div key={kr.id.toString()} className="flex items-center gap-4 px-5 py-3 group hover:bg-muted/30 transition-colors">
-                                {/* KR title + progress bar */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs font-medium truncate">{kr.title}</span>
-                                    <span className={`text-[10px] font-bold tabular-nums ${progressTextColor(krProgress)}`}>
-                                      {krProgress}%
-                                    </span>
-                                  </div>
-                                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all duration-500 ${progressColor(krProgress)}`}
-                                      style={{ width: `${krProgress}%` }}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Current / Target */}
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {isEditing ? (
-                                    <div className="flex items-center gap-1">
-                                      <input
-                                        type="number"
-                                        value={editKRValue}
-                                        onChange={e => setEditKRValue(e.target.value)}
-                                        className="w-16 h-6 px-1.5 rounded border bg-background text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                                        autoFocus
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter') handleKRSave()
-                                          if (e.key === 'Escape') setEditingKR(null)
-                                        }}
-                                      />
-                                      <button onClick={handleKRSave} className="size-5 flex items-center justify-center rounded bg-green-500/10 text-green-600 hover:bg-green-500/20">
-                                        <Check className="size-3" />
-                                      </button>
-                                      <button onClick={() => setEditingKR(null)} className="size-5 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80">
-                                        <X className="size-3" />
-                                      </button>
+                              <div key={kr.id.toString()}>
+                                <div className="flex items-center gap-4 px-5 py-3 group hover:bg-muted/30 transition-colors">
+                                  {/* KR title + progress bar */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xs font-medium truncate">{kr.title}</span>
+                                      <span className={`text-[10px] font-bold tabular-nums ${progressTextColor(krProgress)}`}>
+                                        {krProgress}%
+                                      </span>
+                                      {/* Mini sparkline for recent check-ins */}
+                                      {krCheckIns.length >= 2 && (
+                                        <svg className="w-12 h-4 shrink-0" viewBox={`0 0 ${Math.max(krCheckIns.length - 1, 1) * 10} 16`}>
+                                          <polyline
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="text-amber-500"
+                                            points={[...krCheckIns].reverse().slice(-8).map((ci, i) => {
+                                              const pct = kr.targetValue > 0 ? ci.progressValue / kr.targetValue : 0
+                                              const y = 14 - Math.min(pct, 1) * 12
+                                              return `${i * 10},${y}`
+                                            }).join(' ')}
+                                          />
+                                        </svg>
+                                      )}
                                     </div>
-                                  ) : (
+                                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 ${progressColor(krProgress)}`}
+                                        style={{ width: `${krProgress}%` }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Current / Target */}
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          value={editKRValue}
+                                          onChange={e => setEditKRValue(e.target.value)}
+                                          className="w-16 h-6 px-1.5 rounded border bg-background text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                                          autoFocus
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter') handleKRSave()
+                                            if (e.key === 'Escape') setEditingKR(null)
+                                          }}
+                                        />
+                                        <button onClick={handleKRSave} className="size-5 flex items-center justify-center rounded bg-green-500/10 text-green-600 hover:bg-green-500/20">
+                                          <Check className="size-3" />
+                                        </button>
+                                        <button onClick={() => setEditingKR(null)} className="size-5 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80">
+                                          <X className="size-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleKREdit(kr.id, kr.currentValue)}
+                                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground tabular-nums transition-colors"
+                                        title="Click to quick-edit progress"
+                                      >
+                                        <span className="font-medium">{kr.currentValue}</span>
+                                        <span>/</span>
+                                        <span>{kr.targetValue}</span>
+                                        <span className="text-[10px]">{kr.unit}</span>
+                                        <Pencil className="size-3 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Check-in button */}
+                                  <button
+                                    onClick={() => openCheckInDialog(kr)}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors shrink-0"
+                                    title="Log a check-in with notes"
+                                  >
+                                    <MessageSquarePlus className="size-3" />
+                                    Check-in
+                                  </button>
+
+                                  {/* History toggle */}
+                                  {krCheckIns.length > 0 && (
                                     <button
-                                      onClick={() => handleKREdit(kr.id, kr.currentValue)}
-                                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground tabular-nums transition-colors"
-                                      title="Click to update progress"
+                                      onClick={() => toggleKRHistory(kr.id.toString())}
+                                      className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] tabular-nums transition-colors shrink-0 ${
+                                        historyOpen
+                                          ? 'text-foreground bg-muted'
+                                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                      }`}
+                                      title="View check-in history"
                                     >
-                                      <span className="font-medium">{kr.currentValue}</span>
-                                      <span>/</span>
-                                      <span>{kr.targetValue}</span>
-                                      <span className="text-[10px]">{kr.unit}</span>
-                                      <Pencil className="size-3 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+                                      <History className="size-3" />
+                                      {krCheckIns.length}
                                     </button>
                                   )}
+
+                                  {/* Delete KR */}
+                                  <button
+                                    onClick={() => handleDeleteKR(kr.id)}
+                                    className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Trash2 className="size-3" />
+                                  </button>
                                 </div>
 
-                                {/* Delete KR */}
-                                <button
-                                  onClick={() => handleDeleteKR(kr.id)}
-                                  className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <Trash2 className="size-3" />
-                                </button>
+                                {/* Check-in history timeline */}
+                                {historyOpen && krCheckIns.length > 0 && (
+                                  <div className="px-5 pb-3 ml-4 border-l-2 border-amber-500/20">
+                                    <div className="flex flex-col gap-2 pt-1">
+                                      {krCheckIns.slice(0, 10).map(ci => {
+                                        const ciDate = timestampToDate(ci.createdAt)
+                                        const ciPct = kr.targetValue > 0 ? Math.round((ci.progressValue / kr.targetValue) * 100) : 0
+                                        const authorEmp = employeeMap.get(ci.createdBy.toHexString())
+                                        return (
+                                          <div key={ci.id.toString()} className="flex items-start gap-3 group/ci">
+                                            <div className="relative mt-1.5">
+                                              <div className={`size-2 rounded-full ${progressColor(ciPct)}`} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2">
+                                                <span className={`text-[11px] font-bold tabular-nums ${progressTextColor(ciPct)}`}>
+                                                  {ci.progressValue}/{kr.targetValue} {kr.unit} ({ciPct}%)
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                  <Clock className="size-2.5" />
+                                                  {formatDate(ciDate)}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                  {authorEmp?.name ?? 'You'}
+                                                </span>
+                                                <button
+                                                  onClick={() => handleDeleteCheckIn(ci.id)}
+                                                  className="size-4 flex items-center justify-center rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover/ci:opacity-100 transition-opacity"
+                                                >
+                                                  <Trash2 className="size-2.5" />
+                                                </button>
+                                              </div>
+                                              {ci.note && (
+                                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{ci.note}</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                      {krCheckIns.length > 10 && (
+                                        <span className="text-[10px] text-muted-foreground ml-5">
+                                          +{krCheckIns.length - 10} older check-ins
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -657,6 +821,65 @@ export default function GoalsPage() {
           )}
         </div>
       </div>
+
+      {/* Check-in Dialog */}
+      <Dialog open={!!checkInKR} onOpenChange={v => { if (!v) setCheckInKR(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquarePlus className="size-5 text-amber-500" />
+              Log Check-in
+            </DialogTitle>
+          </DialogHeader>
+          {checkInKR && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-sm font-medium">{checkInKR.krTitle}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Current: {checkInKR.currentValue} / {checkInKR.targetValue} {checkInKR.unit}
+                  {' '}({getKRProgress(checkInKR.targetValue, checkInKR.currentValue)}%)
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm">New Progress Value</Label>
+                <Input
+                  type="number"
+                  value={checkInValue}
+                  onChange={e => setCheckInValue(e.target.value)}
+                  placeholder={`0 – ${checkInKR.targetValue}`}
+                  className="mt-1 tabular-nums"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter' && checkInNote.trim()) handleCheckIn() }}
+                />
+                {checkInValue && !isNaN(parseInt(checkInValue, 10)) && (
+                  <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${progressColor(getKRProgress(checkInKR.targetValue, parseInt(checkInValue, 10)))}`}
+                      style={{ width: `${getKRProgress(checkInKR.targetValue, parseInt(checkInValue, 10))}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label className="text-sm">Note (optional)</Label>
+                <Textarea
+                  value={checkInNote}
+                  onChange={e => setCheckInNote(e.target.value)}
+                  placeholder="What changed? Any blockers?"
+                  className="mt-1 min-h-[80px] text-sm"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckInKR(null)}>Cancel</Button>
+            <Button onClick={handleCheckIn} className="bg-gradient-to-r from-amber-500 to-lime-500 text-white gap-1.5">
+              <Check className="size-3.5" />
+              Log Check-in
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Objective Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

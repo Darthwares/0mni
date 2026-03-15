@@ -1045,6 +1045,16 @@ export const KeyResult = __t.object("KeyResult", {
 });
 export type KeyResult = __Infer<typeof KeyResult>;
 
+export const KrCheckIn = __t.object("KrCheckIn", {
+  id: __t.u64(),
+  krId: __t.u64(),
+  progressValue: __t.u32(),
+  note: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type KrCheckIn = __Infer<typeof KrCheckIn>;
+
 export const Lead = __t.object("Lead", {
   id: __t.u64(),
   orgId: __t.u64(),

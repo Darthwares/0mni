@@ -41,6 +41,7 @@ import AddDocumentTagReducer from "./add_document_tag_reducer";
 import AddEventAttendeeReducer from "./add_event_attendee_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
+import AddKrCheckInReducer from "./add_kr_check_in_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import AddTicketNoteReducer from "./add_ticket_note_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
@@ -111,6 +112,7 @@ import DeleteInvoiceReducer from "./delete_invoice_reducer";
 import DeleteJobPostingReducer from "./delete_job_posting_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
+import DeleteKrCheckInReducer from "./delete_kr_check_in_reducer";
 import DeleteLeadReducer from "./delete_lead_reducer";
 import DeleteMeetingReducer from "./delete_meeting_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
@@ -290,6 +292,7 @@ import InvoiceLineItemRow from "./invoice_line_item_table";
 import JobPostingRow from "./job_posting_table";
 import KbArticleRow from "./kb_article_table";
 import KeyResultRow from "./key_result_table";
+import KrCheckInRow from "./kr_check_in_table";
 import LeadRow from "./lead_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
@@ -774,6 +777,17 @@ const tablesSchema = __schema({
       { name: 'key_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, KeyResultRow),
+  kr_check_in: __table({
+    name: 'kr_check_in',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'kr_check_in_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, KrCheckInRow),
   lead: __table({
     name: 'lead',
     indexes: [
@@ -1156,6 +1170,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_event_attendee", AddEventAttendeeReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
+  __reducerSchema("add_kr_check_in", AddKrCheckInReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("add_ticket_note", AddTicketNoteReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
@@ -1226,6 +1241,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_job_posting", DeleteJobPostingReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
+  __reducerSchema("delete_kr_check_in", DeleteKrCheckInReducer),
   __reducerSchema("delete_lead", DeleteLeadReducer),
   __reducerSchema("delete_meeting", DeleteMeetingReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),

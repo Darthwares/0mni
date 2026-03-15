@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Share2,
   UserPlus,
+  BookOpen,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -107,6 +108,7 @@ const navSections = [
     items: [
       { title: "Engineering", href: "/engineering", icon: Code2 },
       { title: "Collaboration", href: "/collaboration", icon: FileText },
+      { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
     ],
   },
   {

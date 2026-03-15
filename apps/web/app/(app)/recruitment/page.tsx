@@ -43,7 +43,11 @@ import {
   Clock,
   Star,
   Plus,
+  Sparkles,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -59,19 +63,19 @@ type CandidateStatusTag =
 function candidateStatusBadgeClass(tag: string): string {
   switch (tag as CandidateStatusTag) {
     case 'Sourced':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     case 'Contacted':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     case 'Screening':
-      return 'bg-orange-100 text-orange-700 border-orange-200'
+      return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
     case 'Interview':
-      return 'bg-purple-100 text-purple-700 border-purple-200'
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
     case 'Offer':
-      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     case 'Hired':
-      return 'bg-green-100 text-green-700 border-green-200'
+      return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
     case 'Rejected':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -86,13 +90,13 @@ function jobStatusBadgeClass(tag: string): string {
     case 'Draft':
       return 'bg-gray-100 text-gray-600 border-gray-200'
     case 'Open':
-      return 'bg-green-100 text-green-700 border-green-200'
+      return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
     case 'OnHold':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     case 'Filled':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     case 'Closed':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -105,13 +109,13 @@ type InterviewTypeTag = 'Screening' | 'Technical' | 'Behavioral' | 'Final'
 function interviewTypeBadgeClass(tag: string): string {
   switch (tag as InterviewTypeTag) {
     case 'Screening':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     case 'Technical':
-      return 'bg-violet-100 text-violet-700 border-violet-200'
+      return 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20'
     case 'Behavioral':
-      return 'bg-amber-100 text-amber-700 border-amber-200'
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     case 'Final':
-      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -141,15 +145,15 @@ function recommendationLabel(tag: string): string {
 function recommendationBadgeClass(tag: string): string {
   switch (tag as RecommendationTag) {
     case 'StrongYes':
-      return 'bg-green-100 text-green-700 border-green-200'
+      return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
     case 'Yes':
-      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     case 'Maybe':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     case 'No':
-      return 'bg-orange-100 text-orange-700 border-orange-200'
+      return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
     case 'StrongNo':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -299,11 +303,23 @@ export default function RecruitmentPage() {
     <div className="flex flex-col gap-6 p-6">
       {/* Page heading */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Recruitment</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Candidate pipeline, job postings, and interview scheduling
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg shadow-pink-500/20">
+            <Users className="size-5.5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <GradientText
+                colors={['#ec4899', '#f43f5e', '#e11d48', '#ec4899']}
+                animationSpeed={6}
+              >
+                Recruitment
+              </GradientText>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Candidate pipeline, job postings, and interview scheduling
+            </p>
+          </div>
         </div>
         <Dialog open={candidateDialogOpen} onOpenChange={setCandidateDialogOpen}>
           <DialogTrigger render={<Button />}>

@@ -17,6 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 import {
   Sparkles,
   Plus,
@@ -32,6 +35,8 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Activity,
+  CheckCircle2,
 } from 'lucide-react'
 
 const agentTemplates = [
@@ -105,11 +110,75 @@ export default function AgentStudioPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Studio</h1>
-        <p className="text-muted-foreground text-sm">
-          Design, configure, and deploy AI employees for your organization
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20">
+          <Bot className="size-5.5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <GradientText
+              colors={['#a855f7', '#8b5cf6', '#6366f1']}
+              animationSpeed={6}
+            >
+              Agent Studio
+            </GradientText>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Design, configure, and deploy AI employees for your organization
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(168, 85, 247, 0.15)">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600">
+              <Bot className="size-3.5 text-white" />
+            </div>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Deployed</span>
+          </div>
+          <p className="text-2xl font-bold tabular-nums">
+            <CountUp to={agentTemplates.length} duration={1.5} />
+          </p>
+        </SpotlightCard>
+
+        <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(139, 92, 246, 0.15)">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600">
+              <Activity className="size-3.5 text-white" />
+            </div>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Runs</span>
+          </div>
+          <p className="text-2xl font-bold tabular-nums text-violet-600 dark:text-violet-400">
+            <CountUp to={1284} duration={1.5} separator="," />
+          </p>
+        </SpotlightCard>
+
+        <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(16, 185, 129, 0.15)">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600">
+              <CheckCircle2 className="size-3.5 text-white" />
+            </div>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Success Rate</span>
+          </div>
+          <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <CountUp to={94.7} duration={1.5} />
+            <span className="text-base font-medium text-muted-foreground ml-0.5">%</span>
+          </p>
+        </SpotlightCard>
+
+        <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(99, 102, 241, 0.15)">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600">
+              <Zap className="size-3.5 text-white" />
+            </div>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Hours Saved</span>
+          </div>
+          <p className="text-2xl font-bold tabular-nums text-indigo-600 dark:text-indigo-400">
+            <CountUp to={312} duration={1.5} />
+          </p>
+        </SpotlightCard>
       </div>
 
       <Tabs defaultValue="templates">
@@ -141,7 +210,7 @@ export default function AgentStudioPage() {
                     </div>
                     <div>
                       <CardTitle className="text-base">{template.name}</CardTitle>
-                      <Badge variant="outline" className="mt-1 text-[10px]">
+                      <Badge variant="outline" className="mt-1 text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
                         {template.department}
                       </Badge>
                     </div>
@@ -151,7 +220,7 @@ export default function AgentStudioPage() {
                   <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
                   <div className="flex flex-wrap gap-1">
                     {template.capabilities.map((cap) => (
-                      <Badge key={cap} variant="secondary" className="text-[10px]">
+                      <Badge key={cap} variant="secondary" className="text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
                         {cap.replace(/_/g, ' ')}
                       </Badge>
                     ))}

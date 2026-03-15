@@ -11,6 +11,9 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress, ProgressTrack, ProgressIndicator, ProgressLabel, ProgressValue } from '@/components/ui/progress'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 import {
   Bot,
   Brain,
@@ -53,36 +56,36 @@ function getStatusLabel(tag: string) {
 
 function getStatusBadgeClass(tag: string) {
   switch (tag) {
-    case 'Online':  return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-    case 'Busy':    return 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-    case 'InCall':  return 'bg-sky-500/10 text-sky-600 border-sky-500/20'
-    default:        return 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20'
+    case 'Online':  return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Busy':    return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'InCall':  return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+    default:        return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
 function getTaskStatusBadge(tag: string) {
   switch (tag) {
-    case 'InProgress':    return 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-    case 'SelfChecking':  return 'bg-violet-500/10 text-violet-600 border-violet-500/20'
-    case 'NeedsReview':   return 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-    case 'Completed':     return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-    case 'Escalated':     return 'bg-red-500/10 text-red-600 border-red-500/20'
-    case 'Claimed':       return 'bg-sky-500/10 text-sky-600 border-sky-500/20'
-    case 'Unclaimed':     return 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20'
-    default:              return 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20'
+    case 'InProgress':    return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+    case 'SelfChecking':  return 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20'
+    case 'NeedsReview':   return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Completed':     return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Escalated':     return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+    case 'Claimed':       return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+    case 'Unclaimed':     return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/20'
+    default:              return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
 function getDeptColor(tag: string) {
   switch (tag) {
-    case 'Support':     return 'bg-sky-500/10 text-sky-700 border-sky-500/20'
-    case 'Sales':       return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-    case 'Recruitment': return 'bg-purple-500/10 text-purple-700 border-purple-500/20'
-    case 'Engineering': return 'bg-orange-500/10 text-orange-700 border-orange-500/20'
-    case 'Operations':  return 'bg-teal-500/10 text-teal-700 border-teal-500/20'
-    case 'Marketing':   return 'bg-pink-500/10 text-pink-700 border-pink-500/20'
-    case 'Finance':     return 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20'
-    default:            return 'bg-neutral-500/10 text-neutral-700 border-neutral-500/20'
+    case 'Support':     return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+    case 'Sales':       return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Recruitment': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+    case 'Engineering': return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
+    case 'Operations':  return 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
+    case 'Marketing':   return 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20'
+    case 'Finance':     return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+    default:            return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -475,12 +478,18 @@ export default function AIEmployeesPage() {
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <h1 className="flex items-center gap-2 mb-1">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600">
                 <Bot className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">AI Employees</h1>
-            </div>
+              <GradientText
+                colors={['#8b5cf6', '#a855f7', '#c084fc']}
+                animationSpeed={6}
+                className="text-xl font-bold"
+              >
+                AI Employees
+              </GradientText>
+            </h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Manage and monitor your AI workforce across all departments
             </p>
@@ -493,30 +502,53 @@ export default function AIEmployeesPage() {
 
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            icon={<Bot className="w-5 h-5 text-violet-600" />}
-            label="Total AI Agents"
-            value={stats.total}
-            accent="bg-violet-50 dark:bg-violet-950/30"
-          />
-          <StatCard
-            icon={<Activity className="w-5 h-5 text-emerald-600" />}
-            label="Online"
-            value={stats.online}
-            accent="bg-emerald-50 dark:bg-emerald-950/30"
-          />
-          <StatCard
-            icon={<Zap className="w-5 h-5 text-amber-500" />}
-            label="Busy / In Call"
-            value={stats.busy}
-            accent="bg-amber-50 dark:bg-amber-950/30"
-          />
-          <StatCard
-            icon={<CheckCircle2 className="w-5 h-5 text-sky-600" />}
-            label="Tasks Completed"
-            value={stats.tasksCompleted}
-            accent="bg-sky-50 dark:bg-sky-950/30"
-          />
+          <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(139, 92, 246, 0.15)">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600">
+                <Bot className="size-3.5 text-white" />
+              </div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total AI Agents</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums">
+              <CountUp to={stats.total} duration={1.5} />
+            </p>
+          </SpotlightCard>
+
+          <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(16, 185, 129, 0.15)">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600">
+                <Activity className="size-3.5 text-white" />
+              </div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Online</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <CountUp to={stats.online} duration={1.5} />
+            </p>
+          </SpotlightCard>
+
+          <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(245, 158, 11, 0.15)">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                <Zap className="size-3.5 text-white" />
+              </div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Busy / In Call</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">
+              <CountUp to={stats.busy} duration={1.5} />
+            </p>
+          </SpotlightCard>
+
+          <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(14, 165, 233, 0.15)">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600">
+                <CheckCircle2 className="size-3.5 text-white" />
+              </div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Tasks Completed</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums text-sky-600 dark:text-sky-400">
+              <CountUp to={stats.tasksCompleted} duration={1.5} />
+            </p>
+          </SpotlightCard>
         </div>
 
         {/* ── Tabs: Agents / Task Queue / Thought Feed ── */}

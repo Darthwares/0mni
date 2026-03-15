@@ -50,6 +50,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ── Types ──────────────────────────────────────
 type FileType = 'Folder' | 'Document' | 'Image' | 'Spreadsheet' | 'Code' | 'Video' | 'Audio' | 'Archive' | 'Other'
@@ -292,9 +293,7 @@ export default function DrivePage() {
                   Drive
                 </GradientText>
               </h1>
-              <p className="text-muted-foreground text-sm">
-                Store, share, and collaborate on files
-              </p>
+              <BlurText text="Store, share, and collaborate on files" delay={35} animateBy="words" className="text-muted-foreground text-sm" />
             </div>
           </div>
           <div className="flex items-center gap-2">

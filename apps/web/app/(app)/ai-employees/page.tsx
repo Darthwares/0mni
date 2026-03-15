@@ -52,6 +52,9 @@ import {
   UserCheck,
   Plus,
   CircleDot,
+  Pause,
+  Play,
+  Trash2,
 } from 'lucide-react'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -708,12 +711,55 @@ export default function AIEmployeesPage() {
                       <p className="text-xs text-neutral-500">{selectedAgent.role} · {selectedAgent.department.tag}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setSelectedId(null)}
-                    className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-                  >
-                    Dismiss
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={async () => {
+                        try {
+                          await toggleAgentStatus({ agentId: selectedAgent.id })
+                        } catch (e) {
+                          console.error('Failed to toggle agent status:', e)
+                        }
+                      }}
+                    >
+                      {selectedAgent.status.tag === 'Active' || selectedAgent.status.tag === 'Idle' ? (
+                        <>
+                          <Pause className="size-3" />
+                          Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="size-3" />
+                          Resume
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50"
+                      onClick={async () => {
+                        if (!confirm(`Delete AI employee "${selectedAgent.name}"? This cannot be undone.`)) return
+                        try {
+                          await deleteAgentConfig({ agentId: selectedAgent.id })
+                          setSelectedId(null)
+                        } catch (e) {
+                          console.error('Failed to delete agent:', e)
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3" />
+                      Delete
+                    </Button>
+                    <button
+                      onClick={() => setSelectedId(null)}
+                      className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors ml-1"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-neutral-100 dark:divide-neutral-800">

@@ -39,6 +39,7 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import ShinyText from '@/components/reactbits/ShinyText'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -306,6 +307,7 @@ export default function GoalsPage() {
               Goals &amp; OKRs
             </GradientText>
           </h1>
+          <BlurText text="Set objectives and track key results" delay={35} animateBy="words" className="text-xs text-muted-foreground" />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <PresenceBar />

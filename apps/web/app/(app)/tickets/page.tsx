@@ -15,6 +15,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   KanbanBoardProvider,
   KanbanBoard,
@@ -696,6 +697,7 @@ export default function TicketsPage() {
             {filteredTasks.length}
           </Badge>
         </div>
+        <BlurText text="Track and manage tasks across your team" delay={35} animateBy="words" className="text-xs text-muted-foreground hidden lg:block" />
 
         <div className="ml-auto flex items-center gap-2">
           {/* Status filter pills */}

@@ -43,6 +43,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ---- Category config --------------------------------------------------------
 
@@ -286,6 +287,7 @@ export default function KnowledgeBasePage() {
           </h1>
           <Badge variant="secondary" className="text-xs">{orgArticles.length}</Badge>
         </div>
+        <BlurText text="Create and share knowledge across your organization" delay={35} animateBy="words" className="text-xs text-muted-foreground ml-0.5 hidden lg:block" />
         <div className="ml-auto flex items-center gap-2">
           <PresenceBar />
           <Button size="sm" onClick={() => setShowCreateDialog(true)} className="h-8 gap-1.5">

@@ -26,6 +26,12 @@ import {
   Share2,
   UserPlus,
   Bell,
+  Users2,
+  BarChart3,
+  HardDrive,
+  ClipboardCheck,
+  Timer,
+  BookOpen,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -79,6 +85,8 @@ const navSections = [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Notifications", href: "/notifications", icon: Bell, countKey: "notifications" as const },
       { title: "Activity", href: "/activity", icon: Activity },
+      { title: "People", href: "/people", icon: Users2 },
+      { title: "Analytics", href: "/analytics", icon: BarChart3, globalHidden: true },
     ],
   },
   {
@@ -103,6 +111,10 @@ const navSections = [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
       { title: "Calendar", href: "/calendar", icon: CalendarDays },
       { title: "Canvas", href: "/canvas", icon: PenTool },
+      { title: "Drive", href: "/drive", icon: HardDrive },
+      { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
+      { title: "Time Tracking", href: "/time-tracking", icon: Timer, globalHidden: true },
+      { title: "Approvals", href: "/approvals", icon: ClipboardCheck, globalHidden: true },
     ],
   },
   {

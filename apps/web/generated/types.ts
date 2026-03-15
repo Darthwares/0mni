@@ -1358,6 +1358,19 @@ export const ResourceType = __t.enum("ResourceType", {
 });
 export type ResourceType = __Infer<typeof ResourceType>;
 
+export const SavedReport = __t.object("SavedReport", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  description: __t.string(),
+  source: __t.string(),
+  chartType: __t.string(),
+  createdBy: __t.identity(),
+  isFavorite: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type SavedReport = __Infer<typeof SavedReport>;
+
 // The tagged union or sum type for the algebraic type `Sentiment`.
 export const Sentiment = __t.enum("Sentiment", {
   Happy: __t.unit(),

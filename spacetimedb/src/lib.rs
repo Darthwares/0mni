@@ -7528,3 +7528,77 @@ pub fn delete_canned_response(
     ctx.db.canned_response().id().delete(&response_id);
     Ok(())
 }
+
+// ============================================================================
+// SAVED REPORTS
+// ============================================================================
+
+#[spacetimedb::table(accessor = saved_report, public)]
+#[derive(Clone)]
+pub struct SavedReport {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub description: String,
+    pub source: String,     // "Tasks", "Tickets", "Leads", "Candidates", "Team", "Activity"
+    pub chart_type: String, // "bar", "table", "funnel", "metric"
+    pub created_by: Identity,
+    pub is_favorite: bool,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_saved_report(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    description: String,
+    source: String,
+    chart_type: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if name.trim().is_empty() {
+        return Err("Report name cannot be empty".to_string());
+    }
+    ctx.db.saved_report().insert(SavedReport {
+        id: 0,
+        org_id,
+        name,
+        description,
+        source,
+        chart_type,
+        created_by: ctx.sender(),
+        is_favorite: false,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_report_favorite(
+    ctx: &ReducerContext,
+    report_id: u64,
+) -> Result<(), String> {
+    let report = ctx.db.saved_report().id().find(&report_id)
+        .ok_or("Report not found")?;
+    require_org_access(ctx, report.org_id)?;
+    ctx.db.saved_report().id().update(SavedReport {
+        is_favorite: !report.is_favorite,
+        ..report
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_saved_report(
+    ctx: &ReducerContext,
+    report_id: u64,
+) -> Result<(), String> {
+    let report = ctx.db.saved_report().id().find(&report_id)
+        .ok_or("Report not found")?;
+    require_org_access(ctx, report.org_id)?;
+    ctx.db.saved_report().id().delete(&report_id);
+    Ok(())
+}

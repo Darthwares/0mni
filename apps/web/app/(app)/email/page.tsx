@@ -36,7 +36,9 @@ import {
   Sparkles,
   ArchiveRestore,
   Undo2,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -365,6 +367,21 @@ export default function EmailPage() {
     return emp?.name ?? 'Unknown'
   }
 
+  const handleExportEmails = useCallback(() => {
+    exportCSV('emails', ['From', 'Subject', 'To', 'Date', 'Starred', 'Read', 'Labels'],
+      filteredEmails.map(e => {
+        const { subject, to } = parseEmailContent(e.content)
+        const meta = getMeta(e.id)
+        return [
+          getSenderName(e.sender), subject || '(no subject)', to,
+          formatFullDate(e.sentAt),
+          meta?.starred ? 'Yes' : 'No', meta?.read ? 'Yes' : 'No',
+          meta?.labelName ?? '',
+        ]
+      })
+    )
+  }, [filteredEmails, getMeta, getSenderName])
+
   const navItems = [
     { id: 'inbox' as const, label: 'Inbox', icon: Inbox, count: stats.unread, gradient: 'from-blue-500 to-indigo-600' },
     { id: 'starred' as const, label: 'Starred', icon: Star, count: stats.starred, gradient: 'from-amber-500 to-orange-600' },
@@ -534,6 +551,13 @@ export default function EmailPage() {
                 <X className="size-3.5" />
               </button>
             )}
+          </div>
+          {/* Export + count */}
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-muted-foreground tabular-nums">{filteredEmails.length} email{filteredEmails.length !== 1 ? 's' : ''}</span>
+            <button onClick={handleExportEmails} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+              <Download className="size-3" />Export
+            </button>
           </div>
         </div>
 

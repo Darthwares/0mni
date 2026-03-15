@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress, ProgressTrack, ProgressIndicator, ProgressLabel, ProgressValue } from '@/components/ui/progress'
@@ -472,6 +474,13 @@ export default function AIEmployeesPage() {
     : null
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="min-h-full bg-neutral-50 dark:bg-neutral-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
@@ -920,6 +929,8 @@ export default function AIEmployeesPage() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+    </div>
     </div>
   )
 }

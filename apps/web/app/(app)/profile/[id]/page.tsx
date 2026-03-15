@@ -4,6 +4,9 @@ import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useTable, useSpacetimeDB } from 'spacetimedb/react'
 import { tables } from '@/generated'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { PresenceBar } from '@/components/presence-bar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -55,6 +58,13 @@ export default function PublicProfilePage() {
 
   if (!employee) {
     return (
+      <div className="flex flex-col h-full">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <PresenceBar />
+        </header>
+        <div className="flex-1 overflow-y-auto">
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <p className="text-muted-foreground">Employee not found.</p>
         <Link
@@ -65,12 +75,21 @@ export default function PublicProfilePage() {
           Back to Dashboard
         </Link>
       </div>
+        </div>
+      </div>
     )
   }
 
   // If viewing own profile, redirect hint
   if (isOwnProfile) {
     return (
+      <div className="flex flex-col h-full">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <PresenceBar />
+        </header>
+        <div className="flex-1 overflow-y-auto">
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <p className="text-muted-foreground">This is your profile.</p>
         <Link
@@ -80,6 +99,8 @@ export default function PublicProfilePage() {
           <ArrowLeft className="size-3.5 mr-1.5" />
           Go to My Profile
         </Link>
+      </div>
+        </div>
       </div>
     )
   }
@@ -99,6 +120,13 @@ export default function PublicProfilePage() {
   }[employee.status.tag] ?? 'bg-neutral-400'
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Back button */}
       <Link
@@ -345,6 +373,8 @@ export default function PublicProfilePage() {
           )}
         </CardContent>
       </Card>
+    </div>
+    </div>
     </div>
   )
 }

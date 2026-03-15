@@ -4,6 +4,9 @@ import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { PresenceBar } from '@/components/presence-bar'
 import {
   Tabs,
   TabsList,
@@ -372,6 +375,13 @@ export default function SalesPage() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="flex flex-col gap-6 p-6">
 
       {/* ── Header with gradient */}
@@ -885,6 +895,8 @@ export default function SalesPage() {
           </ScrollArea>
         </TabsContent>
       </Tabs>
+    </div>
+    </div>
     </div>
   )
 }

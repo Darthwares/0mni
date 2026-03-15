@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -309,7 +311,13 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       {/* ---- Top stats bar ---- */}
       <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 flex items-center gap-6">
         <div className="flex items-center gap-3">
@@ -940,6 +948,7 @@ export default function SupportPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   )

@@ -16,9 +16,11 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import { exportCSV } from '@/lib/csv-export'
 import {
   Zap, Play, Pause, GitBranch, Clock, Sparkles, Plus, ArrowLeft,
   Trash2, Activity, CheckCircle2, LayoutGrid, ChevronDown, Copy, ArrowRight,
+  Search, Download, Filter,
 } from 'lucide-react'
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -153,6 +155,8 @@ export default function WorkflowsPage() {
   const [editState, setEditState] = useState<{ name: string; description: string; nodes: WorkflowNode[]; connections: WorkflowConnection[] } | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilterWf, setStatusFilterWf] = useState<'all' | StatusTag>('all')
 
   // Parse DB workflows into local format
   const workflows: LocalWorkflow[] = useMemo(() => {
@@ -183,6 +187,41 @@ export default function WorkflowsPage() {
       workflows.reduce((s, w) => s + w.runsTotal, 0)
     ),
   }), [workflows])
+
+  // Filtered workflows
+  const filteredWorkflows = useMemo(() => {
+    let list = workflows
+    if (statusFilterWf !== 'all') list = list.filter(w => w.status === statusFilterWf)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(w =>
+        w.name.toLowerCase().includes(q) ||
+        w.description.toLowerCase().includes(q) ||
+        w.nodes.some(n => n.label.toLowerCase().includes(q) || n.description.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [workflows, statusFilterWf, searchQuery])
+
+  // Status counts for filter
+  const statusCountsWf = useMemo(() => {
+    const c: Record<string, number> = { Active: 0, Paused: 0, Draft: 0, Error: 0 }
+    for (const w of workflows) c[w.status] = (c[w.status] ?? 0) + 1
+    return c
+  }, [workflows])
+
+  const handleExportWorkflows = useCallback(() => {
+    exportCSV(
+      'workflows',
+      ['Name', 'Description', 'Status', 'Nodes', 'Connections', 'Total Runs', 'Success Rate', 'Last Run'],
+      filteredWorkflows.map(w => [
+        w.name, w.description, w.status,
+        String(w.nodes.length), String(w.connections.length),
+        String(w.runsTotal), `${pct(w.runsSuccess, w.runsTotal)}%`,
+        w.lastRun > 0 ? new Date(w.lastRun).toISOString() : '',
+      ])
+    )
+  }, [filteredWorkflows])
 
   const editingWorkflow = editingId !== null ? workflows.find(w => w.dbId === editingId) : null
 
@@ -451,6 +490,9 @@ export default function WorkflowsPage() {
             className="text-sm text-muted-foreground"
           />
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={handleExportWorkflows}>
+              <Download className="size-3.5" />Export
+            </Button>
             <div className="relative">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTemplates(!showTemplates)}>
                 <Copy className="size-3.5" />Use Template<ChevronDown className="size-3" />
@@ -495,16 +537,51 @@ export default function WorkflowsPage() {
           </SpotlightCard>
         </div>
 
+        {/* Search + Status filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+            <Input
+              placeholder="Search workflows, nodes..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 h-9"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            {([['all', 'All'] as const, ['Active', 'Active'] as const, ['Paused', 'Paused'] as const, ['Draft', 'Draft'] as const, ['Error', 'Error'] as const]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilterWf(key)}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  statusFilterWf === key
+                    ? key === 'all' ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20'
+                    : `${statusStyles[key as StatusTag]} border`
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 border border-transparent'
+                }`}
+              >
+                {label}
+                {key !== 'all' && <span className="text-[10px] opacity-60">{statusCountsWf[key] ?? 0}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Workflow list */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Workflows</h2>
-          {workflows.length === 0 ? (
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              {statusFilterWf === 'all' ? 'All Workflows' : `${statusFilterWf} Workflows`}
+            </h2>
+            <span className="text-xs text-neutral-400 tabular-nums">{filteredWorkflows.length} workflow{filteredWorkflows.length !== 1 ? 's' : ''}</span>
+          </div>
+          {filteredWorkflows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4"><Zap className="size-6 opacity-40" /></div>
-              <p className="font-medium">No workflows yet</p>
-              <p className="text-sm mt-1">Create one from scratch or use a template.</p>
+              <p className="font-medium">{searchQuery || statusFilterWf !== 'all' ? 'No matching workflows' : 'No workflows yet'}</p>
+              <p className="text-sm mt-1">{searchQuery || statusFilterWf !== 'all' ? 'Try adjusting your filters.' : 'Create one from scratch or use a template.'}</p>
             </div>
-          ) : workflows.map(wf => (
+          ) : filteredWorkflows.map(wf => (
             <div key={wf.dbId} className="group relative rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all hover:shadow-md cursor-pointer"
               onClick={() => openEditor(wf)}>
               <div className="p-4">

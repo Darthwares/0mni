@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { exportCSV } from '@/lib/csv-export'
 import {
   Folder,
   FileText,
@@ -43,6 +44,7 @@ import {
   Trash2,
   Pencil,
   Share2,
+  Download,
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -139,6 +141,7 @@ export default function DrivePage() {
   const [uploadName, setUploadName] = useState('')
   const [uploadType, setUploadType] = useState<FileType>('Document')
   const [uploadSize, setUploadSize] = useState('')
+  const [typeFilter, setTypeFilter] = useState<FileType | 'all'>('all')
 
   // ── Org-scoped items ─────────────────────────
   const items = useMemo(() => {
@@ -187,6 +190,9 @@ export default function DrivePage() {
       result = result.filter(i => i._modified >= weekAgo)
     }
 
+    // File type filter
+    if (typeFilter !== 'all') result = result.filter(i => i._type === typeFilter)
+
     // Sort: folders first, then by field
     result = [...result].sort((a, b) => {
       if (a._type === 'Folder' && b._type !== 'Folder') return -1
@@ -215,6 +221,28 @@ export default function DrivePage() {
     { label: 'Shared Files', value: sharedCount, color: '#6366f1', suffix: '' },
     { label: 'Recent Uploads', value: recentCount, color: '#8b5cf6', suffix: '' },
   ]
+
+  // Type counts for filter pills
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const i of items) {
+      const t = getTag(i.itemType)
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return counts
+  }, [items])
+
+  const handleExportCSV = useCallback(() => {
+    exportCSV(
+      'drive-files',
+      ['Name', 'Type', 'Size', 'Starred', 'Shared', 'Modified'],
+      filteredItems.map(i => [
+        i.name, i._type, formatSize(i._size),
+        i.starred ? 'Yes' : 'No', i.shared ? 'Yes' : 'No',
+        i._modified.toISOString(),
+      ])
+    )
+  }, [filteredItems])
 
   // ── Handlers ─────────────────────────────────
   const navigateToFolder = useCallback((folderId: number) => {
@@ -297,6 +325,10 @@ export default function DrivePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
+              <Download className="size-4" />
+              Export
+            </Button>
             <Button variant="outline" onClick={() => setShowNewFolderDialog(true)}>
               <Plus className="mr-2 size-4" />
               New Folder
@@ -375,6 +407,42 @@ export default function DrivePage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* File type filter pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setTypeFilter('all')}
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              typeFilter === 'all'
+                ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                : 'bg-white dark:bg-neutral-900 text-neutral-500 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+            }`}
+          >
+            All types
+          </button>
+          {(['Folder', 'Document', 'Image', 'Spreadsheet', 'Code', 'Video', 'Audio', 'Archive'] as FileType[]).map(type => {
+            const count = typeCounts[type] ?? 0
+            if (count === 0) return null
+            const cfg = FILE_ICONS[type]
+            const Icon = cfg.icon
+            return (
+              <button
+                key={type}
+                onClick={() => setTypeFilter(typeFilter === type ? 'all' : type)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  typeFilter === type
+                    ? `${cfg.bg} ${cfg.color} border-current/20`
+                    : 'bg-white dark:bg-neutral-900 text-neutral-500 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+                }`}
+              >
+                <Icon className="size-3" />
+                {type}
+                <span className="text-[10px] opacity-60">{count}</span>
+              </button>
+            )
+          })}
+          <span className="text-xs text-neutral-400 tabular-nums ml-auto">{filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}</span>
         </div>
 
         {/* Breadcrumbs */}

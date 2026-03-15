@@ -51,6 +51,7 @@ import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateEmailLabelReducer from "./create_email_label_reducer";
 import CreateEpicReducer from "./create_epic_reducer";
+import CreateExpenseReducer from "./create_expense_reducer";
 import CreateFormReducer from "./create_form_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
@@ -65,6 +66,7 @@ import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
+import DeleteExpenseReducer from "./delete_expense_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
@@ -130,6 +132,7 @@ import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
 import UpdateEpicReducer from "./update_epic_reducer";
+import UpdateExpenseStatusReducer from "./update_expense_status_reducer";
 import UpdateFormReducer from "./update_form_reducer";
 import UpdateFormQuestionReducer from "./update_form_question_reducer";
 import UpdateFormStatusReducer from "./update_form_status_reducer";
@@ -165,6 +168,7 @@ import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
 import EmployeeRow from "./employee_table";
 import EpicRow from "./epic_table";
+import ExpenseRow from "./expense_table";
 import FormAnswerRow from "./form_answer_table";
 import FormDefRow from "./form_def_table";
 import FormQuestionRow from "./form_question_table";
@@ -405,6 +409,17 @@ const tablesSchema = __schema({
       { name: 'epic_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EpicRow),
+  expense: __table({
+    name: 'expense',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'expense_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ExpenseRow),
   form_answer: __table({
     name: 'form_answer',
     indexes: [
@@ -775,6 +790,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_email_label", CreateEmailLabelReducer),
   __reducerSchema("create_epic", CreateEpicReducer),
+  __reducerSchema("create_expense", CreateExpenseReducer),
   __reducerSchema("create_form", CreateFormReducer),
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
@@ -789,6 +805,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
+  __reducerSchema("delete_expense", DeleteExpenseReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
@@ -854,6 +871,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
   __reducerSchema("update_epic", UpdateEpicReducer),
+  __reducerSchema("update_expense_status", UpdateExpenseStatusReducer),
   __reducerSchema("update_form", UpdateFormReducer),
   __reducerSchema("update_form_question", UpdateFormQuestionReducer),
   __reducerSchema("update_form_status", UpdateFormStatusReducer),

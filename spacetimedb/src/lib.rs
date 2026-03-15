@@ -5357,3 +5357,105 @@ pub fn delete_cal_event(ctx: &ReducerContext, event_id: u64) -> Result<(), Strin
     ctx.db.cal_event().id().delete(&event_id);
     Ok(())
 }
+
+// ============================================================================
+// Expenses
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ExpenseCategory {
+    Travel,
+    Meals,
+    Software,
+    Office,
+    Equipment,
+    Training,
+    Other,
+}
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ExpenseStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Reimbursed,
+}
+
+#[spacetimedb::table(accessor = expense, public)]
+#[derive(Clone)]
+pub struct Expense {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub description: String,
+    pub amount_cents: u64,
+    pub category: ExpenseCategory,
+    pub status: ExpenseStatus,
+    pub expense_date: Timestamp,
+    pub has_receipt: bool,
+    pub submitter: Identity,
+    pub notes: String,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_expense(
+    ctx: &ReducerContext,
+    org_id: u64,
+    description: String,
+    amount_cents: u64,
+    category_tag: String,
+    expense_date: Timestamp,
+    has_receipt: bool,
+    notes: String,
+) -> Result<(), String> {
+    if description.trim().is_empty() {
+        return Err("Description cannot be empty".to_string());
+    }
+    let category = match category_tag.as_str() {
+        "Travel" => ExpenseCategory::Travel,
+        "Meals" => ExpenseCategory::Meals,
+        "Software" => ExpenseCategory::Software,
+        "Office" => ExpenseCategory::Office,
+        "Equipment" => ExpenseCategory::Equipment,
+        "Training" => ExpenseCategory::Training,
+        "Other" => ExpenseCategory::Other,
+        _ => return Err("Invalid expense category".to_string()),
+    };
+    ctx.db.expense().insert(Expense {
+        id: 0,
+        org_id,
+        description,
+        amount_cents,
+        category,
+        status: ExpenseStatus::Pending,
+        expense_date,
+        has_receipt,
+        submitter: ctx.sender(),
+        notes,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_expense_status(ctx: &ReducerContext, expense_id: u64, status_tag: String) -> Result<(), String> {
+    let expense = ctx.db.expense().id().find(&expense_id)
+        .ok_or("Expense not found")?;
+    let status = match status_tag.as_str() {
+        "Pending" => ExpenseStatus::Pending,
+        "Approved" => ExpenseStatus::Approved,
+        "Rejected" => ExpenseStatus::Rejected,
+        "Reimbursed" => ExpenseStatus::Reimbursed,
+        _ => return Err("Invalid status".to_string()),
+    };
+    ctx.db.expense().id().update(Expense { status, ..expense });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_expense(ctx: &ReducerContext, expense_id: u64) -> Result<(), String> {
+    ctx.db.expense().id().delete(&expense_id);
+    Ok(())
+}

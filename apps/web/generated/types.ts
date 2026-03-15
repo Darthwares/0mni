@@ -589,6 +589,15 @@ export const Department = __t.enum("Department", {
 });
 export type Department = __Infer<typeof Department>;
 
+// The tagged union or sum type for the algebraic type `DocLifecycleStatus`.
+export const DocLifecycleStatus = __t.enum("DocLifecycleStatus", {
+  Draft: __t.unit(),
+  InReview: __t.unit(),
+  Published: __t.unit(),
+  Archived: __t.unit(),
+});
+export type DocLifecycleStatus = __Infer<typeof DocLifecycleStatus>;
+
 export const Document = __t.object("Document", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -635,6 +644,17 @@ export const DocumentFavorite = __t.object("DocumentFavorite", {
   createdAt: __t.timestamp(),
 });
 export type DocumentFavorite = __Infer<typeof DocumentFavorite>;
+
+export const DocumentLifecycle = __t.object("DocumentLifecycle", {
+  documentId: __t.u64(),
+  orgId: __t.u64(),
+  get status() {
+    return DocLifecycleStatus;
+  },
+  changedBy: __t.identity(),
+  changedAt: __t.timestamp(),
+});
+export type DocumentLifecycle = __Infer<typeof DocumentLifecycle>;
 
 export const DocumentPin = __t.object("DocumentPin", {
   id: __t.u64(),

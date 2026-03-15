@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Eye, EyeOff, Circle } from 'lucide-react'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 const PRESENCE_COLORS = [
   'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500',
@@ -96,11 +97,15 @@ export function PresenceBar() {
               </div>
             )}
           </div>
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-            <span className="inline-flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {onlineOthers.length} active
-            </span>
+          <span className="text-[10px] whitespace-nowrap inline-flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <ShinyText
+              text={`${onlineOthers.length} active`}
+              speed={3}
+              color="#a1a1aa"
+              shineColor="#10b981"
+              className="text-[10px] font-medium"
+            />
           </span>
         </>
       )}
@@ -150,9 +155,15 @@ export function PagePresenceStrip({ className = '' }: { className?: string }) {
           )
         })}
       </div>
-      <span className="text-[10px] text-muted-foreground whitespace-nowrap flex items-center gap-1">
+      <span className="text-[10px] whitespace-nowrap flex items-center gap-1">
         <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        {onlineOthers.length} online
+        <ShinyText
+          text={`${onlineOthers.length} online`}
+          speed={3}
+          color="#a1a1aa"
+          shineColor="#10b981"
+          className="text-[10px] font-medium"
+        />
       </span>
     </div>
   )

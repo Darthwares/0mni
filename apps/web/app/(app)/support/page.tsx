@@ -45,7 +45,19 @@ import {
   MailOpen,
   CircleDot,
   Plus,
+  Sparkles,
+  Heart,
+  Shield,
+  Phone,
+  Building2,
+  Calendar,
+  MessageCircle,
+  Star,
+  Zap,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -67,56 +79,35 @@ function formatDate(ts: any): string {
 
 // ---- color maps -------------------------------------------------------------
 
-function statusVariant(tag: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (tag) {
-    case 'New': return 'default'
-    case 'Open': return 'default'
-    case 'Pending': return 'secondary'
-    case 'Resolved': return 'outline'
-    case 'Closed': return 'outline'
-    default: return 'secondary'
-  }
-}
-
 function statusColor(tag: string): string {
   switch (tag) {
-    case 'New': return 'bg-blue-100 text-blue-700 border-blue-200'
-    case 'Open': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    case 'Pending': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Resolved': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    case 'Closed': return 'bg-neutral-200 text-neutral-500 border-neutral-300'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'New': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+    case 'Open': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Pending': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Resolved': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    case 'Closed': return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-500 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
 function statusDot(tag: string): string {
   switch (tag) {
-    case 'New': return 'bg-blue-500'
-    case 'Open': return 'bg-emerald-500'
-    case 'Pending': return 'bg-amber-500'
+    case 'New': return 'bg-blue-500 shadow-blue-500/50'
+    case 'Open': return 'bg-emerald-500 shadow-emerald-500/50'
+    case 'Pending': return 'bg-amber-500 shadow-amber-500/50'
     case 'Resolved': return 'bg-neutral-400'
-    case 'Closed': return 'bg-neutral-300'
+    case 'Closed': return 'bg-neutral-300 dark:bg-neutral-600'
     default: return 'bg-neutral-400'
-  }
-}
-
-function priorityColor(tag: string): string {
-  switch (tag) {
-    case 'Urgent': return 'text-red-600'
-    case 'High': return 'text-orange-500'
-    case 'Medium': return 'text-amber-500'
-    case 'Low': return 'text-neutral-400'
-    default: return 'text-neutral-400'
   }
 }
 
 function priorityBg(tag: string): string {
   switch (tag) {
-    case 'Urgent': return 'bg-red-100 text-red-700 border-red-200'
-    case 'High': return 'bg-orange-100 text-orange-700 border-orange-200'
-    case 'Medium': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Low': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'Urgent': return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+    case 'High': return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
+    case 'Medium': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Low': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -132,18 +123,18 @@ function sentimentIcon(tag: string) {
 
 function sentimentColor(tag: string): string {
   switch (tag) {
-    case 'Happy': return 'text-emerald-600'
-    case 'Neutral': return 'text-neutral-500'
-    case 'Frustrated': return 'text-amber-600'
-    case 'Angry': return 'text-red-600'
-    default: return 'text-neutral-500'
+    case 'Happy': return 'text-emerald-600 dark:text-emerald-400'
+    case 'Neutral': return 'text-neutral-500 dark:text-neutral-400'
+    case 'Frustrated': return 'text-amber-600 dark:text-amber-400'
+    case 'Angry': return 'text-red-600 dark:text-red-400'
+    default: return 'text-neutral-500 dark:text-neutral-400'
   }
 }
 
 function healthColor(score: number): string {
-  if (score >= 0.7) return 'text-emerald-600'
-  if (score >= 0.4) return 'text-amber-600'
-  return 'text-red-600'
+  if (score >= 0.7) return 'text-emerald-600 dark:text-emerald-400'
+  if (score >= 0.4) return 'text-amber-600 dark:text-amber-400'
+  return 'text-red-600 dark:text-red-400'
 }
 
 function healthBarColor(score: number): string {
@@ -208,6 +199,15 @@ export default function SupportPage() {
       return matchesSearch && matchesStatus
     })
   }, [sortedTickets, allCustomers, searchQuery, statusFilter])
+
+  // Status counts for filter pills
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: sortedTickets.length }
+    for (const s of STATUS_FILTERS) {
+      if (s !== 'All') counts[s] = sortedTickets.filter((t) => t.status.tag === s).length
+    }
+    return counts
+  }, [sortedTickets])
 
   const selectedTicket = sortedTickets.find((t) => t.id === selectedTicketId) ?? null
 
@@ -308,42 +308,56 @@ export default function SupportPage() {
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       {/* ---- Top stats bar ---- */}
-      <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <Inbox className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {openCount} Open
-          </span>
-        </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {pendingCount} Pending
-          </span>
-        </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {resolvedCount} Resolved
-          </span>
-        </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-violet-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {aiResolvedCount} AI Auto-Resolved
-          </span>
+      <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 px-4 py-2.5 flex items-center gap-5">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-blue-500/10">
+              <Inbox className="h-3.5 w-3.5 text-blue-500" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+              <CountUp to={openCount} duration={1} className="tabular-nums" />
+            </span>
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">Open</span>
+          </div>
+          <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-amber-500/10">
+              <Clock className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+              <CountUp to={pendingCount} duration={1} className="tabular-nums" />
+            </span>
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">Pending</span>
+          </div>
+          <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-emerald-500/10">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+              <CountUp to={resolvedCount} duration={1} className="tabular-nums" />
+            </span>
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">Resolved</span>
+          </div>
+          <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-violet-500/10">
+              <Bot className="h-3.5 w-3.5 text-violet-500" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+              <CountUp to={aiResolvedCount} duration={1} className="tabular-nums" />
+            </span>
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">AI Resolved</span>
+          </div>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
           {/* New Customer Dialog */}
           <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 border-neutral-200 dark:border-neutral-700">
                 <Plus className="h-3.5 w-3.5" />
-                New Customer
+                Customer
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -407,9 +421,9 @@ export default function SupportPage() {
           {/* New Ticket Dialog */}
           <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="h-7 text-xs gap-1 bg-violet-600 hover:bg-violet-700 text-white">
+              <Button size="sm" className="h-7 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
                 <Plus className="h-3.5 w-3.5" />
-                New Ticket
+                Ticket
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -477,38 +491,46 @@ export default function SupportPage() {
       <div className="flex-1 flex min-h-0">
 
         {/* === LEFT PANEL: Ticket List === */}
-        <div className="w-80 flex-shrink-0 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex flex-col">
+        <div className="w-80 flex-shrink-0 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 flex flex-col">
           {/* Search & filter */}
-          <div className="flex-shrink-0 p-3 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
+          <div className="flex-shrink-0 p-3 border-b border-neutral-100 dark:border-neutral-800 space-y-2.5">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
               <Input
                 placeholder="Search tickets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
+                className="pl-8 h-8 text-sm bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700"
               />
             </div>
             {/* Status filter pills */}
             <div className="flex flex-wrap gap-1">
-              {STATUS_FILTERS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                    statusFilter === s
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+              {STATUS_FILTERS.map((s) => {
+                const count = statusCounts[s] ?? 0
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${
+                      statusFilter === s
+                        ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/25'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                    }`}
+                  >
+                    {s}
+                    {count > 0 && (
+                      <span className={`ml-1 ${statusFilter === s ? 'text-violet-200' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Ticket count */}
-          <div className="flex-shrink-0 px-3 py-1.5 text-xs text-neutral-400 dark:text-neutral-500 font-medium border-b border-neutral-100 dark:border-neutral-800">
+          <div className="flex-shrink-0 px-3 py-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 font-medium tracking-wide uppercase border-b border-neutral-100 dark:border-neutral-800">
             {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''}
           </div>
 
@@ -517,10 +539,11 @@ export default function SupportPage() {
             {filteredTickets.length === 0 ? (
               <div className="p-8 text-center text-neutral-400 dark:text-neutral-500">
                 <Inbox className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No tickets found</p>
+                <p className="text-sm font-medium">No tickets found</p>
+                <p className="text-xs mt-1 text-neutral-400 dark:text-neutral-600">Try adjusting your filters</p>
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
                 {filteredTickets.map((ticket) => {
                   const customer = allCustomers.find((c) => c.id === ticket.customerId)
                   const isSelected = ticket.id === selectedTicketId
@@ -528,9 +551,9 @@ export default function SupportPage() {
                     <button
                       key={ticket.id.toString()}
                       onClick={() => setSelectedTicketId(ticket.id)}
-                      className={`w-full text-left px-3 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60 ${
+                      className={`w-full text-left px-3 py-3 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/40 ${
                         isSelected
-                          ? 'bg-violet-50 dark:bg-violet-950/30 border-l-2 border-violet-500'
+                          ? 'bg-violet-50/80 dark:bg-violet-950/20 border-l-2 border-violet-500'
                           : 'border-l-2 border-transparent'
                       }`}
                     >
@@ -538,13 +561,13 @@ export default function SupportPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span
-                            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${statusDot(ticket.status.tag)}`}
+                            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full shadow-sm ${statusDot(ticket.status.tag)}`}
                           />
                           <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
                             {customer?.name ?? 'Unknown Customer'}
                           </span>
                         </div>
-                        <span className="text-xs text-neutral-400 dark:text-neutral-500 flex-shrink-0 ml-1">
+                        <span className="text-[11px] text-neutral-400 dark:text-neutral-500 flex-shrink-0 ml-1 tabular-nums">
                           {timeAgo(ticket.createdAt)}
                         </span>
                       </div>
@@ -567,13 +590,13 @@ export default function SupportPage() {
                           {ticket.priority.tag}
                         </span>
                         {ticket.aiAutoResolved && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700 border border-violet-200">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
                             <Bot className="h-2.5 w-2.5" />
                             AI
                           </span>
                         )}
                         {ticket.escalationCount > 0 && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                             Escalated {ticket.escalationCount}x
                           </span>
                         )}
@@ -591,33 +614,33 @@ export default function SupportPage() {
           {selectedTicket ? (
             <>
               {/* Ticket header */}
-              <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-5 py-3">
+              <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 px-5 py-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                       {selectedTicket.subject}
                     </h2>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                    <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                      <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
                         #{selectedTicket.id.toString()}
                       </span>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusColor(selectedTicket.status.tag)}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${statusColor(selectedTicket.status.tag)}`}
                       >
                         {selectedTicket.status.tag}
                       </span>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${priorityBg(selectedTicket.priority.tag)}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${priorityBg(selectedTicket.priority.tag)}`}
                       >
-                        {selectedTicket.priority.tag} priority
+                        {selectedTicket.priority.tag}
                       </span>
                       {selectedTicket.category && (
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border border-neutral-500/20">
                           {selectedTicket.category}
                         </span>
                       )}
                       {selectedTicket.slaDue && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600">
+                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                           <Clock className="h-3 w-3" />
                           SLA: {formatDate(selectedTicket.slaDue)}
                         </span>
@@ -626,23 +649,23 @@ export default function SupportPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {selectedTicket.aiAutoResolved && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border border-violet-500/20">
                         <Bot className="h-3.5 w-3.5 text-violet-500" />
-                        <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                        <span className="text-xs font-medium text-violet-600 dark:text-violet-300">
                           AI Auto-Resolved
                         </span>
                       </div>
                     )}
                     {selectedTicket.assignedTo && !selectedTicket.aiAutoResolved && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
                         <User className="h-3.5 w-3.5 text-blue-500" />
-                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Assigned</span>
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Assigned</span>
                       </div>
                     )}
                     {!selectedTicket.assignedTo && !selectedTicket.aiAutoResolved && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-neutral-500/10 border border-neutral-500/20">
                         <CircleDot className="h-3.5 w-3.5 text-neutral-400" />
-                        <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Unassigned</span>
+                        <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Unassigned</span>
                       </div>
                     )}
                   </div>
@@ -650,13 +673,15 @@ export default function SupportPage() {
               </div>
 
               {/* Message thread */}
-              <ScrollArea className="flex-1 bg-neutral-50 dark:bg-neutral-950">
+              <ScrollArea className="flex-1 bg-neutral-50/80 dark:bg-neutral-950">
                 <div className="px-5 py-4 space-y-4">
                   {ticketMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-neutral-400 dark:text-neutral-500">
-                      <MailOpen className="h-10 w-10 mb-3 opacity-40" />
-                      <p className="text-sm">No messages yet</p>
-                      <p className="text-xs mt-1">Start the conversation below</p>
+                      <div className="h-16 w-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 flex items-center justify-center mb-4">
+                        <MailOpen className="h-8 w-8 opacity-40" />
+                      </div>
+                      <p className="text-sm font-medium">No messages yet</p>
+                      <p className="text-xs mt-1 text-neutral-400 dark:text-neutral-600">Start the conversation below</p>
                     </div>
                   ) : (
                     ticketMessages.map((msg) => {
@@ -669,13 +694,13 @@ export default function SupportPage() {
                           key={msg.id.toString()}
                           className={`flex gap-3 ${isAgent ? 'flex-row-reverse' : 'flex-row'}`}
                         >
-                          <Avatar className="h-8 w-8 flex-shrink-0">
+                          <Avatar className="h-8 w-8 flex-shrink-0 ring-2 ring-white dark:ring-neutral-900">
                             <AvatarFallback
-                              className={`text-xs ${
+                              className={`text-xs font-medium ${
                                 isAI
-                                  ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300'
+                                  ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white'
                                   : isAgent
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                  ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
                                   : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
                               }`}
                             >
@@ -691,22 +716,23 @@ export default function SupportPage() {
                                   ? 'Support Agent'
                                   : selectedCustomer?.name ?? 'Customer'}
                               </span>
-                              <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                              <span className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums">
                                 {formatTime(msg.sentAt)}
                               </span>
                               {isAI && msg.aiConfidence != null && (
-                                <span className="text-[10px] text-violet-500">
-                                  {Math.round(msg.aiConfidence * 100)}% confident
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  {Math.round(msg.aiConfidence * 100)}%
                                 </span>
                               )}
                             </div>
                             <div
-                              className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
+                              className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                                 isAgent
                                   ? isAI
-                                    ? 'bg-violet-600 text-white rounded-tr-sm'
-                                    : 'bg-blue-600 text-white rounded-tr-sm'
-                                  : 'bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 rounded-tl-sm'
+                                    ? 'bg-gradient-to-br from-violet-600 to-violet-700 text-white rounded-tr-sm shadow-sm shadow-violet-500/20'
+                                    : 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-tr-sm shadow-sm shadow-blue-500/20'
+                                  : 'bg-white dark:bg-neutral-800/80 text-neutral-800 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700/60 rounded-tl-sm shadow-sm'
                               }`}
                             >
                               {msg.content}
@@ -721,7 +747,7 @@ export default function SupportPage() {
               </ScrollArea>
 
               {/* Message composer */}
-              <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
+              <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder="Type a reply..."
@@ -729,13 +755,13 @@ export default function SupportPage() {
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={isSending}
-                    className="flex-1 h-9 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-sm"
+                    className="flex-1 h-9 bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 text-sm"
                   />
                   <Button
                     size="sm"
                     onClick={handleSendMessage}
                     disabled={!messageInput.trim() || isSending}
-                    className="h-9 px-3 bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                    className="h-9 px-3 bg-violet-600 hover:bg-violet-700 text-white gap-1.5 shadow-sm shadow-violet-500/20"
                   >
                     <Send className="h-3.5 w-3.5" />
                     Send
@@ -748,50 +774,56 @@ export default function SupportPage() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500 bg-neutral-50 dark:bg-neutral-950">
-              <Ticket className="h-12 w-12 mb-3 opacity-30" />
-              <p className="text-base font-medium">Select a ticket</p>
-              <p className="text-sm mt-1">Choose a ticket from the list to view the conversation</p>
+              <div className="h-20 w-20 rounded-2xl bg-neutral-100 dark:bg-neutral-800/40 flex items-center justify-center mb-4">
+                <Ticket className="h-10 w-10 opacity-30" />
+              </div>
+              <p className="text-base font-medium text-neutral-600 dark:text-neutral-400">Select a ticket</p>
+              <p className="text-sm mt-1 text-neutral-400 dark:text-neutral-500">Choose from the list to view the conversation</p>
             </div>
           )}
         </div>
 
         {/* === RIGHT PANEL: Customer Details === */}
-        <div className="w-72 flex-shrink-0 border-l border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex flex-col">
+        <div className="w-72 flex-shrink-0 border-l border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 flex flex-col">
           {selectedCustomer ? (
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-5">
-                {/* Customer identity */}
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-10 w-10 flex-shrink-0">
-                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
-                      {(selectedCustomer.name ?? selectedCustomer.email)[0]?.toUpperCase() ?? 'C'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {selectedCustomer.name ?? 'Unknown'}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                      {selectedCustomer.email}
-                    </p>
-                    {selectedCustomer.company && (
-                      <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">
-                        {selectedCustomer.company}
+              <div className="p-4 space-y-4">
+                {/* Customer identity card */}
+                <div className="rounded-xl bg-gradient-to-br from-violet-500/5 via-transparent to-fuchsia-500/5 dark:from-violet-500/10 dark:to-fuchsia-500/10 border border-neutral-200 dark:border-neutral-800 p-3">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-white dark:ring-neutral-800">
+                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-sm font-semibold">
+                        {(selectedCustomer.name ?? selectedCustomer.email)[0]?.toUpperCase() ?? 'C'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                        {selectedCustomer.name ?? 'Unknown'}
                       </p>
-                    )}
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                        {selectedCustomer.email}
+                      </p>
+                      {selectedCustomer.company && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Building2 className="h-3 w-3 text-neutral-400" />
+                          <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">
+                            {selectedCustomer.company}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <Separator />
-
                 {/* Sentiment & Health */}
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Heart className="h-3 w-3" />
                     Customer Health
                   </p>
 
                   {selectedCustomer.sentiment && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Sentiment</span>
                       <div className={`flex items-center gap-1.5 text-xs font-medium ${sentimentColor(selectedCustomer.sentiment.tag)}`}>
                         {sentimentIcon(selectedCustomer.sentiment.tag)}
@@ -801,10 +833,10 @@ export default function SupportPage() {
                   )}
 
                   {selectedCustomer.healthScore != null && (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 px-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-neutral-500 dark:text-neutral-400">Health Score</span>
-                        <span className={`text-xs font-semibold ${healthColor(selectedCustomer.healthScore)}`}>
+                        <span className={`text-xs font-bold tabular-nums ${healthColor(selectedCustomer.healthScore)}`}>
                           {Math.round(selectedCustomer.healthScore * 100)}%
                         </span>
                       </div>
@@ -816,50 +848,51 @@ export default function SupportPage() {
                   )}
                 </div>
 
-                <Separator />
+                <Separator className="dark:bg-neutral-800" />
 
                 {/* Plan & Value */}
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shield className="h-3 w-3" />
                     Account
                   </p>
 
                   {selectedCustomer.plan && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Plan</span>
-                      <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">
+                      <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-md">
                         {selectedCustomer.plan}
                       </span>
                     </div>
                   )}
 
                   {selectedCustomer.lifetimeValue != null && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Lifetime Value</span>
-                      <span className="text-xs font-semibold text-emerald-600">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         ${selectedCustomer.lifetimeValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   )}
 
                   {selectedCustomer.phone && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Phone</span>
                       <span className="text-xs text-neutral-700 dark:text-neutral-300">{selectedCustomer.phone}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-1">
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">Member Since</span>
-                    <span className="text-xs text-neutral-700 dark:text-neutral-300">
+                    <span className="text-xs text-neutral-700 dark:text-neutral-300 tabular-nums">
                       {formatDate(selectedCustomer.createdAt)}
                     </span>
                   </div>
 
                   {selectedCustomer.lastContact && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Last Contact</span>
-                      <span className="text-xs text-neutral-700 dark:text-neutral-300">
+                      <span className="text-xs text-neutral-700 dark:text-neutral-300 tabular-nums">
                         {timeAgo(selectedCustomer.lastContact)}
                       </span>
                     </div>
@@ -869,37 +902,41 @@ export default function SupportPage() {
                 {/* Customer summary / AI notes */}
                 {selectedCustomer.summary && (
                   <>
-                    <Separator />
+                    <Separator className="dark:bg-neutral-800" />
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3" />
                         AI Summary
                       </p>
-                      <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                        {selectedCustomer.summary}
-                      </p>
+                      <div className="rounded-lg bg-violet-500/5 dark:bg-violet-500/10 border border-violet-500/10 dark:border-violet-500/20 p-2.5">
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                          {selectedCustomer.summary}
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
 
-                <Separator />
+                <Separator className="dark:bg-neutral-800" />
 
                 {/* Ticket history */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  <p className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <MessageCircle className="h-3 w-3" />
                     Ticket History ({customerTickets.length})
                   </p>
 
                   {customerTickets.length === 0 ? (
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500">No previous tickets</p>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 px-1">No previous tickets</p>
                   ) : (
                     <div className="space-y-1.5">
                       {customerTickets.map((t) => (
                         <button
                           key={t.id.toString()}
                           onClick={() => setSelectedTicketId(t.id)}
-                          className={`w-full text-left px-2.5 py-2 rounded-lg border transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800 ${
+                          className={`w-full text-left px-2.5 py-2 rounded-lg border transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/40 ${
                             t.id === selectedTicketId
-                              ? 'border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30'
+                              ? 'border-violet-500/30 dark:border-violet-500/20 bg-violet-50/80 dark:bg-violet-950/20'
                               : 'border-neutral-100 dark:border-neutral-800'
                           }`}
                         >
@@ -909,7 +946,7 @@ export default function SupportPage() {
                             >
                               {t.status.tag}
                             </span>
-                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 tabular-nums">
                               {timeAgo(t.createdAt)}
                             </span>
                           </div>
@@ -923,8 +960,11 @@ export default function SupportPage() {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500 p-6">
-              <User className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm text-center">Select a ticket to view customer details</p>
+              <div className="h-14 w-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800/40 flex items-center justify-center mb-3">
+                <User className="h-7 w-7 opacity-30" />
+              </div>
+              <p className="text-sm text-center font-medium text-neutral-500 dark:text-neutral-400">Customer Details</p>
+              <p className="text-xs text-center mt-1 text-neutral-400 dark:text-neutral-500">Select a ticket to view</p>
             </div>
           )}
         </div>

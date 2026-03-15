@@ -46,6 +46,16 @@ export const ActivityLog = __t.object("ActivityLog", {
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 
+// The tagged union or sum type for the algebraic type `AgentDeploymentStatus`.
+export const AgentDeploymentStatus = __t.enum("AgentDeploymentStatus", {
+  Draft: __t.unit(),
+  Deploying: __t.unit(),
+  Active: __t.unit(),
+  Paused: __t.unit(),
+  Failed: __t.unit(),
+});
+export type AgentDeploymentStatus = __Infer<typeof AgentDeploymentStatus>;
+
 export const AgentThoughtEvent = __t.object("AgentThoughtEvent", {
   taskId: __t.u64(),
   agentId: __t.identity(),
@@ -57,6 +67,30 @@ export const AgentThoughtEvent = __t.object("AgentThoughtEvent", {
   timestamp: __t.timestamp(),
 });
 export type AgentThoughtEvent = __Infer<typeof AgentThoughtEvent>;
+
+export const AiAgentDeployment = __t.object("AiAgentDeployment", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  get department() {
+    return Department;
+  },
+  roleDescription: __t.string(),
+  systemPrompt: __t.string(),
+  model: __t.string(),
+  capabilities: __t.array(__t.string()),
+  selfVerificationThreshold: __t.f32(),
+  maxTaskDurationMinutes: __t.u32(),
+  get status() {
+    return AgentDeploymentStatus;
+  },
+  tasksCompleted: __t.u64(),
+  avgConfidence: __t.option(__t.f32()),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+  lastActive: __t.option(__t.timestamp()),
+});
+export type AiAgentDeployment = __Infer<typeof AiAgentDeployment>;
 
 export const AiCallParticipant = __t.object("AiCallParticipant", {
   agentId: __t.string(),
@@ -385,6 +419,14 @@ export const Document = __t.object("Document", {
 });
 export type Document = __Infer<typeof Document>;
 
+export const DocumentFavorite = __t.object("DocumentFavorite", {
+  id: __t.u64(),
+  userId: __t.identity(),
+  documentId: __t.u64(),
+  createdAt: __t.timestamp(),
+});
+export type DocumentFavorite = __Infer<typeof DocumentFavorite>;
+
 // The tagged union or sum type for the algebraic type `DocumentType`.
 export const DocumentType = __t.enum("DocumentType", {
   Wiki: __t.unit(),
@@ -405,6 +447,28 @@ export const DocumentVisibility = __t.enum("DocumentVisibility", {
   Private: __t.unit(),
 });
 export type DocumentVisibility = __Infer<typeof DocumentVisibility>;
+
+export const EmailLabel = __t.object("EmailLabel", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  userId: __t.identity(),
+  name: __t.string(),
+  color: __t.string(),
+});
+export type EmailLabel = __Infer<typeof EmailLabel>;
+
+export const EmailMeta = __t.object("EmailMeta", {
+  id: __t.u64(),
+  messageId: __t.u64(),
+  userId: __t.identity(),
+  starred: __t.bool(),
+  archived: __t.bool(),
+  trashed: __t.bool(),
+  read: __t.bool(),
+  label: __t.option(__t.string()),
+  snoozedUntil: __t.option(__t.timestamp()),
+});
+export type EmailMeta = __Infer<typeof EmailMeta>;
 
 export const Employee = __t.object("Employee", {
   id: __t.identity(),
@@ -665,6 +729,48 @@ export const MessageType = __t.enum("MessageType", {
 });
 export type MessageType = __Infer<typeof MessageType>;
 
+export const Notification = __t.object("Notification", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  recipient: __t.identity(),
+  get notificationType() {
+    return NotificationType;
+  },
+  get priority() {
+    return NotificationPriority;
+  },
+  title: __t.string(),
+  body: __t.string(),
+  link: __t.option(__t.string()),
+  read: __t.bool(),
+  dismissed: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type Notification = __Infer<typeof Notification>;
+
+// The tagged union or sum type for the algebraic type `NotificationPriority`.
+export const NotificationPriority = __t.enum("NotificationPriority", {
+  Low: __t.unit(),
+  Normal: __t.unit(),
+  High: __t.unit(),
+  Urgent: __t.unit(),
+});
+export type NotificationPriority = __Infer<typeof NotificationPriority>;
+
+// The tagged union or sum type for the algebraic type `NotificationType`.
+export const NotificationType = __t.enum("NotificationType", {
+  TaskAssigned: __t.unit(),
+  TaskCompleted: __t.unit(),
+  MentionInMessage: __t.unit(),
+  TicketUpdate: __t.unit(),
+  PrReviewRequested: __t.unit(),
+  AgentCompleted: __t.unit(),
+  MeetingReminder: __t.unit(),
+  DocumentShared: __t.unit(),
+  SystemAlert: __t.unit(),
+});
+export type NotificationType = __Infer<typeof NotificationType>;
+
 export const OrgInviteLink = __t.object("OrgInviteLink", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -799,6 +905,7 @@ export const ResourceType = __t.enum("ResourceType", {
   Canvas: __t.unit(),
   Ticket: __t.unit(),
   Channel: __t.unit(),
+  Page: __t.unit(),
 });
 export type ResourceType = __Infer<typeof ResourceType>;
 
@@ -926,6 +1033,21 @@ export const Ticket = __t.object("Ticket", {
 });
 export type Ticket = __Infer<typeof Ticket>;
 
+export const TicketLabel = __t.object("TicketLabel", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  color: __t.string(),
+});
+export type TicketLabel = __Infer<typeof TicketLabel>;
+
+export const TicketLabelAssignment = __t.object("TicketLabelAssignment", {
+  id: __t.u64(),
+  taskId: __t.u64(),
+  labelId: __t.u64(),
+});
+export type TicketLabelAssignment = __Infer<typeof TicketLabelAssignment>;
+
 // The tagged union or sum type for the algebraic type `TicketStatus`.
 export const TicketStatus = __t.enum("TicketStatus", {
   New: __t.unit(),
@@ -935,6 +1057,39 @@ export const TicketStatus = __t.enum("TicketStatus", {
   Closed: __t.unit(),
 });
 export type TicketStatus = __Infer<typeof TicketStatus>;
+
+export const TimeEntry = __t.object("TimeEntry", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  userId: __t.identity(),
+  get category() {
+    return TimeEntryCategory;
+  },
+  description: __t.string(),
+  taskId: __t.option(__t.u64()),
+  ticketId: __t.option(__t.u64()),
+  startedAt: __t.timestamp(),
+  endedAt: __t.option(__t.timestamp()),
+  durationMinutes: __t.u32(),
+  billable: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type TimeEntry = __Infer<typeof TimeEntry>;
+
+// The tagged union or sum type for the algebraic type `TimeEntryCategory`.
+export const TimeEntryCategory = __t.enum("TimeEntryCategory", {
+  Development: __t.unit(),
+  Meeting: __t.unit(),
+  Support: __t.unit(),
+  Sales: __t.unit(),
+  Recruitment: __t.unit(),
+  Documentation: __t.unit(),
+  Review: __t.unit(),
+  Planning: __t.unit(),
+  Break: __t.unit(),
+  Other: __t.unit(),
+});
+export type TimeEntryCategory = __Infer<typeof TimeEntryCategory>;
 
 export const TypingIndicator = __t.object("TypingIndicator", {
   id: __t.u64(),

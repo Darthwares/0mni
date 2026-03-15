@@ -43,6 +43,9 @@ import {
 import { useAuth } from 'react-oidc-context'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 export default function SettingsPage() {
   const auth = useAuth()
@@ -243,9 +246,21 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-slate-500 to-zinc-600 shadow-lg shadow-slate-500/20">
+          <Settings className="size-5.5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <GradientText
+              colors={['#64748b', '#6b7280', '#71717a', '#64748b']}
+              animationSpeed={6}
+            >
+              Settings
+            </GradientText>
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your account and platform preferences</p>
+        </div>
       </div>
 
       <Tabs defaultValue="profile">
@@ -317,21 +332,26 @@ export default function SettingsPage() {
 
         <TabsContent value="organization" className="mt-4 space-y-4">
           {currentOrg && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="size-4" />
-                  {displayOrgName(currentOrg.name)}
-                </CardTitle>
-                <CardDescription>
-                  {currentOrg.domain && <>Domain: {currentOrg.domain} &middot; </>}
-                  {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
-                  {currentOrg.autoApproveDomain && currentOrg.domain && (
-                    <> &middot; Auto-approve @{currentOrg.domain}</>
-                  )}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <SpotlightCard
+              className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+              spotlightColor="rgba(100, 116, 139, 0.12)"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-slate-500/10">
+                  <Building2 className="size-4.5 text-slate-600 dark:text-slate-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">{displayOrgName(currentOrg.name)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentOrg.domain && <>Domain: {currentOrg.domain} &middot; </>}
+                    <CountUp to={activeMembers.length} duration={1} /> member{activeMembers.length !== 1 ? 's' : ''}
+                    {currentOrg.autoApproveDomain && currentOrg.domain && (
+                      <> &middot; Auto-approve @{currentOrg.domain}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </SpotlightCard>
           )}
 
           {/* Invite Members */}
@@ -442,7 +462,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   Pending Requests
-                  <Badge variant="secondary">{pendingMembers.length}</Badge>
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10">{pendingMembers.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -494,7 +514,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {roleIcon(m.role.tag)}
-                      <Badge variant="outline" className="text-xs">
+                      <Badge className="text-xs bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 hover:bg-slate-500/10">
                         {m.role.tag}
                       </Badge>
                     </div>
@@ -516,7 +536,7 @@ export default function SettingsPage() {
                           <p className="text-sm text-muted-foreground">{m.email}</p>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="text-xs">Invited</Badge>
+                      <Badge className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/10">Invited</Badge>
                     </div>
                   ))}
                 </>
@@ -594,39 +614,44 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="platform" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Database className="size-4" />
+          <SpotlightCard
+            className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+            spotlightColor="rgba(34, 197, 94, 0.10)"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-base font-semibold">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-green-500/10">
+                  <Database className="size-4 text-green-600 dark:text-green-400" />
+                </div>
                 SpacetimeDB Connection
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
+              </div>
+              <div className="space-y-3 pl-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Server</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {process.env.NEXT_PUBLIC_SPACETIMEDB_URI || 'https://maincloud.spacetimedb.com'}
+                    </p>
+                  </div>
+                  <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/10">Connected</Badge>
+                </div>
+                <Separator />
                 <div>
-                  <p className="text-sm font-medium">Server</p>
+                  <p className="text-sm font-medium">Database</p>
                   <p className="text-xs text-muted-foreground font-mono">
-                    {process.env.NEXT_PUBLIC_SPACETIMEDB_URI || 'https://maincloud.spacetimedb.com'}
+                    {process.env.NEXT_PUBLIC_SPACETIMEDB_NAME || 'omni-platform'}
                   </p>
                 </div>
-                <Badge variant="secondary" className="bg-green-500/10 text-green-500">Connected</Badge>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium">Real-time Sync</p>
+                  <p className="text-xs text-muted-foreground">
+                    All data is synced in real-time via SpacetimeDB subscriptions
+                  </p>
+                </div>
               </div>
-              <Separator />
-              <div>
-                <p className="text-sm font-medium">Database</p>
-                <p className="text-xs text-muted-foreground font-mono">
-                  {process.env.NEXT_PUBLIC_SPACETIMEDB_NAME || 'omni-platform'}
-                </p>
-              </div>
-              <Separator />
-              <div>
-                <p className="text-sm font-medium">Real-time Sync</p>
-                <p className="text-xs text-muted-foreground">
-                  All data is synced in real-time via SpacetimeDB subscriptions
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SpotlightCard>
 
           <Card>
             <CardHeader>

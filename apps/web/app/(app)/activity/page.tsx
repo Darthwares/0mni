@@ -18,7 +18,11 @@ import {
   MessageSquare,
   Phone,
   Mail,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 const actionIcons: Record<string, typeof Activity> = {
   Created: Plus,
@@ -102,27 +106,30 @@ export default function ActivityPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Activity Feed</h1>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <div className="size-9 rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center">
+            <Activity className="size-4.5 text-white" />
+          </div>
+          <GradientText colors={['#0ea5e9', '#06b6d4', '#38bdf8']} animationSpeed={6}>Activity Feed</GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm">Real-time audit trail across all modules</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Events', value: activities.length, icon: Activity },
-          { label: 'Created', value: actionCounts['Created'] ?? 0, icon: Plus },
-          { label: 'Completed', value: actionCounts['Completed'] ?? 0, icon: CheckCircle },
-          { label: 'Escalated', value: actionCounts['Escalated'] ?? 0, icon: AlertTriangle },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-              <stat.icon className="size-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
+        {([
+          { label: 'Total Events', value: activities.length, icon: Activity, color: 'from-sky-500/20 to-sky-600/5' },
+          { label: 'Created', value: actionCounts['Created'] ?? 0, icon: Plus, color: 'from-green-500/20 to-green-600/5' },
+          { label: 'Completed', value: actionCounts['Completed'] ?? 0, icon: CheckCircle, color: 'from-emerald-500/20 to-emerald-600/5' },
+          { label: 'Escalated', value: actionCounts['Escalated'] ?? 0, icon: AlertTriangle, color: 'from-orange-500/20 to-orange-600/5' },
+        ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+          <SpotlightCard key={stat.label} className="!p-4 !rounded-xl" spotlightColor="rgba(14, 165, 233, 0.12)">
+            <div className={`size-8 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-2`}>
+              <stat.icon className="size-4 text-foreground/70" />
+            </div>
+            <div className="text-2xl font-bold"><CountUp to={stat.value} duration={1.5} /></div>
+            <div className="text-[11px] text-muted-foreground">{stat.label}</div>
+          </SpotlightCard>
         ))}
       </div>
 

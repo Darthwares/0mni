@@ -43,7 +43,11 @@ import {
   Clock,
   Star,
   Plus,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -59,19 +63,19 @@ type CandidateStatusTag =
 function candidateStatusBadgeClass(tag: string): string {
   switch (tag as CandidateStatusTag) {
     case 'Sourced':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     case 'Contacted':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20'
     case 'Screening':
-      return 'bg-orange-100 text-orange-700 border-orange-200'
+      return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
     case 'Interview':
-      return 'bg-purple-100 text-purple-700 border-purple-200'
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
     case 'Offer':
-      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     case 'Hired':
-      return 'bg-green-100 text-green-700 border-green-200'
+      return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
     case 'Rejected':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -84,15 +88,15 @@ type JobStatusTag = 'Draft' | 'Open' | 'OnHold' | 'Filled' | 'Closed'
 function jobStatusBadgeClass(tag: string): string {
   switch (tag as JobStatusTag) {
     case 'Draft':
-      return 'bg-gray-100 text-gray-600 border-gray-200'
+      return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
     case 'Open':
-      return 'bg-green-100 text-green-700 border-green-200'
+      return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
     case 'OnHold':
-      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20'
     case 'Filled':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     case 'Closed':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -300,7 +304,12 @@ export default function RecruitmentPage() {
       {/* Page heading */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Recruitment</h1>
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <div className="size-9 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+              <Briefcase className="size-4.5 text-white" />
+            </div>
+            <GradientText colors={['#ec4899', '#f43f5e', '#fb7185']} animationSpeed={6}>Recruitment</GradientText>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Candidate pipeline, job postings, and interview scheduling
           </p>
@@ -379,69 +388,20 @@ export default function RecruitmentPage() {
           <div className="flex flex-col gap-6 mt-4">
             {/* KPI Cards */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Total Candidates
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold">
-                      {totalCandidates}
-                    </span>
-                    <Users className="size-5 text-muted-foreground mb-1" />
+              {([
+                { label: 'Total Candidates', value: totalCandidates, icon: Users, color: 'from-pink-500/20 to-pink-600/5' },
+                { label: 'In Pipeline', value: inPipeline, icon: Star, color: 'from-blue-500/20 to-blue-600/5' },
+                { label: 'Interviews', value: interviewsScheduled, icon: CalendarCheck, color: 'from-purple-500/20 to-purple-600/5' },
+                { label: 'Hired', value: hired, icon: CheckCircle2, color: 'from-green-500/20 to-green-600/5' },
+              ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+                <SpotlightCard key={stat.label} className="!p-4 !rounded-xl" spotlightColor="rgba(236, 72, 153, 0.12)">
+                  <div className={`size-8 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-2`}>
+                    <stat.icon className="size-4 text-foreground/70" />
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    In Pipeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-blue-600">
-                      {inPipeline}
-                    </span>
-                    <Star className="size-5 text-blue-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Interviews Scheduled
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-purple-600">
-                      {interviewsScheduled}
-                    </span>
-                    <CalendarCheck className="size-5 text-purple-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Hired
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-green-600">
-                      {hired}
-                    </span>
-                    <CheckCircle2 className="size-5 text-green-400 mb-1" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <div className="text-2xl font-bold"><CountUp to={stat.value} duration={1.5} /></div>
+                  <div className="text-[11px] text-muted-foreground">{stat.label}</div>
+                </SpotlightCard>
+              ))}
             </div>
 
             {/* Search */}

@@ -25,7 +25,11 @@ import {
   ExternalLink,
   Database,
   Code2,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,14 +47,14 @@ function truncate(str: string | undefined | null, maxLen = 60): string {
 
 function PrStatusBadge({ status }: { status: { tag: string } }) {
   const map: Record<string, string> = {
-    Open: 'bg-blue-100 text-blue-700 border-blue-200',
-    UnderReview: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    ChangesRequested: 'bg-orange-100 text-orange-700 border-orange-200',
-    Approved: 'bg-green-100 text-green-700 border-green-200',
-    Merged: 'bg-purple-100 text-purple-700 border-purple-200',
-    Closed: 'bg-gray-100 text-gray-600 border-gray-200',
+    Open: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    UnderReview: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    ChangesRequested: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    Approved: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+    Merged: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    Closed: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20',
   }
-  const cls = map[status.tag] ?? 'bg-gray-100 text-gray-600 border-gray-200'
+  const cls = map[status.tag] ?? 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
       {status.tag === 'UnderReview' ? 'Under Review' : status.tag === 'ChangesRequested' ? 'Changes Req.' : status.tag}
@@ -62,15 +66,15 @@ function PrStatusBadge({ status }: { status: { tag: string } }) {
 
 function BugStatusBadge({ status }: { status: { tag: string } }) {
   const map: Record<string, string> = {
-    New: 'bg-blue-100 text-blue-700 border-blue-200',
-    Triaged: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    InProgress: 'bg-orange-100 text-orange-700 border-orange-200',
-    FixInReview: 'bg-purple-100 text-purple-700 border-purple-200',
-    Resolved: 'bg-green-100 text-green-700 border-green-200',
-    Verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    Closed: 'bg-gray-100 text-gray-600 border-gray-200',
+    New: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    Triaged: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    InProgress: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    FixInReview: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    Resolved: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+    Verified: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    Closed: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20',
   }
-  const cls = map[status.tag] ?? 'bg-gray-100 text-gray-600 border-gray-200'
+  const cls = map[status.tag] ?? 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   const label =
     status.tag === 'InProgress' ? 'In Progress' :
     status.tag === 'FixInReview' ? 'Fix In Review' :
@@ -86,12 +90,12 @@ function BugStatusBadge({ status }: { status: { tag: string } }) {
 
 function SeverityBadge({ severity }: { severity: { tag: string } }) {
   const map: Record<string, string> = {
-    Critical: 'bg-red-100 text-red-700 border-red-200',
-    High: 'bg-orange-100 text-orange-700 border-orange-200',
-    Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    Low: 'bg-gray-100 text-gray-600 border-gray-200',
+    Critical: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+    High: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    Medium: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    Low: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20',
   }
-  const cls = map[severity.tag] ?? 'bg-gray-100 text-gray-600 border-gray-200'
+  const cls = map[severity.tag] ?? 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
       {severity.tag}
@@ -103,12 +107,12 @@ function SeverityBadge({ severity }: { severity: { tag: string } }) {
 
 function PriorityBadge({ priority }: { priority: { tag: string } }) {
   const map: Record<string, string> = {
-    Urgent: 'bg-red-100 text-red-700 border-red-200',
-    High: 'bg-orange-100 text-orange-700 border-orange-200',
-    Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    Low: 'bg-gray-100 text-gray-600 border-gray-200',
+    Urgent: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+    High: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    Medium: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    Low: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20',
   }
-  const cls = map[priority.tag] ?? 'bg-gray-100 text-gray-600 border-gray-200'
+  const cls = map[priority.tag] ?? 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
       {priority.tag}
@@ -140,24 +144,28 @@ function KpiCard({
   icon: Icon,
   subtitle,
   accent,
+  gradientColor,
 }: {
   title: string
   value: string | number
   icon: React.ElementType
   subtitle?: string
   accent?: string
+  gradientColor?: string
 }) {
+  const numValue = typeof value === 'number' ? value : parseInt(value as string)
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${accent ?? 'text-muted-foreground'}`} />
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${accent ?? ''}`}>{value}</div>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-      </CardContent>
-    </Card>
+    <SpotlightCard className="!p-4 !rounded-xl" spotlightColor="rgba(99, 102, 241, 0.12)">
+      <div className={`size-8 rounded-lg bg-gradient-to-br ${gradientColor ?? 'from-indigo-500/20 to-indigo-600/5'} flex items-center justify-center mb-2`}>
+        <Icon className={`size-4 ${accent ?? 'text-foreground/70'}`} />
+      </div>
+      <div className={`text-2xl font-bold ${accent ?? ''}`}>
+        {!isNaN(numValue) ? <CountUp to={numValue} duration={1.5} /> : value}
+        {typeof value === 'string' && value.endsWith('%') && !isNaN(numValue) && '%'}
+      </div>
+      <div className="text-[11px] text-muted-foreground">{title}</div>
+      {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
+    </SpotlightCard>
   )
 }
 
@@ -225,7 +233,12 @@ export default function EngineeringPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Engineering</h1>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <div className="size-9 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+            <Code2 className="size-4.5 text-white" />
+          </div>
+          <GradientText colors={['#6366f1', '#3b82f6', '#818cf8']} animationSpeed={6}>Engineering</GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           AI-powered code reviews, automated bug triage, and repository insights
         </p>

@@ -45,7 +45,12 @@ import {
   MailOpen,
   CircleDot,
   Plus,
+  Headphones,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -80,12 +85,12 @@ function statusVariant(tag: string): 'default' | 'secondary' | 'destructive' | '
 
 function statusColor(tag: string): string {
   switch (tag) {
-    case 'New': return 'bg-blue-100 text-blue-700 border-blue-200'
-    case 'Open': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    case 'Pending': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Resolved': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    case 'Closed': return 'bg-neutral-200 text-neutral-500 border-neutral-300'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'New': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+    case 'Open': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Pending': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Resolved': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    case 'Closed': return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -112,11 +117,11 @@ function priorityColor(tag: string): string {
 
 function priorityBg(tag: string): string {
   switch (tag) {
-    case 'Urgent': return 'bg-red-100 text-red-700 border-red-200'
-    case 'High': return 'bg-orange-100 text-orange-700 border-orange-200'
-    case 'Medium': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Low': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'Urgent': return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+    case 'High': return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
+    case 'Medium': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Low': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -308,34 +313,33 @@ export default function SupportPage() {
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       {/* ---- Top stats bar ---- */}
-      <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <Inbox className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {openCount} Open
+      <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 flex items-center gap-3">
+        <div className="flex items-center gap-2 mr-2">
+          <div className="size-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            <Headphones className="size-3.5 text-white" />
+          </div>
+          <span className="text-sm font-bold">
+            <GradientText colors={['#3b82f6', '#6366f1', '#818cf8']} animationSpeed={6}>Support</GradientText>
           </span>
         </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {pendingCount} Pending
-          </span>
-        </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {resolvedCount} Resolved
-          </span>
-        </div>
-        <Separator orientation="vertical" className="h-4" />
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-violet-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {aiResolvedCount} AI Auto-Resolved
-          </span>
-        </div>
+        {([
+          { label: 'Open', value: openCount, icon: Inbox, color: 'from-blue-500/20 to-blue-600/5' },
+          { label: 'Pending', value: pendingCount, icon: Clock, color: 'from-amber-500/20 to-amber-600/5' },
+          { label: 'Resolved', value: resolvedCount, icon: CheckCircle2, color: 'from-emerald-500/20 to-emerald-600/5' },
+          { label: 'AI Resolved', value: aiResolvedCount, icon: Bot, color: 'from-violet-500/20 to-violet-600/5' },
+        ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+          <SpotlightCard key={stat.label} className="!p-2 !px-3 !rounded-lg !border-neutral-200 dark:!border-neutral-800" spotlightColor="rgba(99, 102, 241, 0.1)">
+            <div className="flex items-center gap-2">
+              <div className={`size-6 rounded-md bg-gradient-to-br ${stat.color} flex items-center justify-center shrink-0`}>
+                <stat.icon className="size-3 text-foreground/70" />
+              </div>
+              <div>
+                <div className="text-sm font-bold leading-tight"><CountUp to={stat.value} duration={1} /></div>
+                <div className="text-[9px] text-muted-foreground">{stat.label}</div>
+              </div>
+            </div>
+          </SpotlightCard>
+        ))}
 
         <div className="ml-auto flex items-center gap-2">
           {/* New Customer Dialog */}

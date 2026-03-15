@@ -56,7 +56,11 @@ import {
   Percent,
   User,
   Plus,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -296,8 +300,11 @@ export default function SalesPage() {
       {/* ── Page title row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            Sales &amp; CRM
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <DollarSign className="size-4 text-white" />
+            </div>
+            <GradientText colors={['#10b981', '#14b8a6', '#34d399']} animationSpeed={6}>Sales &amp; CRM</GradientText>
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Lead qualification and deal pipeline management
@@ -406,61 +413,20 @@ export default function SalesPage() {
 
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Users className="size-3.5" />
-                  Total Leads
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {kpis.total}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <CheckCircle2 className="size-3.5 text-green-500" />
-                  Qualified
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-green-600">
-                  {kpis.qualified}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <TrendingUp className="size-3.5 text-emerald-500" />
-                  Converted
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-emerald-600">
-                  {kpis.converted}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card size="sm">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <BarChart3 className="size-3.5 text-violet-500" />
-                  Avg Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {kpis.avgScore}
-                </p>
-              </CardContent>
-            </Card>
+            {([
+              { label: 'Total Leads', value: kpis.total, icon: Users, color: 'from-blue-500/20 to-blue-600/5' },
+              { label: 'Qualified', value: kpis.qualified, icon: CheckCircle2, color: 'from-green-500/20 to-green-600/5' },
+              { label: 'Converted', value: kpis.converted, icon: TrendingUp, color: 'from-emerald-500/20 to-emerald-600/5' },
+              { label: 'Avg Score', value: kpis.avgScore, icon: BarChart3, color: 'from-violet-500/20 to-violet-600/5' },
+            ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+              <SpotlightCard key={stat.label} className="!p-4 !rounded-xl" spotlightColor="rgba(16, 185, 129, 0.12)">
+                <div className={`size-8 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-2`}>
+                  <stat.icon className="size-4 text-foreground/70" />
+                </div>
+                <div className="text-2xl font-bold"><CountUp to={stat.value} duration={1.5} /></div>
+                <div className="text-[11px] text-muted-foreground">{stat.label}</div>
+              </SpotlightCard>
+            ))}
           </div>
 
           {/* Filters */}

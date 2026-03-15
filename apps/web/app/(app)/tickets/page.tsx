@@ -84,8 +84,12 @@ import {
   Reply,
   ChevronDown,
   ChevronUp,
+  type LucideIcon,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -265,6 +269,14 @@ export default function TicketsPage() {
     return map
   }, [filteredTasks])
 
+  const ticketStats = useMemo(() => {
+    const inProgress = filteredTasks.filter((t) => ['InProgress', 'SelfChecking'].includes(t.status.tag)).length
+    const completed = filteredTasks.filter((t) => t.status.tag === 'Completed').length
+    const urgent = filteredTasks.filter((t) => t.priority.tag === 'Urgent' || t.priority.tag === 'High').length
+    const unassigned = filteredTasks.filter((t) => t.status.tag === 'Unclaimed').length
+    return { total: filteredTasks.length, inProgress, completed, urgent, unassigned }
+  }, [filteredTasks])
+
   const handleCreate = async () => {
     if (!newTitle.trim() || currentOrgId === null) return
     setIsCreating(true)
@@ -385,8 +397,12 @@ export default function TicketsPage() {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
-          <KanbanSquare className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Tickets</h1>
+          <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <KanbanSquare className="size-4 text-white" />
+          </div>
+          <h1 className="text-lg font-bold">
+            <GradientText colors={['#8b5cf6', '#a855f7', '#c084fc']} animationSpeed={6}>Tickets</GradientText>
+          </h1>
           <Badge variant="secondary" className="text-xs">
             {filteredTasks.length}
           </Badge>
@@ -439,6 +455,29 @@ export default function TicketsPage() {
             Create
           </Button>
         </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex gap-3 px-4 py-3 border-b overflow-x-auto">
+        {([
+          { label: 'Total', value: ticketStats.total, icon: KanbanSquare, color: 'from-violet-500/20 to-violet-600/5' },
+          { label: 'In Progress', value: ticketStats.inProgress, icon: Loader2, color: 'from-amber-500/20 to-amber-600/5' },
+          { label: 'Completed', value: ticketStats.completed, icon: CheckCircle2, color: 'from-emerald-500/20 to-emerald-600/5' },
+          { label: 'Urgent/High', value: ticketStats.urgent, icon: AlertCircle, color: 'from-red-500/20 to-red-600/5' },
+          { label: 'Unassigned', value: ticketStats.unassigned, icon: Circle, color: 'from-neutral-500/20 to-neutral-600/5' },
+        ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+          <SpotlightCard key={stat.label} className="!p-3 !rounded-xl min-w-[140px] flex-1" spotlightColor="rgba(139, 92, 246, 0.12)">
+            <div className="flex items-center gap-2">
+              <div className={`size-7 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center shrink-0`}>
+                <stat.icon className="size-3.5 text-foreground/70" />
+              </div>
+              <div>
+                <div className="text-lg font-bold leading-tight"><CountUp to={stat.value} duration={1.2} /></div>
+                <div className="text-[10px] text-muted-foreground">{stat.label}</div>
+              </div>
+            </div>
+          </SpotlightCard>
+        ))}
       </div>
 
       {/* Board / List View */}

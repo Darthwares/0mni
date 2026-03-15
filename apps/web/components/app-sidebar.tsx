@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Share2,
   UserPlus,
+  Users2,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -75,6 +76,7 @@ const navSections = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "People", href: "/people", icon: Users2 },
       { title: "Activity", href: "/activity", icon: Activity },
     ],
   },

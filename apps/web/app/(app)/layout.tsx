@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
+import { NotificationCenter } from "@/components/notification-center"
 import { NotificationPrompt } from "@/components/notification-prompt"
 import { CommandPalette } from "@/components/command-palette"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
@@ -77,7 +78,8 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-                <div className="ml-auto hidden md:block">
+                <div className="ml-auto hidden md:flex items-center gap-2">
+                  <NotificationCenter />
                   <PresenceBar />
                 </div>
               </header>

@@ -1,14 +1,34 @@
 'use client'
 
-import { useTable } from 'spacetimedb/react'
-import { useMemo } from 'react'
-import { tables } from '@/generated'
+import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
+import { useMemo, useState, useCallback } from 'react'
+import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -30,6 +50,8 @@ import {
   Code2,
   Sparkles,
   Bot,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -142,9 +164,86 @@ function AiCheck({ value }: { value: boolean }) {
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function EngineeringPage() {
+  const { currentOrgId } = useOrg()
   const [allPRs] = useTable(tables.pull_request)
   const [allBugs] = useTable(tables.bug)
   const [allRepos] = useTable(tables.code_repository)
+
+  const createCodeRepository = useSpacetimeReducer(reducers.createCodeRepository)
+  const deleteCodeRepository = useSpacetimeReducer(reducers.deleteCodeRepository)
+  const createPullRequest = useSpacetimeReducer(reducers.createPullRequest)
+  const updatePrStatus = useSpacetimeReducer(reducers.updatePrStatus)
+  const deletePullRequest = useSpacetimeReducer(reducers.deletePullRequest)
+  const createBug = useSpacetimeReducer(reducers.createBug)
+  const updateBugStatus = useSpacetimeReducer(reducers.updateBugStatus)
+  const deleteBug = useSpacetimeReducer(reducers.deleteBug)
+
+  // Repo dialog state
+  const [repoDialogOpen, setRepoDialogOpen] = useState(false)
+  const [newRepoName, setNewRepoName] = useState('')
+  const [newRepoUrl, setNewRepoUrl] = useState('')
+  const [newRepoPlatform, setNewRepoPlatform] = useState('GitHub')
+  const [newRepoLanguages, setNewRepoLanguages] = useState('')
+
+  // PR dialog state
+  const [prDialogOpen, setPrDialogOpen] = useState(false)
+  const [newPrRepoId, setNewPrRepoId] = useState('')
+  const [newPrExternalId, setNewPrExternalId] = useState('')
+  const [newPrTitle, setNewPrTitle] = useState('')
+  const [newPrDesc, setNewPrDesc] = useState('')
+
+  // Bug dialog state
+  const [bugDialogOpen, setBugDialogOpen] = useState(false)
+  const [newBugTitle, setNewBugTitle] = useState('')
+  const [newBugDesc, setNewBugDesc] = useState('')
+  const [newBugSeverity, setNewBugSeverity] = useState('Medium')
+  const [newBugPriority, setNewBugPriority] = useState('Medium')
+
+  const handleCreateRepo = useCallback(() => {
+    if (!newRepoName.trim() || !newRepoUrl.trim() || currentOrgId === null) return
+    try {
+      createCodeRepository({
+        orgId: BigInt(currentOrgId),
+        name: newRepoName.trim(),
+        url: newRepoUrl.trim(),
+        platform: { tag: newRepoPlatform } as any,
+        primaryLanguages: newRepoLanguages.trim() ? newRepoLanguages.split(',').map(s => s.trim()).filter(Boolean) : [],
+      })
+    } catch (e) { console.error('Failed to create repository:', e) }
+    setRepoDialogOpen(false)
+    setNewRepoName(''); setNewRepoUrl(''); setNewRepoPlatform('GitHub'); setNewRepoLanguages('')
+  }, [newRepoName, newRepoUrl, newRepoPlatform, newRepoLanguages, currentOrgId, createCodeRepository])
+
+  const handleCreatePR = useCallback(() => {
+    if (!newPrRepoId || !newPrTitle.trim() || currentOrgId === null) return
+    try {
+      createPullRequest({
+        orgId: BigInt(currentOrgId),
+        repositoryId: BigInt(newPrRepoId),
+        externalId: newPrExternalId.trim(),
+        title: newPrTitle.trim(),
+        description: newPrDesc.trim(),
+      })
+    } catch (e) { console.error('Failed to create PR:', e) }
+    setPrDialogOpen(false)
+    setNewPrRepoId(''); setNewPrExternalId(''); setNewPrTitle(''); setNewPrDesc('')
+  }, [newPrRepoId, newPrExternalId, newPrTitle, newPrDesc, currentOrgId, createPullRequest])
+
+  const handleCreateBug = useCallback(() => {
+    if (!newBugTitle.trim() || currentOrgId === null) return
+    try {
+      createBug({
+        orgId: BigInt(currentOrgId),
+        title: newBugTitle.trim(),
+        description: newBugDesc.trim(),
+        severity: { tag: newBugSeverity } as any,
+        priority: { tag: newBugPriority } as any,
+        assignedTo: undefined,
+      })
+    } catch (e) { console.error('Failed to create bug:', e) }
+    setBugDialogOpen(false)
+    setNewBugTitle(''); setNewBugDesc(''); setNewBugSeverity('Medium'); setNewBugPriority('Medium')
+  }, [newBugTitle, newBugDesc, newBugSeverity, newBugPriority, currentOrgId, createBug])
 
   const pullRequests = useMemo(
     () => [...allPRs].sort((a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())),
@@ -194,20 +293,148 @@ export default function EngineeringPage() {
       <div className="flex-1 overflow-y-auto">
       <div className="flex flex-col gap-6 p-6">
       {/* ── Header */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
-          <Code2 className="size-5.5 text-white" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
+            <Code2 className="size-5.5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <GradientText
+                colors={['#06b6d4', '#3b82f6', '#6366f1', '#06b6d4']}
+                animationSpeed={6}
+              >
+                Engineering
+              </GradientText>
+            </h1>
+            <BlurText text="AI-powered code reviews, automated bug triage, and repository insights" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            <GradientText
-              colors={['#06b6d4', '#3b82f6', '#6366f1', '#06b6d4']}
-              animationSpeed={6}
-            >
-              Engineering
-            </GradientText>
-          </h1>
-          <BlurText text="AI-powered code reviews, automated bug triage, and repository insights" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
+        <div className="flex items-center gap-2">
+          {/* Create Repo Dialog */}
+          <Dialog open={repoDialogOpen} onOpenChange={setRepoDialogOpen}>
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
+              <GitBranch className="size-4" /> Add Repo
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Add Repository</DialogTitle></DialogHeader>
+              <div className="flex flex-col gap-3 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Name *</Label>
+                  <Input placeholder="my-project" value={newRepoName} onChange={(e) => setNewRepoName(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>URL *</Label>
+                  <Input placeholder="https://github.com/org/repo" value={newRepoUrl} onChange={(e) => setNewRepoUrl(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Platform</Label>
+                    <Select value={newRepoPlatform} onValueChange={setNewRepoPlatform}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GitHub">GitHub</SelectItem>
+                        <SelectItem value="GitLab">GitLab</SelectItem>
+                        <SelectItem value="Bitbucket">Bitbucket</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Languages (comma-separated)</Label>
+                    <Input placeholder="TypeScript, Rust" value={newRepoLanguages} onChange={(e) => setNewRepoLanguages(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateRepo} disabled={!newRepoName.trim() || !newRepoUrl.trim()}>Add Repository</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Create PR Dialog */}
+          <Dialog open={prDialogOpen} onOpenChange={setPrDialogOpen}>
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
+              <GitPullRequest className="size-4" /> New PR
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Create Pull Request</DialogTitle></DialogHeader>
+              <div className="flex flex-col gap-3 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Repository *</Label>
+                  <Select value={newPrRepoId} onValueChange={setNewPrRepoId}>
+                    <SelectTrigger><SelectValue placeholder="Select repository..." /></SelectTrigger>
+                    <SelectContent>
+                      {repos.map((r) => (
+                        <SelectItem key={r.id.toString()} value={r.id.toString()}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Title *</Label>
+                    <Input placeholder="Fix auth timeout" value={newPrTitle} onChange={(e) => setNewPrTitle(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>PR # (External)</Label>
+                    <Input placeholder="123" value={newPrExternalId} onChange={(e) => setNewPrExternalId(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Description</Label>
+                  <Textarea placeholder="What does this PR do?" value={newPrDesc} onChange={(e) => setNewPrDesc(e.target.value)} rows={3} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreatePR} disabled={!newPrRepoId || !newPrTitle.trim()}>Create PR</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Create Bug Dialog */}
+          <Dialog open={bugDialogOpen} onOpenChange={setBugDialogOpen}>
+            <DialogTrigger render={<Button size="sm" />}>
+              <Bug className="size-4" /> Report Bug
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Report Bug</DialogTitle></DialogHeader>
+              <div className="flex flex-col gap-3 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Title *</Label>
+                  <Input placeholder="Login fails on Safari" value={newBugTitle} onChange={(e) => setNewBugTitle(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Description</Label>
+                  <Textarea placeholder="Steps to reproduce..." value={newBugDesc} onChange={(e) => setNewBugDesc(e.target.value)} rows={3} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Severity</Label>
+                    <Select value={newBugSeverity} onValueChange={setNewBugSeverity}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['Critical', 'High', 'Medium', 'Low'].map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Priority</Label>
+                    <Select value={newBugPriority} onValueChange={setNewBugPriority}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['Urgent', 'High', 'Medium', 'Low'].map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateBug} disabled={!newBugTitle.trim()}>Report Bug</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -313,12 +540,13 @@ export default function EngineeringPage() {
                       </span>
                     </TableHead>
                     <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold">Created</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pullRequests.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-16">
+                      <TableCell colSpan={8} className="text-center py-16">
                         <div className="flex flex-col items-center text-muted-foreground">
                           <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
                             <GitPullRequest className="size-6 opacity-40" />
@@ -374,6 +602,21 @@ export default function EngineeringPage() {
                           </TableCell>
                           <TableCell className="pr-4 text-sm text-muted-foreground whitespace-nowrap">
                             {formatTimestamp(pr.createdAt)}
+                          </TableCell>
+                          <TableCell className="pr-4">
+                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Select value={pr.status.tag} onValueChange={(v) => { try { updatePrStatus({ prId: pr.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                                <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {['Open', 'UnderReview', 'ChangesRequested', 'Approved', 'Merged', 'Closed'].map((s) => (
+                                    <SelectItem key={s} value={s}>{s === 'UnderReview' ? 'In Review' : s === 'ChangesRequested' ? 'Changes' : s}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => { if (confirm('Delete this PR?')) try { deletePullRequest({ prId: pr.id }) } catch (e) { console.error(e) } }}>
+                                <Trash2 className="size-3" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       )
@@ -452,12 +695,13 @@ export default function EngineeringPage() {
                     <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">AI</TableHead>
                     <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Suggested Fix</TableHead>
                     <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold">Reported</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {bugs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-16">
+                      <TableCell colSpan={8} className="text-center py-16">
                         <div className="flex flex-col items-center text-muted-foreground">
                           <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
                             <Bug className="size-6 opacity-40" />
@@ -500,6 +744,21 @@ export default function EngineeringPage() {
                         </TableCell>
                         <TableCell className="pr-4 text-sm text-muted-foreground whitespace-nowrap">
                           {formatTimestamp(bug.reportedAt)}
+                        </TableCell>
+                        <TableCell className="pr-4">
+                          <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Select value={bug.status.tag} onValueChange={(v) => { try { updateBugStatus({ bugId: bug.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                              <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {['New', 'Triaged', 'InProgress', 'FixInReview', 'Resolved', 'Verified', 'Closed'].map((s) => (
+                                  <SelectItem key={s} value={s}>{s === 'InProgress' ? 'In Prog.' : s === 'FixInReview' ? 'Fix Review' : s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => { if (confirm('Delete this bug?')) try { deleteBug({ bugId: bug.id }) } catch (e) { console.error(e) } }}>
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -568,11 +827,16 @@ export default function EngineeringPage() {
                           {repo.aiIndexed ? 'AI Indexed' : 'Not Indexed'}
                         </span>
                       </div>
-                      {repo.aiIndexed && repo.lastIndexed != null && (
-                        <span className="text-[11px] text-muted-foreground">
-                          {formatTimestamp(repo.lastIndexed)}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {repo.aiIndexed && repo.lastIndexed != null && (
+                          <span className="text-[11px] text-muted-foreground">
+                            {formatTimestamp(repo.lastIndexed)}
+                          </span>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete repository "${repo.name}"?`)) try { deleteCodeRepository({ repoId: repo.id }) } catch (e) { console.error(e) } }}>
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

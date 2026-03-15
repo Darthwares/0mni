@@ -4492,6 +4492,178 @@ pub fn delete_interview(
 }
 
 // ============================================================================
+// REDUCERS - ENGINEERING MODULE
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_code_repository(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    url: String,
+    platform: CodePlatform,
+    primary_languages: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if name.trim().is_empty() {
+        return Err("Repository name cannot be empty".to_string());
+    }
+    ctx.db.code_repository().insert(CodeRepository {
+        id: 0,
+        org_id,
+        name,
+        url,
+        platform,
+        ai_indexed: false,
+        last_indexed: None,
+        primary_languages,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_code_repository(
+    ctx: &ReducerContext,
+    repo_id: u64,
+) -> Result<(), String> {
+    let repo = ctx.db.code_repository().id().find(&repo_id)
+        .ok_or("Repository not found")?;
+    require_org_access(ctx, repo.org_id)?;
+    ctx.db.code_repository().id().delete(&repo_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_pull_request(
+    ctx: &ReducerContext,
+    org_id: u64,
+    repository_id: u64,
+    external_id: String,
+    title: String,
+    description: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.code_repository().id().find(&repository_id)
+        .ok_or("Repository not found")?;
+    ctx.db.pull_request().insert(PullRequest {
+        id: 0,
+        org_id,
+        repository_id,
+        external_id,
+        title,
+        description,
+        author: ctx.sender(),
+        reviewers: vec![],
+        status: PRStatus::Open,
+        ai_reviewed: false,
+        ai_review_summary: None,
+        security_issues: vec![],
+        performance_issues: vec![],
+        created_at: ctx.timestamp,
+        merged_at: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_pr_status(
+    ctx: &ReducerContext,
+    pr_id: u64,
+    new_status: PRStatus,
+) -> Result<(), String> {
+    let pr = ctx.db.pull_request().id().find(&pr_id)
+        .ok_or("Pull request not found")?;
+    require_org_access(ctx, pr.org_id)?;
+    let merged_at = if new_status == PRStatus::Merged { Some(ctx.timestamp) } else { pr.merged_at };
+    ctx.db.pull_request().id().update(PullRequest {
+        status: new_status,
+        merged_at,
+        ..pr
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_pull_request(
+    ctx: &ReducerContext,
+    pr_id: u64,
+) -> Result<(), String> {
+    let pr = ctx.db.pull_request().id().find(&pr_id)
+        .ok_or("Pull request not found")?;
+    require_org_access(ctx, pr.org_id)?;
+    ctx.db.pull_request().id().delete(&pr_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_bug(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    description: String,
+    severity: BugSeverity,
+    priority: Priority,
+    assigned_to: Option<Identity>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if title.trim().is_empty() {
+        return Err("Bug title cannot be empty".to_string());
+    }
+    ctx.db.bug().insert(Bug {
+        id: 0,
+        org_id,
+        title,
+        description,
+        severity,
+        priority,
+        status: BugStatus::New,
+        assigned_to,
+        ai_triaged: false,
+        ai_severity_confidence: None,
+        ai_suggested_fix: None,
+        related_prs: vec![],
+        reported_at: ctx.timestamp,
+        resolved_at: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_bug_status(
+    ctx: &ReducerContext,
+    bug_id: u64,
+    new_status: BugStatus,
+) -> Result<(), String> {
+    let bug = ctx.db.bug().id().find(&bug_id)
+        .ok_or("Bug not found")?;
+    require_org_access(ctx, bug.org_id)?;
+    let resolved_at = if new_status == BugStatus::Resolved || new_status == BugStatus::Closed {
+        Some(ctx.timestamp)
+    } else {
+        bug.resolved_at
+    };
+    ctx.db.bug().id().update(Bug {
+        status: new_status,
+        resolved_at,
+        ..bug
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_bug(
+    ctx: &ReducerContext,
+    bug_id: u64,
+) -> Result<(), String> {
+    let bug = ctx.db.bug().id().find(&bug_id)
+        .ok_or("Bug not found")?;
+    require_org_access(ctx, bug.org_id)?;
+    ctx.db.bug().id().delete(&bug_id);
+    Ok(())
+}
+
+// ============================================================================
 // REDUCERS - DOCUMENT VERSIONS
 // ============================================================================
 

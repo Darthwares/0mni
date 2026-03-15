@@ -6091,7 +6091,95 @@ pub fn update_cal_event(
 
 #[spacetimedb::reducer]
 pub fn delete_cal_event(ctx: &ReducerContext, event_id: u64) -> Result<(), String> {
+    // Also delete all attendees for this event
+    let attendees: Vec<_> = ctx.db.cal_event_attendee().iter()
+        .filter(|a| a.event_id == event_id)
+        .collect();
+    for att in attendees {
+        ctx.db.cal_event_attendee().id().delete(&att.id);
+    }
     ctx.db.cal_event().id().delete(&event_id);
+    Ok(())
+}
+
+// ── Calendar Attendees / RSVP ──────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum RsvpStatus {
+    Pending,
+    Accepted,
+    Declined,
+    Maybe,
+}
+
+#[spacetimedb::table(accessor = cal_event_attendee, public)]
+#[derive(Clone)]
+pub struct CalEventAttendee {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub event_id: u64,
+    pub identity: Identity,
+    pub rsvp_status: RsvpStatus,
+    pub responded_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_event_attendee(
+    ctx: &ReducerContext,
+    event_id: u64,
+    attendee_identity: String,
+) -> Result<(), String> {
+    ctx.db.cal_event().id().find(&event_id)
+        .ok_or("Event not found")?;
+    let identity = Identity::from_hex(&attendee_identity)
+        .map_err(|_| "Invalid identity hex".to_string())?;
+    // Prevent duplicate attendees
+    let already_exists = ctx.db.cal_event_attendee().iter()
+        .any(|a| a.event_id == event_id && a.identity == identity);
+    if already_exists {
+        return Err("Attendee already added".to_string());
+    }
+    ctx.db.cal_event_attendee().insert(CalEventAttendee {
+        id: 0,
+        event_id,
+        identity,
+        rsvp_status: RsvpStatus::Pending,
+        responded_at: Timestamp::UNIX_EPOCH,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn respond_to_event(
+    ctx: &ReducerContext,
+    event_id: u64,
+    rsvp_tag: String,
+) -> Result<(), String> {
+    let att = ctx.db.cal_event_attendee().iter()
+        .find(|a| a.event_id == event_id && a.identity == ctx.sender())
+        .ok_or("You are not an attendee of this event")?;
+    let rsvp_status = match rsvp_tag.as_str() {
+        "Accepted" => RsvpStatus::Accepted,
+        "Declined" => RsvpStatus::Declined,
+        "Maybe" => RsvpStatus::Maybe,
+        "Pending" => RsvpStatus::Pending,
+        _ => return Err("Invalid RSVP status".to_string()),
+    };
+    ctx.db.cal_event_attendee().id().update(CalEventAttendee {
+        rsvp_status,
+        responded_at: ctx.timestamp,
+        ..att
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_event_attendee(
+    ctx: &ReducerContext,
+    attendee_id: u64,
+) -> Result<(), String> {
+    ctx.db.cal_event_attendee().id().delete(&attendee_id);
     Ok(())
 }
 

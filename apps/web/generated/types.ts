@@ -340,6 +340,17 @@ export const CalEvent = __t.object("CalEvent", {
 });
 export type CalEvent = __Infer<typeof CalEvent>;
 
+export const CalEventAttendee = __t.object("CalEventAttendee", {
+  id: __t.u64(),
+  eventId: __t.u64(),
+  identity: __t.identity(),
+  get rsvpStatus() {
+    return RsvpStatus;
+  },
+  respondedAt: __t.timestamp(),
+});
+export type CalEventAttendee = __Infer<typeof CalEventAttendee>;
+
 export const CallSession = __t.object("CallSession", {
   sessionId: __t.uuid(),
   get callType() {
@@ -1389,6 +1400,15 @@ export const ResourceType = __t.enum("ResourceType", {
   Page: __t.unit(),
 });
 export type ResourceType = __Infer<typeof ResourceType>;
+
+// The tagged union or sum type for the algebraic type `RsvpStatus`.
+export const RsvpStatus = __t.enum("RsvpStatus", {
+  Pending: __t.unit(),
+  Accepted: __t.unit(),
+  Declined: __t.unit(),
+  Maybe: __t.unit(),
+});
+export type RsvpStatus = __Infer<typeof RsvpStatus>;
 
 export const SavedReport = __t.object("SavedReport", {
   id: __t.u64(),

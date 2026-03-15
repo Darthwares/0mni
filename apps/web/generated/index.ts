@@ -55,6 +55,7 @@ import CreateContactReducer from "./create_contact_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
+import CreateDriveItemReducer from "./create_drive_item_reducer";
 import CreateEmailLabelReducer from "./create_email_label_reducer";
 import CreateEpicReducer from "./create_epic_reducer";
 import CreateExpenseReducer from "./create_expense_reducer";
@@ -75,6 +76,7 @@ import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
+import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
@@ -109,6 +111,7 @@ import MarkAllNotificationsReadReducer from "./mark_all_notifications_read_reduc
 import MarkEmailReadReducer from "./mark_email_read_reducer";
 import MarkKbArticleHelpfulReducer from "./mark_kb_article_helpful_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
+import MoveDriveItemReducer from "./move_drive_item_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
@@ -116,6 +119,7 @@ import RejectRequestReducer from "./reject_request_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveInvoiceLineItemReducer from "./remove_invoice_line_item_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
+import RenameDriveItemReducer from "./rename_drive_item_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
@@ -138,6 +142,8 @@ import SubmitFormResponseReducer from "./submit_form_response_reducer";
 import SubmitStandupReducer from "./submit_standup_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import ToggleContactStarReducer from "./toggle_contact_star_reducer";
+import ToggleDriveSharedReducer from "./toggle_drive_shared_reducer";
+import ToggleDriveStarReducer from "./toggle_drive_star_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
@@ -190,6 +196,7 @@ import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
 import DocumentFavoriteRow from "./document_favorite_table";
 import DocumentVersionRow from "./document_version_table";
+import DriveItemRow from "./drive_item_table";
 import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
 import EmployeeRow from "./employee_table";
@@ -428,6 +435,17 @@ const tablesSchema = __schema({
       { name: 'document_version_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentVersionRow),
+  drive_item: __table({
+    name: 'drive_item',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'drive_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DriveItemRow),
   email_label: __table({
     name: 'email_label',
     indexes: [
@@ -901,6 +919,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_customer", CreateCustomerReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
+  __reducerSchema("create_drive_item", CreateDriveItemReducer),
   __reducerSchema("create_email_label", CreateEmailLabelReducer),
   __reducerSchema("create_epic", CreateEpicReducer),
   __reducerSchema("create_expense", CreateExpenseReducer),
@@ -921,6 +940,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
+  __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
@@ -955,6 +975,7 @@ const reducersSchema = __reducers(
   __reducerSchema("mark_email_read", MarkEmailReadReducer),
   __reducerSchema("mark_kb_article_helpful", MarkKbArticleHelpfulReducer),
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
+  __reducerSchema("move_drive_item", MoveDriveItemReducer),
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
@@ -962,6 +983,7 @@ const reducersSchema = __reducers(
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_invoice_line_item", RemoveInvoiceLineItemReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
+  __reducerSchema("rename_drive_item", RenameDriveItemReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
@@ -984,6 +1006,8 @@ const reducersSchema = __reducers(
   __reducerSchema("submit_standup", SubmitStandupReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("toggle_contact_star", ToggleContactStarReducer),
+  __reducerSchema("toggle_drive_shared", ToggleDriveSharedReducer),
+  __reducerSchema("toggle_drive_star", ToggleDriveStarReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("toggle_kb_article_pin", ToggleKbArticlePinReducer),
   __reducerSchema("trash_email", TrashEmailReducer),

@@ -48,15 +48,19 @@ import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateEmailLabelReducer from "./create_email_label_reducer";
+import CreateEpicReducer from "./create_epic_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
 import CreateNotificationReducer from "./create_notification_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
+import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
+import DeleteSprintReducer from "./delete_sprint_reducer";
+import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
 import DismissNotificationReducer from "./dismiss_notification_reducer";
 import DuplicateDocumentReducer from "./duplicate_document_reducer";
@@ -70,6 +74,7 @@ import JoinChannelReducer from "./join_channel_reducer";
 import JoinOrgWithEmailReducer from "./join_org_with_email_reducer";
 import JoinOrgWithInviteCodeReducer from "./join_org_with_invite_code_reducer";
 import LeaveChannelReducer from "./leave_channel_reducer";
+import LogTimeEntryReducer from "./log_time_entry_reducer";
 import MarkAllNotificationsReadReducer from "./mark_all_notifications_read_reducer";
 import MarkEmailReadReducer from "./mark_email_read_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
@@ -87,9 +92,12 @@ import SendVideoFrameReducer from "./send_video_frame_reducer";
 import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
 import SetEmailLabelReducer from "./set_email_label_reducer";
 import SetResourcePresenceReducer from "./set_resource_presence_reducer";
+import SetTaskExtensionReducer from "./set_task_extension_reducer";
 import SetTypingStatusReducer from "./set_typing_status_reducer";
 import SetUserLocationReducer from "./set_user_location_reducer";
 import ShareDocumentReducer from "./share_document_reducer";
+import StartTimeEntryReducer from "./start_time_entry_reducer";
+import StopTimeEntryReducer from "./stop_time_entry_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
@@ -101,8 +109,10 @@ import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
+import UpdateEpicReducer from "./update_epic_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
+import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
 import UpdateTaskStatusReducer from "./update_task_status_reducer";
 import WatchTaskReducer from "./watch_task_reducer";
@@ -126,6 +136,7 @@ import DocumentFavoriteRow from "./document_favorite_table";
 import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
 import EmployeeRow from "./employee_table";
+import EpicRow from "./epic_table";
 import InterviewRow from "./interview_table";
 import JobPostingRow from "./job_posting_table";
 import LeadRow from "./lead_table";
@@ -140,11 +151,14 @@ import PinnedMessageRow from "./pinned_message_table";
 import PullRequestRow from "./pull_request_table";
 import ReactionRow from "./reaction_table";
 import ResourcePresenceRow from "./resource_presence_table";
+import SprintRow from "./sprint_table";
 import TaskRow from "./task_table";
+import TaskExtensionRow from "./task_extension_table";
 import TaskWatcherRow from "./task_watcher_table";
 import TicketRow from "./ticket_table";
 import TicketLabelRow from "./ticket_label_table";
 import TicketLabelAssignmentRow from "./ticket_label_assignment_table";
+import TimeEntryRow from "./time_entry_table";
 import TypingIndicatorRow from "./typing_indicator_table";
 import UserLocationRow from "./user_location_table";
 import VideoFrameEventRow from "./video_frame_event_table";
@@ -323,6 +337,17 @@ const tablesSchema = __schema({
       { name: 'employee_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EmployeeRow),
+  epic: __table({
+    name: 'epic',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'epic_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, EpicRow),
   interview: __table({
     name: 'interview',
     indexes: [
@@ -477,6 +502,17 @@ const tablesSchema = __schema({
       { name: 'resource_presence_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ResourcePresenceRow),
+  sprint: __table({
+    name: 'sprint',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'sprint_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SprintRow),
   task: __table({
     name: 'task',
     indexes: [
@@ -488,6 +524,17 @@ const tablesSchema = __schema({
       { name: 'task_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TaskRow),
+  task_extension: __table({
+    name: 'task_extension',
+    indexes: [
+      { name: 'task_id', algorithm: 'btree', columns: [
+        'taskId',
+      ] },
+    ],
+    constraints: [
+      { name: 'task_extension_task_id_key', constraint: 'unique', columns: ['taskId'] },
+    ],
+  }, TaskExtensionRow),
   task_watcher: __table({
     name: 'task_watcher',
     indexes: [
@@ -532,6 +579,17 @@ const tablesSchema = __schema({
       { name: 'ticket_label_assignment_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TicketLabelAssignmentRow),
+  time_entry: __table({
+    name: 'time_entry',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'time_entry_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TimeEntryRow),
   typing_indicator: __table({
     name: 'typing_indicator',
     indexes: [
@@ -580,15 +638,19 @@ const reducersSchema = __reducers(
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_email_label", CreateEmailLabelReducer),
+  __reducerSchema("create_epic", CreateEpicReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
   __reducerSchema("create_notification", CreateNotificationReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
+  __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
+  __reducerSchema("delete_sprint", DeleteSprintReducer),
+  __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
   __reducerSchema("deploy_agent", DeployAgentReducer),
   __reducerSchema("dismiss_notification", DismissNotificationReducer),
   __reducerSchema("duplicate_document", DuplicateDocumentReducer),
@@ -602,6 +664,7 @@ const reducersSchema = __reducers(
   __reducerSchema("join_org_with_email", JoinOrgWithEmailReducer),
   __reducerSchema("join_org_with_invite_code", JoinOrgWithInviteCodeReducer),
   __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("log_time_entry", LogTimeEntryReducer),
   __reducerSchema("mark_all_notifications_read", MarkAllNotificationsReadReducer),
   __reducerSchema("mark_email_read", MarkEmailReadReducer),
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
@@ -619,9 +682,12 @@ const reducersSchema = __reducers(
   __reducerSchema("set_document_visibility", SetDocumentVisibilityReducer),
   __reducerSchema("set_email_label", SetEmailLabelReducer),
   __reducerSchema("set_resource_presence", SetResourcePresenceReducer),
+  __reducerSchema("set_task_extension", SetTaskExtensionReducer),
   __reducerSchema("set_typing_status", SetTypingStatusReducer),
   __reducerSchema("set_user_location", SetUserLocationReducer),
   __reducerSchema("share_document", ShareDocumentReducer),
+  __reducerSchema("start_time_entry", StartTimeEntryReducer),
+  __reducerSchema("stop_time_entry", StopTimeEntryReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("trash_email", TrashEmailReducer),
@@ -633,8 +699,10 @@ const reducersSchema = __reducers(
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
+  __reducerSchema("update_epic", UpdateEpicReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
   __reducerSchema("update_organization", UpdateOrganizationReducer),
+  __reducerSchema("update_sprint", UpdateSprintReducer),
   __reducerSchema("update_task", UpdateTaskReducer),
   __reducerSchema("update_task_status", UpdateTaskStatusReducer),
   __reducerSchema("watch_task", WatchTaskReducer),

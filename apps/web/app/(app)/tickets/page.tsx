@@ -2,7 +2,7 @@
 
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
 import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -87,12 +87,33 @@ import {
   Reply,
   ChevronDown,
   ChevronUp,
+  Target,
+  Layers,
+  TrendingDown,
+  Play,
+  Square,
+  Flame,
+  CalendarDays,
+  Hash,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
 // ---- Types ------------------------------------------------------------------
 
-type ViewMode = 'board' | 'list'
+type ViewMode = 'board' | 'list' | 'sprints'
+
+const EPIC_COLORS = [
+  { value: '#8B5CF6', label: 'Violet', class: 'bg-violet-500' },
+  { value: '#3B82F6', label: 'Blue', class: 'bg-blue-500' },
+  { value: '#10B981', label: 'Emerald', class: 'bg-emerald-500' },
+  { value: '#F59E0B', label: 'Amber', class: 'bg-amber-500' },
+  { value: '#EC4899', label: 'Pink', class: 'bg-pink-500' },
+  { value: '#06B6D4', label: 'Cyan', class: 'bg-cyan-500' },
+  { value: '#F43F5E', label: 'Rose', class: 'bg-rose-500' },
+  { value: '#6366F1', label: 'Indigo', class: 'bg-indigo-500' },
+]
+
+const STORY_POINT_OPTIONS = [1, 2, 3, 5, 8, 13, 21]
 
 interface ColumnDef {
   id: string
@@ -199,6 +220,9 @@ export default function TicketsPage() {
   const [allMessages] = useTable(tables.message)
   const [allWatchers] = useTable(tables.task_watcher)
   const [allActivityLogs] = useTable(tables.activity_log)
+  const [allSprints] = useTable(tables.sprint)
+  const [allEpics] = useTable(tables.epic)
+  const [allTaskExtensions] = useTable(tables.task_extension)
   const createTask = useReducer(reducers.createTask)
   const claimTask = useReducer(reducers.claimTask)
   const updateTaskStatus = useReducer(reducers.updateTaskStatus)
@@ -208,13 +232,22 @@ export default function TicketsPage() {
   const watchTask = useReducer(reducers.watchTask)
   const unwatchTask = useReducer(reducers.unwatchTask)
   const escalateTask = useReducer(reducers.escalateTask)
+  const createSprint = useReducer(reducers.createSprint)
+  const updateSprint = useReducer(reducers.updateSprint)
+  const createEpic = useReducer(reducers.createEpic)
+  const updateEpic = useReducer(reducers.updateEpic)
+  const setTaskExtension = useReducer(reducers.setTaskExtension)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [filterEpic, setFilterEpic] = useState<string>('all')
+  const [filterSprint, setFilterSprint] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showCreateSprint, setShowCreateSprint] = useState(false)
+  const [showCreateEpic, setShowCreateEpic] = useState(false)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
 
   // Create form state
@@ -222,13 +255,57 @@ export default function TicketsPage() {
   const [newDesc, setNewDesc] = useState('')
   const [newPriority, setNewPriority] = useState('Medium')
   const [newType, setNewType] = useState('FeatureRequest')
+  const [newStoryPoints, setNewStoryPoints] = useState<string>('')
+  const [newEpicId, setNewEpicId] = useState<string>('')
   const [isCreating, setIsCreating] = useState(false)
+
+  // Sprint form state
+  const [sprintName, setSprintName] = useState('')
+  const [sprintGoal, setSprintGoal] = useState('')
+
+  // Epic form state
+  const [epicName, setEpicName] = useState('')
+  const [epicDesc, setEpicDesc] = useState('')
+  const [epicColor, setEpicColor] = useState('#8B5CF6')
 
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>()
     employees.forEach((e) => map.set(e.id.toHexString(), e))
     return map
   }, [employees])
+
+  // Maps for quick lookup
+  const extensionMap = useMemo(() => {
+    const map = new Map<string, any>()
+    allTaskExtensions.forEach((ext) => map.set(ext.taskId.toString(), ext))
+    return map
+  }, [allTaskExtensions])
+
+  const sprintMap = useMemo(() => {
+    const map = new Map<string, any>()
+    allSprints.forEach((s) => map.set(s.id.toString(), s))
+    return map
+  }, [allSprints])
+
+  const epicMap = useMemo(() => {
+    const map = new Map<string, any>()
+    allEpics.forEach((e) => map.set(e.id.toString(), e))
+    return map
+  }, [allEpics])
+
+  const orgSprints = useMemo(() => {
+    if (currentOrgId === null) return [...allSprints]
+    return allSprints.filter((s) => Number(s.orgId) === currentOrgId)
+  }, [allSprints, currentOrgId])
+
+  const orgEpics = useMemo(() => {
+    if (currentOrgId === null) return [...allEpics]
+    return allEpics.filter((e) => Number(e.orgId) === currentOrgId)
+  }, [allEpics, currentOrgId])
+
+  const activeSprint = useMemo(() => {
+    return orgSprints.find((s) => s.status.tag === 'Active') || null
+  }, [orgSprints])
 
   const filteredTasks = useMemo(() => {
     let tasks = [...allTasks]
@@ -249,8 +326,47 @@ export default function TicketsPage() {
     if (filterType !== 'all') {
       tasks = tasks.filter((t) => t.taskType.tag === filterType)
     }
+    if (filterEpic !== 'all') {
+      tasks = tasks.filter((t) => {
+        const ext = extensionMap.get(t.id.toString())
+        return ext?.epicId?.toString() === filterEpic
+      })
+    }
+    if (filterSprint !== 'all') {
+      tasks = tasks.filter((t) => {
+        const ext = extensionMap.get(t.id.toString())
+        return ext?.sprintId?.toString() === filterSprint
+      })
+    }
     return tasks
-  }, [allTasks, searchQuery, filterPriority, filterType, currentOrgId])
+  }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, currentOrgId, extensionMap])
+
+  // Sprint-scoped tasks for sprint view
+  const sprintTasks = useMemo(() => {
+    if (!activeSprint) return []
+    const sprintId = activeSprint.id.toString()
+    return allTasks.filter((t) => {
+      if (currentOrgId !== null && Number(t.orgId) !== currentOrgId) return false
+      const ext = extensionMap.get(t.id.toString())
+      return ext?.sprintId?.toString() === sprintId
+    })
+  }, [allTasks, activeSprint, extensionMap, currentOrgId])
+
+  // Sprint burndown data
+  const sprintStats = useMemo(() => {
+    const total = sprintTasks.length
+    const completed = sprintTasks.filter((t) => t.status.tag === 'Completed').length
+    const inProgress = sprintTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'SelfChecking').length
+    const totalPoints = sprintTasks.reduce((sum, t) => {
+      const ext = extensionMap.get(t.id.toString())
+      return sum + (ext?.storyPoints ?? 0)
+    }, 0)
+    const completedPoints = sprintTasks.filter((t) => t.status.tag === 'Completed').reduce((sum, t) => {
+      const ext = extensionMap.get(t.id.toString())
+      return sum + (ext?.storyPoints ?? 0)
+    }, 0)
+    return { total, completed, inProgress, totalPoints, completedPoints }
+  }, [sprintTasks, extensionMap])
 
   const columnTasks = useMemo(() => {
     const map = new Map<string, any[]>()
@@ -282,13 +398,101 @@ export default function TicketsPage() {
         priority: { tag: newPriority } as any,
         orgId: BigInt(currentOrgId),
       })
+      // The task was just created — we'll set extension after it's picked up by the table
+      // For now, we rely on the user to assign sprint/epic from the detail panel
       setShowCreate(false)
       setNewTitle('')
       setNewDesc('')
+      setNewStoryPoints('')
+      setNewEpicId('')
     } catch (e: any) {
       console.error('Failed to create task:', e)
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleCreateSprint = async () => {
+    if (!sprintName.trim() || currentOrgId === null) return
+    try {
+      await createSprint({
+        orgId: BigInt(currentOrgId),
+        name: sprintName.trim(),
+        goal: sprintGoal.trim(),
+        startDate: null,
+        endDate: null,
+      })
+      setShowCreateSprint(false)
+      setSprintName('')
+      setSprintGoal('')
+    } catch (e: any) {
+      console.error('Failed to create sprint:', e)
+    }
+  }
+
+  const handleStartSprint = async (sprintId: bigint) => {
+    const sprint = allSprints.find((s) => s.id === sprintId)
+    if (!sprint) return
+    try {
+      await updateSprint({
+        sprintId,
+        name: sprint.name,
+        goal: sprint.goal,
+        status: { tag: 'Active' } as any,
+        startDate: null, // backend will use current time
+        endDate: null,
+      })
+    } catch (e: any) {
+      console.error('Failed to start sprint:', e)
+    }
+  }
+
+  const handleCompleteSprint = async (sprintId: bigint) => {
+    const sprint = allSprints.find((s) => s.id === sprintId)
+    if (!sprint) return
+    try {
+      await updateSprint({
+        sprintId,
+        name: sprint.name,
+        goal: sprint.goal,
+        status: { tag: 'Completed' } as any,
+        startDate: sprint.startDate,
+        endDate: null,
+      })
+    } catch (e: any) {
+      console.error('Failed to complete sprint:', e)
+    }
+  }
+
+  const handleCreateEpic = async () => {
+    if (!epicName.trim() || currentOrgId === null) return
+    try {
+      await createEpic({
+        orgId: BigInt(currentOrgId),
+        name: epicName.trim(),
+        description: epicDesc.trim(),
+        color: epicColor,
+      })
+      setShowCreateEpic(false)
+      setEpicName('')
+      setEpicDesc('')
+      setEpicColor('#8B5CF6')
+    } catch (e: any) {
+      console.error('Failed to create epic:', e)
+    }
+  }
+
+  const handleSetTaskExtension = async (taskId: bigint, updates: { sprintId?: bigint | null; epicId?: bigint | null; storyPoints?: number | null }) => {
+    const ext = extensionMap.get(taskId.toString())
+    try {
+      await setTaskExtension({
+        taskId,
+        sprintId: updates.sprintId !== undefined ? updates.sprintId : (ext?.sprintId ?? null),
+        epicId: updates.epicId !== undefined ? updates.epicId : (ext?.epicId ?? null),
+        storyPoints: updates.storyPoints !== undefined ? updates.storyPoints : (ext?.storyPoints ?? null),
+      })
+    } catch (e: any) {
+      console.error('Failed to set task extension:', e)
     }
   }
 
@@ -477,27 +681,86 @@ export default function TicketsPage() {
             </SelectContent>
           </Select>
 
+          {orgEpics.length > 0 && (
+            <Select value={filterEpic} onValueChange={setFilterEpic}>
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <Layers className="size-3 mr-1" />
+                <SelectValue placeholder="Epic" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Epics</SelectItem>
+                {orgEpics.map((e) => (
+                  <SelectItem key={e.id.toString()} value={e.id.toString()}>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
+                      {e.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <div className="flex rounded-lg border overflow-hidden">
-            <button
-              onClick={() => setViewMode('board')}
-              className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <KanbanSquare className="size-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <List className="size-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setViewMode('board')}
+                  className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <KanbanSquare className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Board</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <List className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">List</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setViewMode('sprints')}
+                  className={`p-1.5 transition-colors ${viewMode === 'sprints' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Target className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Sprints</TooltipContent>
+            </Tooltip>
           </div>
 
           <PresenceBar />
 
-          <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0">
-            <Plus className="size-3.5" />
-            Create
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0">
+              <Plus className="size-3.5" />
+              Ticket
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" onClick={() => setShowCreateSprint(true)} className="h-8 w-8 p-0">
+                  <Target className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">New Sprint</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" onClick={() => setShowCreateEpic(true)} className="h-8 w-8 p-0">
+                  <Layers className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">New Epic</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
 
@@ -533,12 +796,32 @@ export default function TicketsPage() {
             <span className="text-xs font-medium tabular-nums"><CountUp to={ticketStats.completedThisWeek} duration={1} /></span>
             <span className="text-[10px] text-muted-foreground">Done this week</span>
           </div>
+          {activeSprint && (
+            <div className="flex items-center gap-2 rounded-lg border bg-violet-500/5 border-violet-500/10 px-3 py-1.5">
+              <Target className="size-3.5 text-violet-500" />
+              <span className="text-xs font-medium tabular-nums">{sprintStats.completedPoints}/{sprintStats.totalPoints}</span>
+              <span className="text-[10px] text-muted-foreground">SP in sprint</span>
+              <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden ml-1">
+                <div
+                  className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                  style={{ width: sprintStats.totalPoints > 0 ? `${(sprintStats.completedPoints / sprintStats.totalPoints) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+          )}
+          {orgEpics.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border bg-indigo-500/5 border-indigo-500/10 px-3 py-1.5">
+              <Layers className="size-3.5 text-indigo-500" />
+              <span className="text-xs font-medium tabular-nums">{orgEpics.filter((e) => e.status.tag === 'Active').length}</span>
+              <span className="text-[10px] text-muted-foreground">Epics</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Board / List View */}
+      {/* Board / List / Sprint View */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === 'board' ? (
+        {viewMode === 'board' && (
           <KanbanBoardProvider>
             <KanbanBoard className="p-4 h-full">
               {COLUMNS.map((col) => {
@@ -562,11 +845,23 @@ export default function TicketsPage() {
                         <Badge variant="outline" className="text-[10px] h-5 px-1.5 ml-2">
                           {tasks.length}
                         </Badge>
+                        {(() => {
+                          const colPoints = tasks.reduce((sum, t) => {
+                            const ext = extensionMap.get(t.id.toString())
+                            return sum + (ext?.storyPoints ?? 0)
+                          }, 0)
+                          return colPoints > 0 ? (
+                            <span className="text-[10px] text-violet-500/70 font-medium ml-1 tabular-nums">{colPoints} SP</span>
+                          ) : null
+                        })()}
                       </KanbanBoardColumnTitle>
                     </KanbanBoardColumnHeader>
 
                     <KanbanBoardColumnList className="px-0">
-                      {tasks.map((task) => (
+                      {tasks.map((task) => {
+                        const ext = extensionMap.get(task.id.toString())
+                        const epic = ext?.epicId ? epicMap.get(ext.epicId.toString()) : null
+                        return (
                         <KanbanBoardColumnListItem
                           key={task.id.toString()}
                           cardId={task.id.toString()}
@@ -581,9 +876,16 @@ export default function TicketsPage() {
                               'border-l-blue-400'
                             }`}
                           >
-                            {/* Top: ID + Priority */}
+                            {/* Top: ID + Priority + Story Points */}
                             <div className="flex items-center justify-between w-full">
-                              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">T-{task.id.toString()}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">T-{task.id.toString()}</span>
+                                {ext?.storyPoints != null && (
+                                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-violet-500/10 text-[9px] font-bold text-violet-500 tabular-nums">
+                                    {ext.storyPoints}
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1.5">
                                 {task.aiConfidence != null && (
                                   <div className="flex items-center justify-center size-4 rounded bg-violet-500/10">
@@ -593,6 +895,14 @@ export default function TicketsPage() {
                                 {priorityIcon(task.priority.tag)}
                               </div>
                             </div>
+
+                            {/* Epic tag */}
+                            {epic && (
+                              <div className="flex items-center gap-1 w-full">
+                                <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: epic.color }} />
+                                <span className="text-[10px] font-medium truncate" style={{ color: epic.color }}>{epic.name}</span>
+                              </div>
+                            )}
 
                             {/* Title */}
                             <KanbanBoardCardTitle className="line-clamp-2 text-left">
@@ -651,7 +961,8 @@ export default function TicketsPage() {
                             </KanbanBoardCardButtonGroup>
                           </KanbanBoardCard>
                         </KanbanBoardColumnListItem>
-                      ))}
+                        )
+                      })}
                       {tasks.length === 0 && (
                         <li className="px-2 py-4">
                           <div className="rounded-lg border border-dashed border-muted-foreground/20 p-6 text-center">
@@ -675,7 +986,8 @@ export default function TicketsPage() {
               <KanbanBoardExtraMargin />
             </KanbanBoard>
           </KanbanBoardProvider>
-        ) : (
+        )}
+        {viewMode === 'list' && (
           <ScrollArea className="h-full">
             <div className="p-4 max-w-5xl mx-auto">
               <div className="rounded-xl border overflow-hidden">
@@ -690,11 +1002,11 @@ export default function TicketsPage() {
                         />
                       </th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Task</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-12">SP</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Epic</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Status</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Priority</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-32">Type</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Assignee</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Due Date</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Created</th>
                     </tr>
                   </thead>
@@ -702,6 +1014,8 @@ export default function TicketsPage() {
                     {filteredTasks.map((task) => {
                       const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
                       const isSelected = selectedTaskIds.has(task.id)
+                      const ext = extensionMap.get(task.id.toString())
+                      const epic = ext?.epicId ? epicMap.get(ext.epicId.toString()) : null
                       return (
                         <tr
                           key={task.id.toString()}
@@ -722,6 +1036,25 @@ export default function TicketsPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
+                            {ext?.storyPoints != null ? (
+                              <span className="inline-flex items-center justify-center size-6 rounded-full bg-violet-500/10 text-[10px] font-bold text-violet-500 tabular-nums">
+                                {ext.storyPoints}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">--</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {epic ? (
+                              <div className="flex items-center gap-1">
+                                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: epic.color }} />
+                                <span className="text-xs truncate">{epic.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">--</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
                             <StatusBadge tag={task.status.tag} />
                           </td>
                           <td className="px-4 py-3">
@@ -729,9 +1062,6 @@ export default function TicketsPage() {
                               {priorityIcon(task.priority.tag)}
                               <span className="text-xs">{task.priority.tag}</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-muted-foreground">{taskTypeLabel(task.taskType.tag)}</span>
                           </td>
                           <td className="px-4 py-3">
                             {assignee ? (
@@ -745,13 +1075,6 @@ export default function TicketsPage() {
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">Unassigned</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {task.dueAt ? (
-                              <DueDateBadge dueAt={task.dueAt} />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">--</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -803,6 +1126,310 @@ export default function TicketsPage() {
             )}
           </ScrollArea>
         )}
+        {viewMode === 'sprints' && (
+        <ScrollArea className="h-full">
+          <div className="p-6 max-w-5xl mx-auto space-y-6">
+            {/* Active Sprint */}
+            {activeSprint ? (
+              <div className="space-y-6">
+                <div className="rounded-xl border overflow-hidden">
+                  <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 px-6 py-5 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                          <Target className="size-5 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold">{activeSprint.name}</h2>
+                          {activeSprint.goal && (
+                            <p className="text-sm text-muted-foreground mt-0.5">{activeSprint.goal}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10">
+                          Active
+                        </Badge>
+                        <Button size="sm" variant="outline" onClick={() => handleCompleteSprint(activeSprint.id)} className="h-8 gap-1.5 text-xs">
+                          <Square className="size-3" />
+                          Complete Sprint
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Sprint Progress */}
+                    <div className="mt-5 grid grid-cols-4 gap-4">
+                      <SpotlightCard className="p-4">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Tasks</p>
+                        <p className="text-2xl font-bold tabular-nums"><CountUp to={sprintStats.total} duration={1} /></p>
+                      </SpotlightCard>
+                      <SpotlightCard className="p-4">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Completed</p>
+                        <p className="text-2xl font-bold tabular-nums text-emerald-500"><CountUp to={sprintStats.completed} duration={1} /></p>
+                      </SpotlightCard>
+                      <SpotlightCard className="p-4">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">In Progress</p>
+                        <p className="text-2xl font-bold tabular-nums text-amber-500"><CountUp to={sprintStats.inProgress} duration={1} /></p>
+                      </SpotlightCard>
+                      <SpotlightCard className="p-4">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Story Points</p>
+                        <p className="text-2xl font-bold tabular-nums text-violet-500">
+                          <CountUp to={sprintStats.completedPoints} duration={1} />
+                          <span className="text-sm text-muted-foreground font-normal">/{sprintStats.totalPoints}</span>
+                        </p>
+                      </SpotlightCard>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                        <span>Sprint Progress</span>
+                        <span className="tabular-nums">{sprintStats.total > 0 ? Math.round((sprintStats.completed / sprintStats.total) * 100) : 0}%</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-700 ease-out"
+                          style={{ width: sprintStats.total > 0 ? `${(sprintStats.completed / sprintStats.total) * 100}%` : '0%' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Simple Burndown Visualization */}
+                    <div className="mt-4 flex items-end gap-1 h-16">
+                      {sprintTasks.map((task, i) => {
+                        const isCompleted = task.status.tag === 'Completed'
+                        const isInProgress = task.status.tag === 'InProgress' || task.status.tag === 'SelfChecking'
+                        return (
+                          <Tooltip key={task.id.toString()}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={`flex-1 rounded-t transition-all duration-300 cursor-pointer hover:opacity-80 ${
+                                  isCompleted ? 'bg-emerald-500/60' :
+                                  isInProgress ? 'bg-amber-500/60' :
+                                  'bg-muted-foreground/20'
+                                }`}
+                                style={{ height: `${Math.max(20, 100 - (isCompleted ? 100 : isInProgress ? 50 : 0))}%` }}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              <p className="font-medium truncate max-w-[200px]">{task.title}</p>
+                              <p className="text-muted-foreground">{task.status.tag}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      })}
+                      {sprintTasks.length === 0 && (
+                        <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+                          No tasks in sprint
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sprint Tasks Table */}
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Task</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-16">SP</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Status</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Epic</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Priority</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Assignee</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sprintTasks.map((task) => {
+                        const ext = extensionMap.get(task.id.toString())
+                        const epic = ext?.epicId ? epicMap.get(ext.epicId.toString()) : null
+                        const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
+                        return (
+                          <tr
+                            key={task.id.toString()}
+                            onClick={() => setSelectedTask(task)}
+                            className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-muted-foreground">T-{task.id.toString()}</span>
+                                <span className="font-medium truncate">{task.title}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {ext?.storyPoints != null ? (
+                                <span className="inline-flex items-center justify-center size-6 rounded-full bg-violet-500/10 text-xs font-bold text-violet-500 tabular-nums">
+                                  {ext.storyPoints}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">--</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusBadge tag={task.status.tag} />
+                            </td>
+                            <td className="px-4 py-3">
+                              {epic ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="size-2 rounded-full" style={{ backgroundColor: epic.color }} />
+                                  <span className="text-xs truncate">{epic.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">--</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                {priorityIcon(task.priority.tag)}
+                                <span className="text-xs">{task.priority.tag}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {assignee ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Avatar className="size-5">
+                                    <AvatarFallback className={`${nameToColor(assignee.name)} text-[8px] text-white`}>
+                                      {getInitials(assignee.name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs truncate">{assignee.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Unassigned</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <div className="mx-auto size-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center mb-4">
+                  <Target className="size-8 text-violet-500" />
+                </div>
+                <h3 className="text-lg font-semibold mb-1">No Active Sprint</h3>
+                <p className="text-sm text-muted-foreground mb-4">Create a sprint to start organizing your work into iterations.</p>
+                <Button onClick={() => setShowCreateSprint(true)} className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0">
+                  <Plus className="size-4" />
+                  Create Sprint
+                </Button>
+              </div>
+            )}
+
+            {/* All Sprints History */}
+            {orgSprints.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" />
+                  All Sprints
+                </h3>
+                <div className="space-y-2">
+                  {orgSprints.sort((a, b) => {
+                    try { return b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime() } catch { return 0 }
+                  }).map((sprint) => {
+                    const sId = sprint.id.toString()
+                    const sTasks = allTasks.filter((t) => {
+                      const ext = extensionMap.get(t.id.toString())
+                      return ext?.sprintId?.toString() === sId
+                    })
+                    const sCompleted = sTasks.filter((t) => t.status.tag === 'Completed').length
+                    return (
+                      <div key={sId} className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Target className={`size-4 ${sprint.status.tag === 'Active' ? 'text-emerald-500' : sprint.status.tag === 'Completed' ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                          <div>
+                            <p className="text-sm font-medium">{sprint.name}</p>
+                            {sprint.goal && <p className="text-xs text-muted-foreground truncate max-w-md">{sprint.goal}</p>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground tabular-nums">{sCompleted}/{sTasks.length} done</span>
+                          <Badge className={`text-[10px] ${
+                            sprint.status.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                            sprint.status.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                            sprint.status.tag === 'Planning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' :
+                            'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+                          } hover:bg-inherit`}>
+                            {sprint.status.tag}
+                          </Badge>
+                          {sprint.status.tag === 'Planning' && (
+                            <Button size="sm" variant="outline" onClick={() => handleStartSprint(sprint.id)} className="h-7 text-xs gap-1">
+                              <Play className="size-3" />
+                              Start
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Epics Overview */}
+            {orgEpics.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Layers className="size-3.5" />
+                  Epics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {orgEpics.map((epic) => {
+                    const eId = epic.id.toString()
+                    const eTasks = allTasks.filter((t) => {
+                      if (currentOrgId !== null && Number(t.orgId) !== currentOrgId) return false
+                      const ext = extensionMap.get(t.id.toString())
+                      return ext?.epicId?.toString() === eId
+                    })
+                    const eCompleted = eTasks.filter((t) => t.status.tag === 'Completed').length
+                    const ePoints = eTasks.reduce((sum, t) => {
+                      const ext = extensionMap.get(t.id.toString())
+                      return sum + (ext?.storyPoints ?? 0)
+                    }, 0)
+                    const eCompletedPoints = eTasks.filter((t) => t.status.tag === 'Completed').reduce((sum, t) => {
+                      const ext = extensionMap.get(t.id.toString())
+                      return sum + (ext?.storyPoints ?? 0)
+                    }, 0)
+                    return (
+                      <SpotlightCard key={eId} className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="size-3 rounded-full" style={{ backgroundColor: epic.color }} />
+                          <span className="font-medium text-sm">{epic.name}</span>
+                          <Badge className={`ml-auto text-[10px] ${
+                            epic.status.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                            epic.status.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                            'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+                          } hover:bg-inherit`}>
+                            {epic.status.tag}
+                          </Badge>
+                        </div>
+                        {epic.description && (
+                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{epic.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="text-muted-foreground tabular-nums">{eCompleted}/{eTasks.length} tasks</span>
+                          <span className="text-violet-500 tabular-nums">{eCompletedPoints}/{ePoints} SP</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-2">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: eTasks.length > 0 ? `${(eCompleted / eTasks.length) * 100}%` : '0%',
+                              backgroundColor: epic.color,
+                            }}
+                          />
+                        </div>
+                      </SpotlightCard>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+        )}
       </div>
 
       {/* Task Detail Slide-over */}
@@ -813,6 +1440,12 @@ export default function TicketsPage() {
           onClose={() => setSelectedTask(null)}
           onClaim={() => handleClaim(selectedTask.id)}
           onUpdateTask={handleUpdateTask}
+          extensionMap={extensionMap}
+          sprintMap={sprintMap}
+          epicMap={epicMap}
+          orgSprints={orgSprints}
+          orgEpics={orgEpics}
+          onSetTaskExtension={handleSetTaskExtension}
           onUpdateStatus={(taskId: bigint, status: string) =>
             updateTaskStatus({ taskId, newStatus: { tag: status } as any })
           }
@@ -892,6 +1525,100 @@ export default function TicketsPage() {
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={!newTitle.trim() || isCreating}>
               {isCreating ? <><Loader2 className="size-4 mr-1 animate-spin" /> Creating...</> : 'Create Ticket'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Sprint Dialog */}
+      <Dialog open={showCreateSprint} onOpenChange={setShowCreateSprint}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="size-5 text-violet-500" />
+              Create Sprint
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm">Sprint Name *</Label>
+              <Input
+                value={sprintName}
+                onChange={(e) => setSprintName(e.target.value)}
+                placeholder="e.g. Sprint 1 — Foundation"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">Sprint Goal</Label>
+              <Textarea
+                value={sprintGoal}
+                onChange={(e) => setSprintGoal(e.target.value)}
+                placeholder="What does success look like for this sprint?"
+                className="mt-1 min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateSprint(false)}>Cancel</Button>
+            <Button onClick={handleCreateSprint} disabled={!sprintName.trim()} className="gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0">
+              <Target className="size-3.5" />
+              Create Sprint
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Epic Dialog */}
+      <Dialog open={showCreateEpic} onOpenChange={setShowCreateEpic}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="size-5 text-indigo-500" />
+              Create Epic
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm">Epic Name *</Label>
+              <Input
+                value={epicName}
+                onChange={(e) => setEpicName(e.target.value)}
+                placeholder="e.g. User Authentication, Payment Flow"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">Description</Label>
+              <Textarea
+                value={epicDesc}
+                onChange={(e) => setEpicDesc(e.target.value)}
+                placeholder="High-level description of this body of work"
+                className="mt-1 min-h-[80px]"
+              />
+            </div>
+            <div>
+              <Label className="text-sm mb-2 block">Color</Label>
+              <div className="flex items-center gap-2">
+                {EPIC_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    onClick={() => setEpicColor(c.value)}
+                    className={`size-7 rounded-full transition-all ${c.class} ${
+                      epicColor === c.value ? 'ring-2 ring-offset-2 ring-offset-background scale-110' : 'opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ ringColor: c.value }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateEpic(false)}>Cancel</Button>
+            <Button onClick={handleCreateEpic} disabled={!epicName.trim()} className="gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white border-0">
+              <Layers className="size-3.5" />
+              Create Epic
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -991,6 +1718,12 @@ function TaskDetailPanel({
   onClaim,
   onUpdateTask,
   onUpdateStatus,
+  extensionMap,
+  sprintMap,
+  epicMap,
+  orgSprints,
+  orgEpics,
+  onSetTaskExtension,
   myIdentity,
   allMessages,
   allWatchers,
@@ -1006,6 +1739,12 @@ function TaskDetailPanel({
   onClaim: () => void
   onUpdateTask: (taskId: bigint, title: string, description: string, priority: string) => Promise<void>
   onUpdateStatus: (taskId: bigint, status: string) => Promise<any>
+  extensionMap: Map<string, any>
+  sprintMap: Map<string, any>
+  epicMap: Map<string, any>
+  orgSprints: any[]
+  orgEpics: any[]
+  onSetTaskExtension: (taskId: bigint, updates: { sprintId?: bigint | null; epicId?: bigint | null; storyPoints?: number | null }) => Promise<void>
   myIdentity: any
   allMessages: readonly any[]
   allWatchers: readonly any[]
@@ -1333,6 +2072,106 @@ function TaskDetailPanel({
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Sprint / Epic / Story Points */}
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                <Layers className="size-3.5 text-violet-400" />
+                Project Management
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Sprint */}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Sprint</p>
+                  <Select
+                    value={(() => {
+                      const ext = extensionMap.get(task.id.toString())
+                      return ext?.sprintId?.toString() || 'none'
+                    })()}
+                    onValueChange={(val) => {
+                      onSetTaskExtension(task.id, {
+                        sprintId: val === 'none' ? null : BigInt(val),
+                      })
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="No sprint" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Sprint</SelectItem>
+                      {orgSprints.filter((s) => s.status.tag !== 'Cancelled' && s.status.tag !== 'Completed').map((s) => (
+                        <SelectItem key={s.id.toString()} value={s.id.toString()}>
+                          <span className="flex items-center gap-1.5">
+                            <Target className="size-3" />
+                            {s.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Epic */}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Epic</p>
+                  <Select
+                    value={(() => {
+                      const ext = extensionMap.get(task.id.toString())
+                      return ext?.epicId?.toString() || 'none'
+                    })()}
+                    onValueChange={(val) => {
+                      onSetTaskExtension(task.id, {
+                        epicId: val === 'none' ? null : BigInt(val),
+                      })
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="No epic" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Epic</SelectItem>
+                      {orgEpics.filter((e) => e.status.tag === 'Active' || e.status.tag === 'Draft').map((e) => (
+                        <SelectItem key={e.id.toString()} value={e.id.toString()}>
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
+                            {e.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Story Points */}
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-1">Story Points</p>
+                  <div className="flex items-center gap-1.5">
+                    {STORY_POINT_OPTIONS.map((sp) => {
+                      const ext = extensionMap.get(task.id.toString())
+                      const isActive = ext?.storyPoints === sp
+                      return (
+                        <button
+                          key={sp}
+                          onClick={() => {
+                            onSetTaskExtension(task.id, {
+                              storyPoints: isActive ? null : sp,
+                            })
+                          }}
+                          className={`size-8 rounded-lg text-xs font-bold transition-all ${
+                            isActive
+                              ? 'bg-violet-500 text-white ring-2 ring-violet-500/30 scale-110'
+                              : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                          }`}
+                        >
+                          {sp}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* AI Section */}

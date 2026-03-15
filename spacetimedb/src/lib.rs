@@ -1186,6 +1186,104 @@ pub struct TicketLabelAssignment {
 }
 
 // ============================================================================
+// TIME TRACKING
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum TimeEntryCategory {
+    Development,
+    Meeting,
+    Support,
+    Sales,
+    Recruitment,
+    Documentation,
+    Review,
+    Planning,
+    Break,
+    Other,
+}
+
+#[spacetimedb::table(accessor = time_entry, public)]
+#[derive(Clone)]
+pub struct TimeEntry {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub user_id: Identity,
+    pub category: TimeEntryCategory,
+    pub description: String,
+    pub task_id: Option<u64>,
+    pub ticket_id: Option<u64>,
+    pub started_at: Timestamp,
+    pub ended_at: Option<Timestamp>,
+    pub duration_minutes: u32,
+    pub billable: bool,
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
+// SPRINTS & EPICS — Project Management
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum SprintStatus {
+    Planning,
+    Active,
+    Completed,
+    Cancelled,
+}
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum EpicStatus {
+    Draft,
+    Active,
+    Completed,
+    Cancelled,
+}
+
+#[spacetimedb::table(accessor = sprint, public)]
+#[derive(Clone)]
+pub struct Sprint {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub goal: String,
+    pub status: SprintStatus,
+    pub start_date: Option<Timestamp>,
+    pub end_date: Option<Timestamp>,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = epic, public)]
+#[derive(Clone)]
+pub struct Epic {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub description: String,
+    pub color: String,
+    pub status: EpicStatus,
+    pub created_at: Timestamp,
+}
+
+/// 1:1 extension for tasks — links sprint, epic, and story points
+/// without modifying the existing Task table schema.
+#[spacetimedb::table(accessor = task_extension, public)]
+#[derive(Clone)]
+pub struct TaskExtension {
+    #[primary_key]
+    pub task_id: u64,
+    pub sprint_id: Option<u64>,
+    pub epic_id: Option<u64>,
+    pub story_points: Option<u32>,
+}
+
+// ============================================================================
 // DOCUMENT FAVORITES
 // ============================================================================
 
@@ -3674,6 +3772,323 @@ pub fn create_ticket(
         completed_at: None,
         due_at: None,
     });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - TIME TRACKING
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn start_time_entry(
+    ctx: &ReducerContext,
+    org_id: u64,
+    category_tag: String,
+    description: String,
+    task_id: Option<u64>,
+    ticket_id: Option<u64>,
+    billable: bool,
+) -> Result<(), String> {
+    let category = match category_tag.as_str() {
+        "Development" => TimeEntryCategory::Development,
+        "Meeting" => TimeEntryCategory::Meeting,
+        "Support" => TimeEntryCategory::Support,
+        "Sales" => TimeEntryCategory::Sales,
+        "Recruitment" => TimeEntryCategory::Recruitment,
+        "Documentation" => TimeEntryCategory::Documentation,
+        "Review" => TimeEntryCategory::Review,
+        "Planning" => TimeEntryCategory::Planning,
+        "Break" => TimeEntryCategory::Break,
+        "Other" => TimeEntryCategory::Other,
+        _ => return Err("Invalid category".to_string()),
+    };
+
+    // Stop any running entries first
+    let running: Vec<TimeEntry> = ctx.db.time_entry().iter()
+        .filter(|e| e.user_id == ctx.sender() && e.ended_at.is_none())
+        .collect();
+    for entry in running {
+        let duration = ctx.timestamp.to_duration_since_unix_epoch()
+            .unwrap_or_default()
+            .as_secs()
+            .saturating_sub(
+                entry.started_at.to_duration_since_unix_epoch()
+                    .unwrap_or_default()
+                    .as_secs()
+            ) / 60;
+        ctx.db.time_entry().id().update(TimeEntry {
+            ended_at: Some(ctx.timestamp),
+            duration_minutes: duration as u32,
+            ..entry
+        });
+    }
+
+    ctx.db.time_entry().insert(TimeEntry {
+        id: 0,
+        org_id,
+        user_id: ctx.sender(),
+        category,
+        description,
+        task_id,
+        ticket_id,
+        started_at: ctx.timestamp,
+        ended_at: None,
+        duration_minutes: 0,
+        billable,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn stop_time_entry(ctx: &ReducerContext, entry_id: u64) -> Result<(), String> {
+    let entry = ctx.db.time_entry().id().find(&entry_id)
+        .ok_or("Time entry not found")?;
+    if entry.user_id != ctx.sender() {
+        return Err("Not your time entry".to_string());
+    }
+    if entry.ended_at.is_some() {
+        return Err("Entry already stopped".to_string());
+    }
+    let duration = ctx.timestamp.to_duration_since_unix_epoch()
+        .unwrap_or_default()
+        .as_secs()
+        .saturating_sub(
+            entry.started_at.to_duration_since_unix_epoch()
+                .unwrap_or_default()
+                .as_secs()
+        ) / 60;
+    ctx.db.time_entry().id().update(TimeEntry {
+        ended_at: Some(ctx.timestamp),
+        duration_minutes: duration as u32,
+        ..entry
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn log_time_entry(
+    ctx: &ReducerContext,
+    org_id: u64,
+    category_tag: String,
+    description: String,
+    task_id: Option<u64>,
+    ticket_id: Option<u64>,
+    duration_minutes: u32,
+    billable: bool,
+) -> Result<(), String> {
+    let category = match category_tag.as_str() {
+        "Development" => TimeEntryCategory::Development,
+        "Meeting" => TimeEntryCategory::Meeting,
+        "Support" => TimeEntryCategory::Support,
+        "Sales" => TimeEntryCategory::Sales,
+        "Recruitment" => TimeEntryCategory::Recruitment,
+        "Documentation" => TimeEntryCategory::Documentation,
+        "Review" => TimeEntryCategory::Review,
+        "Planning" => TimeEntryCategory::Planning,
+        "Break" => TimeEntryCategory::Break,
+        "Other" => TimeEntryCategory::Other,
+        _ => return Err("Invalid category".to_string()),
+    };
+
+    ctx.db.time_entry().insert(TimeEntry {
+        id: 0,
+        org_id,
+        user_id: ctx.sender(),
+        category,
+        description,
+        task_id,
+        ticket_id,
+        started_at: ctx.timestamp,
+        ended_at: Some(ctx.timestamp),
+        duration_minutes,
+        billable,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_time_entry(ctx: &ReducerContext, entry_id: u64) -> Result<(), String> {
+    let entry = ctx.db.time_entry().id().find(&entry_id)
+        .ok_or("Time entry not found")?;
+    if entry.user_id != ctx.sender() {
+        return Err("Not your time entry".to_string());
+    }
+    ctx.db.time_entry().id().delete(&entry_id);
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - SPRINTS & EPICS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_sprint(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    goal: String,
+    start_date: Option<Timestamp>,
+    end_date: Option<Timestamp>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if name.trim().is_empty() {
+        return Err("Sprint name cannot be empty".to_string());
+    }
+
+    ctx.db.sprint().insert(Sprint {
+        id: 0,
+        org_id,
+        name: name.trim().to_string(),
+        goal: goal.trim().to_string(),
+        status: SprintStatus::Planning,
+        start_date,
+        end_date,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_sprint(
+    ctx: &ReducerContext,
+    sprint_id: u64,
+    name: String,
+    goal: String,
+    status: SprintStatus,
+    start_date: Option<Timestamp>,
+    end_date: Option<Timestamp>,
+) -> Result<(), String> {
+    let sprint = ctx.db.sprint().id().find(&sprint_id)
+        .ok_or("Sprint not found")?;
+    require_org_access(ctx, sprint.org_id)?;
+
+    ctx.db.sprint().id().update(Sprint {
+        name: name.trim().to_string(),
+        goal: goal.trim().to_string(),
+        status,
+        start_date,
+        end_date,
+        ..sprint
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_sprint(ctx: &ReducerContext, sprint_id: u64) -> Result<(), String> {
+    let sprint = ctx.db.sprint().id().find(&sprint_id)
+        .ok_or("Sprint not found")?;
+    require_org_access(ctx, sprint.org_id)?;
+
+    // Remove sprint references from task extensions
+    for ext in ctx.db.task_extension().iter() {
+        if ext.sprint_id == Some(sprint_id) {
+            ctx.db.task_extension().task_id().update(TaskExtension {
+                sprint_id: None,
+                ..ext
+            });
+        }
+    }
+
+    ctx.db.sprint().id().delete(&sprint_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_epic(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    description: String,
+    color: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if name.trim().is_empty() {
+        return Err("Epic name cannot be empty".to_string());
+    }
+
+    ctx.db.epic().insert(Epic {
+        id: 0,
+        org_id,
+        name: name.trim().to_string(),
+        description: description.trim().to_string(),
+        color: if color.is_empty() { "#8B5CF6".to_string() } else { color },
+        status: EpicStatus::Active,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_epic(
+    ctx: &ReducerContext,
+    epic_id: u64,
+    name: String,
+    description: String,
+    color: String,
+    status: EpicStatus,
+) -> Result<(), String> {
+    let epic = ctx.db.epic().id().find(&epic_id)
+        .ok_or("Epic not found")?;
+    require_org_access(ctx, epic.org_id)?;
+
+    ctx.db.epic().id().update(Epic {
+        name: name.trim().to_string(),
+        description: description.trim().to_string(),
+        color,
+        status,
+        ..epic
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn set_task_extension(
+    ctx: &ReducerContext,
+    task_id: u64,
+    sprint_id: Option<u64>,
+    epic_id: Option<u64>,
+    story_points: Option<u32>,
+) -> Result<(), String> {
+    // Verify the task exists
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
+
+    // Verify sprint exists if provided
+    if let Some(sid) = sprint_id {
+        ctx.db.sprint().id().find(&sid)
+            .ok_or("Sprint not found")?;
+    }
+    // Verify epic exists if provided
+    if let Some(eid) = epic_id {
+        ctx.db.epic().id().find(&eid)
+            .ok_or("Epic not found")?;
+    }
+
+    if let Some(existing) = ctx.db.task_extension().task_id().find(&task_id) {
+        ctx.db.task_extension().task_id().update(TaskExtension {
+            sprint_id,
+            epic_id,
+            story_points,
+            ..existing
+        });
+    } else {
+        ctx.db.task_extension().insert(TaskExtension {
+            task_id,
+            sprint_id,
+            epic_id,
+            story_points,
+        });
+    }
 
     Ok(())
 }

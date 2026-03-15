@@ -523,6 +523,28 @@ export const EmployeeType = __t.enum("EmployeeType", {
 });
 export type EmployeeType = __Infer<typeof EmployeeType>;
 
+export const Epic = __t.object("Epic", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  description: __t.string(),
+  color: __t.string(),
+  get status() {
+    return EpicStatus;
+  },
+  createdAt: __t.timestamp(),
+});
+export type Epic = __Infer<typeof Epic>;
+
+// The tagged union or sum type for the algebraic type `EpicStatus`.
+export const EpicStatus = __t.enum("EpicStatus", {
+  Draft: __t.unit(),
+  Active: __t.unit(),
+  Completed: __t.unit(),
+  Cancelled: __t.unit(),
+});
+export type EpicStatus = __Infer<typeof EpicStatus>;
+
 export const Interview = __t.object("Interview", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -918,6 +940,29 @@ export const Sentiment = __t.enum("Sentiment", {
 });
 export type Sentiment = __Infer<typeof Sentiment>;
 
+export const Sprint = __t.object("Sprint", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  goal: __t.string(),
+  get status() {
+    return SprintStatus;
+  },
+  startDate: __t.option(__t.timestamp()),
+  endDate: __t.option(__t.timestamp()),
+  createdAt: __t.timestamp(),
+});
+export type Sprint = __Infer<typeof Sprint>;
+
+// The tagged union or sum type for the algebraic type `SprintStatus`.
+export const SprintStatus = __t.enum("SprintStatus", {
+  Planning: __t.unit(),
+  Active: __t.unit(),
+  Completed: __t.unit(),
+  Cancelled: __t.unit(),
+});
+export type SprintStatus = __Infer<typeof SprintStatus>;
+
 export const Task = __t.object("Task", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -951,6 +996,14 @@ export const Task = __t.object("Task", {
   dueAt: __t.option(__t.timestamp()),
 });
 export type Task = __Infer<typeof Task>;
+
+export const TaskExtension = __t.object("TaskExtension", {
+  taskId: __t.u64(),
+  sprintId: __t.option(__t.u64()),
+  epicId: __t.option(__t.u64()),
+  storyPoints: __t.option(__t.u32()),
+});
+export type TaskExtension = __Infer<typeof TaskExtension>;
 
 // The tagged union or sum type for the algebraic type `TaskStatus`.
 export const TaskStatus = __t.enum("TaskStatus", {
@@ -1057,6 +1110,39 @@ export const TicketStatus = __t.enum("TicketStatus", {
   Closed: __t.unit(),
 });
 export type TicketStatus = __Infer<typeof TicketStatus>;
+
+export const TimeEntry = __t.object("TimeEntry", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  userId: __t.identity(),
+  get category() {
+    return TimeEntryCategory;
+  },
+  description: __t.string(),
+  taskId: __t.option(__t.u64()),
+  ticketId: __t.option(__t.u64()),
+  startedAt: __t.timestamp(),
+  endedAt: __t.option(__t.timestamp()),
+  durationMinutes: __t.u32(),
+  billable: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type TimeEntry = __Infer<typeof TimeEntry>;
+
+// The tagged union or sum type for the algebraic type `TimeEntryCategory`.
+export const TimeEntryCategory = __t.enum("TimeEntryCategory", {
+  Development: __t.unit(),
+  Meeting: __t.unit(),
+  Support: __t.unit(),
+  Sales: __t.unit(),
+  Recruitment: __t.unit(),
+  Documentation: __t.unit(),
+  Review: __t.unit(),
+  Planning: __t.unit(),
+  Break: __t.unit(),
+  Other: __t.unit(),
+});
+export type TimeEntryCategory = __Infer<typeof TimeEntryCategory>;
 
 export const TypingIndicator = __t.object("TypingIndicator", {
   id: __t.u64(),

@@ -1,8 +1,11 @@
 'use client'
 
 import { useTable } from 'spacetimedb/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useCallback } from 'react'
 import { tables } from '@/generated'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -140,24 +143,53 @@ function KpiCard({
   icon: Icon,
   subtitle,
   accent,
+  index = 0,
 }: {
   title: string
   value: string | number
   icon: React.ElementType
   subtitle?: string
   accent?: string
+  index?: number
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [isHovered, setIsHovered] = useState(false)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }, [])
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${accent ?? 'text-muted-foreground'}`} />
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${accent ?? ''}`}>{value}</div>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-      </CardContent>
-    </Card>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.23, 1, 0.32, 1] }}
+    >
+      <Card
+        ref={cardRef}
+        className="overflow-hidden hover:shadow-md transition-all duration-300"
+        onMouseMove={handleMouseMove}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={isHovered ? {
+          background: `radial-gradient(300px circle at ${mousePos.x}px ${mousePos.y}px, rgba(249,115,22,0.06), transparent 70%)`,
+        } : undefined}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <Icon className={`h-4 w-4 ${accent ?? 'text-muted-foreground'}`} />
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold ${accent ?? ''}`}>
+            {typeof value === 'number' ? <CountUp to={value} duration={1} separator="," /> : value}
+          </div>
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
 
@@ -223,13 +255,23 @@ export default function EngineeringPage() {
   )
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Engineering</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      >
+        <GradientText
+          className="text-2xl font-bold"
+          colors={['#F97316', '#EF4444', '#F59E0B', '#EF4444', '#F97316']}
+          animationSpeed={6}
+        >
+          Engineering
+        </GradientText>
+        <p className="text-muted-foreground text-sm mt-0.5">
           AI-powered code reviews, automated bug triage, and repository insights
         </p>
-      </div>
+      </motion.div>
 
       <Tabs defaultValue="pull-requests">
         <TabsList className="grid w-full max-w-lg grid-cols-3">
@@ -251,33 +293,10 @@ export default function EngineeringPage() {
         <TabsContent value="pull-requests" className="space-y-6 mt-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KpiCard
-              title="Total PRs"
-              value={prKpis.total}
-              icon={GitPullRequest}
-              subtitle="All time"
-            />
-            <KpiCard
-              title="Open"
-              value={prKpis.open}
-              icon={GitPullRequest}
-              subtitle="Awaiting review"
-              accent="text-blue-600"
-            />
-            <KpiCard
-              title="Under Review"
-              value={prKpis.underReview}
-              icon={Code2}
-              subtitle="Active review"
-              accent="text-yellow-600"
-            />
-            <KpiCard
-              title="AI Reviewed"
-              value={`${prKpis.aiReviewedPct}%`}
-              icon={Zap}
-              subtitle="AI coverage"
-              accent="text-purple-600"
-            />
+            <KpiCard title="Total PRs" value={prKpis.total} icon={GitPullRequest} subtitle="All time" index={0} />
+            <KpiCard title="Open" value={prKpis.open} icon={GitPullRequest} subtitle="Awaiting review" accent="text-blue-600" index={1} />
+            <KpiCard title="Under Review" value={prKpis.underReview} icon={Code2} subtitle="Active review" accent="text-yellow-600" index={2} />
+            <KpiCard title="AI Reviewed" value={`${prKpis.aiReviewedPct}%`} icon={Zap} subtitle="AI coverage" accent="text-purple-600" index={3} />
           </div>
 
           {/* PR Table */}
@@ -380,33 +399,10 @@ export default function EngineeringPage() {
         <TabsContent value="bugs" className="space-y-6 mt-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KpiCard
-              title="Total Bugs"
-              value={bugKpis.total}
-              icon={Bug}
-              subtitle="All time"
-            />
-            <KpiCard
-              title="Critical"
-              value={bugKpis.critical}
-              icon={Shield}
-              subtitle="Needs immediate action"
-              accent="text-red-600"
-            />
-            <KpiCard
-              title="In Progress"
-              value={bugKpis.inProgress}
-              icon={Code2}
-              subtitle="Actively being fixed"
-              accent="text-orange-600"
-            />
-            <KpiCard
-              title="AI Triaged"
-              value={`${bugKpis.aiTriagedPct}%`}
-              icon={Zap}
-              subtitle="AI triage coverage"
-              accent="text-purple-600"
-            />
+            <KpiCard title="Total Bugs" value={bugKpis.total} icon={Bug} subtitle="All time" index={0} />
+            <KpiCard title="Critical" value={bugKpis.critical} icon={Shield} subtitle="Needs immediate action" accent="text-red-600" index={1} />
+            <KpiCard title="In Progress" value={bugKpis.inProgress} icon={Code2} subtitle="Actively being fixed" accent="text-orange-600" index={2} />
+            <KpiCard title="AI Triaged" value={`${bugKpis.aiTriagedPct}%`} icon={Zap} subtitle="AI triage coverage" accent="text-purple-600" index={3} />
           </div>
 
           {/* Bug Table */}

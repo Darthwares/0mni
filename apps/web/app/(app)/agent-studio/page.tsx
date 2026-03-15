@@ -1,6 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
+import BlurText from '@/components/reactbits/BlurText'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -104,13 +107,23 @@ export default function AgentStudioPage() {
   const [customThreshold, setCustomThreshold] = useState(85)
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Studio</h1>
-        <p className="text-muted-foreground text-sm">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      >
+        <GradientText
+          className="text-2xl font-bold"
+          colors={['#EC4899', '#F43F5E', '#F97316', '#F43F5E', '#EC4899']}
+          animationSpeed={6}
+        >
+          Agent Studio
+        </GradientText>
+        <p className="text-muted-foreground text-sm mt-0.5">
           Design, configure, and deploy AI employees for your organization
         </p>
-      </div>
+      </motion.div>
 
       <Tabs defaultValue="templates">
         <TabsList>
@@ -121,9 +134,14 @@ export default function AgentStudioPage() {
 
         <TabsContent value="templates" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {agentTemplates.map((template) => (
-              <Card
+            {agentTemplates.map((template, i) => (
+              <motion.div
                 key={template.name}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.07, ease: [0.23, 1, 0.32, 1] }}
+              >
+              <Card
                 className={`cursor-pointer transition-all hover:shadow-md ${
                   selectedTemplate?.name === template.name ? 'ring-2 ring-primary' : ''
                 }`}
@@ -163,6 +181,7 @@ export default function AgentStudioPage() {
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             ))}
           </div>
 
@@ -205,7 +224,7 @@ export default function AgentStudioPage() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button>
+                  <Button className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white">
                     <Play className="mr-2 size-4" />
                     Deploy Agent
                   </Button>
@@ -294,11 +313,18 @@ export default function AgentStudioPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                <Sparkles className="size-12 mb-3 opacity-30" />
-                <p className="text-sm font-medium">Workflow Builder Coming Soon</p>
-                <p className="text-xs mt-1">
-                  Design agent pipelines where one agent's output feeds into another's input
-                </p>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center"
+                >
+                  <Sparkles className="size-12 mb-3 opacity-30 mx-auto" />
+                  <BlurText text="Workflow Builder Coming Soon" className="text-sm font-medium block mb-1" delay={50} />
+                  <p className="text-xs mt-1">
+                    Design agent pipelines where one agent's output feeds into another's input
+                  </p>
+                </motion.div>
               </div>
             </CardContent>
           </Card>

@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { useTable } from 'spacetimedb/react'
 import { Timestamp } from 'spacetimedb'
 import { tables } from '@/generated'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -475,12 +477,23 @@ export default function AIEmployeesPage() {
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <motion.div
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex items-center gap-2 mb-1"
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600">
                 <Bot className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">AI Employees</h1>
-            </div>
+              <GradientText
+                className="text-xl font-bold"
+                colors={['#8B5CF6', '#D946EF', '#EC4899', '#D946EF', '#8B5CF6']}
+                animationSpeed={6}
+              >
+                AI Employees
+              </GradientText>
+            </motion.div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Manage and monitor your AI workforce across all departments
             </p>

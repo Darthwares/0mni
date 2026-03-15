@@ -3,6 +3,8 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
 import { useOrg } from '@/components/org-context'
 import {
   Tabs,
@@ -296,9 +298,13 @@ export default function SalesPage() {
       {/* ── Page title row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+          <GradientText
+            className="text-2xl font-bold"
+            colors={['#10B981', '#34D399', '#059669', '#34D399', '#10B981']}
+            animationSpeed={6}
+          >
             Sales &amp; CRM
-          </h1>
+          </GradientText>
           <p className="text-sm text-muted-foreground mt-0.5">
             Lead qualification and deal pipeline management
           </p>

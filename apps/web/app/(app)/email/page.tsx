@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useCallback } from 'react'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { motion, AnimatePresence } from 'motion/react'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Mail,
   Search,
@@ -131,17 +133,29 @@ export default function EmailPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
       {/* Left sidebar - folders */}
-      <div className="w-56 border-r flex flex-col">
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4 }}
+        className="w-56 border-r flex flex-col"
+      >
         <div className="p-3">
-          <Button className="w-full" size="sm" onClick={() => setComposing(true)}>
+          <Button
+            className="w-full bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-sm"
+            size="sm"
+            onClick={() => setComposing(true)}
+          >
             <Plus className="mr-2 size-4" />
             Compose
           </Button>
         </div>
         <nav className="flex-1 px-2">
-          {navItems.map((item) => (
-            <button
+          {navItems.map((item, i) => (
+            <motion.button
               key={item.id}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
               onClick={() => setView(item.id)}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 view === item.id
@@ -154,10 +168,10 @@ export default function EmailPage() {
               {item.count > 0 && (
                 <span className="text-xs text-muted-foreground">{item.count}</span>
               )}
-            </button>
+            </motion.button>
           ))}
         </nav>
-      </div>
+      </motion.div>
 
       {/* Email list */}
       <div className="w-80 border-r flex flex-col">
@@ -296,9 +310,16 @@ export default function EmailPage() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-            <Mail className="size-12 mb-3 opacity-30" />
-            <p className="text-sm">Select an email to read</p>
-            <p className="text-xs">Or compose a new one</p>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-center"
+            >
+              <Mail className="size-12 mb-3 opacity-30 mx-auto" />
+              <BlurText text="Select an email to read" className="text-sm block mb-1" delay={50} />
+              <p className="text-xs">Or compose a new one</p>
+            </motion.div>
           </div>
         )}
       </div>

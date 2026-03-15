@@ -3,6 +3,8 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { tables, reducers } from '@/generated'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -589,12 +591,22 @@ export default function CollaborationPage() {
       {/* Page header */}
       <div className="px-6 py-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Collaboration</h1>
-            <p className="text-sm text-muted-foreground">
+          <motion.div
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <GradientText
+              className="text-xl font-bold"
+              colors={['#06B6D4', '#3B82F6', '#8B5CF6', '#3B82F6', '#06B6D4']}
+              animationSpeed={6}
+            >
+              Collaboration
+            </GradientText>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Unified workspace for teams and AI agents
             </p>
-          </div>
+          </motion.div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Hash className="size-4" />

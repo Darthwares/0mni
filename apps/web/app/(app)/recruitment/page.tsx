@@ -3,6 +3,8 @@
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
 import { useOrg } from '@/components/org-context'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
@@ -299,12 +301,22 @@ export default function RecruitmentPage() {
     <div className="flex flex-col gap-6 p-6">
       {/* Page heading */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Recruitment</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <GradientText
+            className="text-2xl font-bold"
+            colors={['#8B5CF6', '#A78BFA', '#7C3AED', '#A78BFA', '#8B5CF6']}
+            animationSpeed={6}
+          >
+            Recruitment
+          </GradientText>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Candidate pipeline, job postings, and interview scheduling
           </p>
-        </div>
+        </motion.div>
         <Dialog open={candidateDialogOpen} onOpenChange={setCandidateDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="size-4" />

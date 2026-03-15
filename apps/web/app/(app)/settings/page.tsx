@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +40,8 @@ import {
   Mail,
   Send,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
 import { useAuth } from 'react-oidc-context'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
@@ -243,10 +245,20 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      >
+        <GradientText
+          className="text-2xl font-bold"
+          colors={['#8B5CF6', '#A78BFA', '#C4B5FD', '#A78BFA', '#8B5CF6']}
+          animationSpeed={6}
+        >
+          Settings
+        </GradientText>
+        <p className="text-muted-foreground text-sm mt-0.5">Manage your account and platform preferences</p>
+      </motion.div>
 
       <Tabs defaultValue="profile">
         <TabsList>

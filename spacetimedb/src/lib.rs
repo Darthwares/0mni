@@ -1160,6 +1160,78 @@ pub struct TaskWatcher {
 
 
 // ============================================================================
+// TICKET LABELS
+// ============================================================================
+
+#[spacetimedb::table(accessor = ticket_label, public)]
+#[derive(Clone)]
+pub struct TicketLabel {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub color: String,
+}
+
+#[spacetimedb::table(accessor = ticket_label_assignment, public)]
+#[derive(Clone)]
+pub struct TicketLabelAssignment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub task_id: u64,
+    pub label_id: u64,
+}
+
+// ============================================================================
+// DOCUMENT FAVORITES
+// ============================================================================
+
+#[spacetimedb::table(accessor = document_favorite, public)]
+#[derive(Clone)]
+pub struct DocumentFavorite {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub user_id: Identity,
+    pub document_id: u64,
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
+// EMAIL METADATA (per-user state on messages used as emails)
+// ============================================================================
+
+#[spacetimedb::table(accessor = email_meta, public)]
+#[derive(Clone)]
+pub struct EmailMeta {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub message_id: u64,
+    pub user_id: Identity,
+    pub starred: bool,
+    pub archived: bool,
+    pub trashed: bool,
+    pub read: bool,
+    pub label: Option<String>,
+    pub snoozed_until: Option<Timestamp>,
+}
+
+#[spacetimedb::table(accessor = email_label, public)]
+#[derive(Clone)]
+pub struct EmailLabel {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub user_id: Identity,
+    pub name: String,
+    pub color: String,
+}
+
+// ============================================================================
 // REDUCERS - CORE SYSTEM
 // ============================================================================
 
@@ -3675,5 +3747,350 @@ pub fn create_candidate(
         created_at: now,
     });
 
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - EMAIL METADATA
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn toggle_email_starred(ctx: &ReducerContext, message_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let existing = ctx.db.email_meta().iter()
+        .find(|m| m.message_id == message_id && m.user_id == who);
+    match existing {
+        Some(meta) => {
+            ctx.db.email_meta().id().update(EmailMeta { starred: !meta.starred, ..meta });
+        }
+        None => {
+            ctx.db.email_meta().insert(EmailMeta {
+                id: 0, message_id, user_id: who, starred: true,
+                archived: false, trashed: false, read: false,
+                label: None, snoozed_until: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_email_read(ctx: &ReducerContext, message_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let existing = ctx.db.email_meta().iter()
+        .find(|m| m.message_id == message_id && m.user_id == who);
+    match existing {
+        Some(meta) => {
+            if !meta.read {
+                ctx.db.email_meta().id().update(EmailMeta { read: true, ..meta });
+            }
+        }
+        None => {
+            ctx.db.email_meta().insert(EmailMeta {
+                id: 0, message_id, user_id: who, starred: false,
+                archived: false, trashed: false, read: true,
+                label: None, snoozed_until: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn archive_email(ctx: &ReducerContext, message_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let existing = ctx.db.email_meta().iter()
+        .find(|m| m.message_id == message_id && m.user_id == who);
+    match existing {
+        Some(meta) => {
+            ctx.db.email_meta().id().update(EmailMeta { archived: !meta.archived, ..meta });
+        }
+        None => {
+            ctx.db.email_meta().insert(EmailMeta {
+                id: 0, message_id, user_id: who, starred: false,
+                archived: true, trashed: false, read: false,
+                label: None, snoozed_until: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn trash_email(ctx: &ReducerContext, message_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let existing = ctx.db.email_meta().iter()
+        .find(|m| m.message_id == message_id && m.user_id == who);
+    match existing {
+        Some(meta) => {
+            ctx.db.email_meta().id().update(EmailMeta { trashed: !meta.trashed, ..meta });
+        }
+        None => {
+            ctx.db.email_meta().insert(EmailMeta {
+                id: 0, message_id, user_id: who, starred: false,
+                archived: false, trashed: true, read: false,
+                label: None, snoozed_until: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn set_email_label(ctx: &ReducerContext, message_id: u64, label: String) -> Result<(), String> {
+    let who = ctx.sender();
+    let label_val = if label.is_empty() { None } else { Some(label) };
+    let existing = ctx.db.email_meta().iter()
+        .find(|m| m.message_id == message_id && m.user_id == who);
+    match existing {
+        Some(meta) => {
+            ctx.db.email_meta().id().update(EmailMeta { label: label_val, ..meta });
+        }
+        None => {
+            ctx.db.email_meta().insert(EmailMeta {
+                id: 0, message_id, user_id: who, starred: false,
+                archived: false, trashed: false, read: false,
+                label: label_val, snoozed_until: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_email_label(ctx: &ReducerContext, org_id: u64, name: String, color: String) -> Result<(), String> {
+    if name.trim().is_empty() { return Err("Label name cannot be empty".to_string()); }
+    ctx.db.email_label().insert(EmailLabel {
+        id: 0, org_id, user_id: ctx.sender(), name, color,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_email_label(ctx: &ReducerContext, label_id: u64) -> Result<(), String> {
+    let label = ctx.db.email_label().id().find(&label_id).ok_or("Label not found")?;
+    if label.user_id != ctx.sender() { return Err("Not your label".to_string()); }
+    ctx.db.email_label().id().delete(&label_id);
+    Ok(())
+}
+
+// ============================================================================
+// AI AGENT DEPLOYMENTS (deploy compat)
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum AgentDeploymentStatus {
+    Draft,
+    Deploying,
+    Active,
+    Paused,
+    Failed,
+}
+
+#[spacetimedb::table(accessor = ai_agent_deployment, public)]
+pub struct AiAgentDeployment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub department: Department,
+    pub role_description: String,
+    pub system_prompt: String,
+    pub model: String,
+    pub capabilities: Vec<String>,
+    pub self_verification_threshold: f32,
+    pub max_task_duration_minutes: u32,
+    pub status: AgentDeploymentStatus,
+    pub tasks_completed: u64,
+    pub avg_confidence: Option<f32>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+    pub last_active: Option<Timestamp>,
+}
+
+#[spacetimedb::reducer]
+pub fn create_agent_deployment(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    department: String,
+    role_description: String,
+    system_prompt: String,
+    model: String,
+    capabilities: Vec<String>,
+    self_verification_threshold: f32,
+    max_task_duration_minutes: u32,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Agent name cannot be empty".to_string());
+    }
+    let dept = match department.as_str() {
+        "Support" => Department::Support,
+        "Sales" => Department::Sales,
+        "Recruitment" => Department::Recruitment,
+        "Engineering" => Department::Engineering,
+        "Operations" => Department::Operations,
+        "Marketing" => Department::Marketing,
+        "Finance" => Department::Finance,
+        _ => return Err(format!("Invalid department: {}", department)),
+    };
+    ctx.db.ai_agent_deployment().insert(AiAgentDeployment {
+        id: 0, org_id, name, department: dept, role_description, system_prompt, model,
+        capabilities, self_verification_threshold, max_task_duration_minutes,
+        status: AgentDeploymentStatus::Draft, tasks_completed: 0, avg_confidence: None,
+        created_by: ctx.sender(), created_at: ctx.timestamp, last_active: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn deploy_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Agent is already active".to_string());
+    }
+    ctx.db.ai_agent_deployment().id().update(AiAgentDeployment {
+        status: AgentDeploymentStatus::Active,
+        last_active: Some(ctx.timestamp),
+        ..agent
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn pause_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    ctx.db.ai_agent_deployment().id().update(AiAgentDeployment {
+        status: AgentDeploymentStatus::Paused,
+        ..agent
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_agent_deployment(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Cannot delete an active agent. Pause it first.".to_string());
+    }
+    ctx.db.ai_agent_deployment().id().delete(&agent_id);
+    Ok(())
+}
+
+// ============================================================================
+// NOTIFICATIONS (deploy compat)
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationType {
+    TaskAssigned,
+    TaskCompleted,
+    MentionInMessage,
+    TicketUpdate,
+    PrReviewRequested,
+    AgentCompleted,
+    MeetingReminder,
+    DocumentShared,
+    SystemAlert,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+#[spacetimedb::table(accessor = notification, public)]
+pub struct Notification {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub recipient: Identity,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
+    pub title: String,
+    pub body: String,
+    pub link: Option<String>,
+    pub read: bool,
+    pub dismissed: bool,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_notification(
+    ctx: &ReducerContext,
+    org_id: u64,
+    recipient_hex: String,
+    notification_type: String,
+    priority: String,
+    title: String,
+    body: String,
+    link: Option<String>,
+) -> Result<(), String> {
+    let recipient = Identity::from_hex(&recipient_hex)
+        .map_err(|_| "Invalid recipient identity")?;
+    let ntype = match notification_type.as_str() {
+        "TaskAssigned" => NotificationType::TaskAssigned,
+        "TaskCompleted" => NotificationType::TaskCompleted,
+        "MentionInMessage" => NotificationType::MentionInMessage,
+        "TicketUpdate" => NotificationType::TicketUpdate,
+        "PrReviewRequested" => NotificationType::PrReviewRequested,
+        "AgentCompleted" => NotificationType::AgentCompleted,
+        "MeetingReminder" => NotificationType::MeetingReminder,
+        "DocumentShared" => NotificationType::DocumentShared,
+        "SystemAlert" => NotificationType::SystemAlert,
+        _ => return Err(format!("Invalid notification type: {}", notification_type)),
+    };
+    let prio = match priority.as_str() {
+        "Low" => NotificationPriority::Low,
+        "Normal" => NotificationPriority::Normal,
+        "High" => NotificationPriority::High,
+        "Urgent" => NotificationPriority::Urgent,
+        _ => NotificationPriority::Normal,
+    };
+    ctx.db.notification().insert(Notification {
+        id: 0, org_id, recipient, notification_type: ntype, priority: prio,
+        title, body, link, read: false, dismissed: false, created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+    ctx.db.notification().id().update(Notification { read: true, ..notif });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_all_notifications_read(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
+    let my_notifs: Vec<_> = ctx.db.notification().iter()
+        .filter(|n| n.recipient == ctx.sender() && n.org_id == org_id && !n.read)
+        .collect();
+    for n in my_notifs {
+        ctx.db.notification().id().update(Notification { read: true, ..n });
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn dismiss_notification(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+    ctx.db.notification().id().update(Notification { dismissed: true, read: true, ..notif });
     Ok(())
 }

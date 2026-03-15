@@ -33,7 +33,12 @@ import {
   Github,
   Linkedin,
   MapPin,
+  User,
+  type LucideIcon,
 } from 'lucide-react'
+import { GradientText } from '@/components/reactbits/GradientText'
+import { SpotlightCard } from '@/components/reactbits/SpotlightCard'
+import { CountUp } from '@/components/reactbits/CountUp'
 
 const TIMEZONES = [
   'UTC',
@@ -194,13 +199,14 @@ export default function ProfilePage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="overflow-hidden">
+        <div className="h-24 bg-gradient-to-r from-violet-500/20 via-purple-500/10 to-fuchsia-500/20" />
+        <CardContent className="relative pt-0 -mt-12">
           <div className="flex items-start gap-6">
             <div className="relative">
-              <Avatar className="size-24 text-2xl">
+              <Avatar className="size-24 text-2xl ring-4 ring-card">
                 <AvatarImage src={me.avatarUrl ?? undefined} alt={me.name} />
-                <AvatarFallback className="text-2xl font-semibold bg-primary/10 text-primary">
+                <AvatarFallback className="text-2xl font-semibold bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -208,10 +214,14 @@ export default function ProfilePage() {
                 className={`absolute bottom-1 right-1 size-4 rounded-full border-2 border-card ${statusColor}`}
               />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pt-14">
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">{me.name}</h1>
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    <GradientText colors={['#8b5cf6', '#a855f7', '#d946ef']} animationSpeed={6}>
+                      {me.name}
+                    </GradientText>
+                  </h1>
                   <p className="text-muted-foreground">{me.role || 'Team Member'}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge variant="secondary">{me.department.tag}</Badge>
@@ -647,24 +657,31 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-muted/50 text-center">
-              <p className="text-3xl font-bold">{Number(me.tasksCompleted)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Tasks Completed</p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50 text-center">
-              <p className="text-3xl font-bold">
-                {me.avgConfidenceScore != null
-                  ? `${Math.round(me.avgConfidenceScore * 100)}%`
-                  : '--'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Avg Confidence</p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50 text-center">
-              <p className="text-3xl font-bold">
-                {myTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'Claimed').length}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Active Tasks</p>
-            </div>
+            {([
+              { label: 'Tasks Completed', value: Number(me.tasksCompleted), color: '#8b5cf6' },
+              {
+                label: 'Avg Confidence',
+                value: me.avgConfidenceScore != null ? Math.round(me.avgConfidenceScore * 100) : 0,
+                suffix: '%',
+                color: '#a855f7',
+              },
+              {
+                label: 'Active Tasks',
+                value: myTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'Claimed').length,
+                color: '#d946ef',
+              },
+            ] as const).map((stat) => (
+              <SpotlightCard key={stat.label} spotlightColor={stat.color} className="p-4 text-center">
+                <p className="text-3xl font-bold">
+                  {stat.value > 0 ? (
+                    <><CountUp to={stat.value} />{'suffix' in stat ? stat.suffix : ''}</>
+                  ) : (
+                    me.avgConfidenceScore == null && stat.label === 'Avg Confidence' ? '--' : '0'
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+              </SpotlightCard>
+            ))}
           </div>
           {currentTask && (
             <div className="mt-4 p-3 rounded-lg border flex items-center justify-between">

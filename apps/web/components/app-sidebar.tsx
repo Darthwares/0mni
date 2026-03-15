@@ -32,6 +32,10 @@ import {
   ClipboardCheck,
   Timer,
   BookOpen,
+  ClipboardList,
+  Target,
+  Receipt,
+  Presentation,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -103,6 +107,8 @@ const navSections = [
       { title: "Support", href: "/support", icon: Headphones, countKey: "tickets" as const },
       { title: "Sales", href: "/sales", icon: TrendingUp, countKey: "leads" as const },
       { title: "Recruitment", href: "/recruitment", icon: Users, countKey: "candidates" as const },
+      { title: "Invoicing", href: "/invoicing", icon: Receipt },
+      { title: "Goals & OKRs", href: "/goals", icon: Target },
     ],
   },
   {
@@ -113,6 +119,8 @@ const navSections = [
       { title: "Canvas", href: "/canvas", icon: PenTool },
       { title: "Drive", href: "/drive", icon: HardDrive },
       { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
+      { title: "Whiteboard", href: "/whiteboard", icon: Presentation },
+      { title: "Forms", href: "/forms", icon: ClipboardList },
       { title: "Time Tracking", href: "/time-tracking", icon: Timer, globalHidden: true },
       { title: "Approvals", href: "/approvals", icon: ClipboardCheck, globalHidden: true },
     ],

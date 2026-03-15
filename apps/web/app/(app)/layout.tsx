@@ -37,6 +37,10 @@ const routeNames: Record<string, string> = {
   "/tickets": "Tickets",
   "/canvas": "Canvas",
   "/profile": "Profile",
+  "/calendar": "Calendar",
+  "/people": "People",
+  "/drive": "Drive",
+  "/analytics": "Analytics",
 }
 
 const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
@@ -77,7 +81,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-                <div className="ml-auto hidden md:block">
+                <div className="ml-auto hidden md:flex items-center gap-3">
                   <PresenceBar />
                 </div>
               </header>

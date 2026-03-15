@@ -7778,6 +7778,51 @@ pub fn delete_canned_response(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn escalate_ticket(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id)
+        .ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+    ctx.db.ticket().id().update(Ticket {
+        escalation_count: ticket.escalation_count.saturating_add(1),
+        priority: match ticket.priority {
+            Priority::Low => Priority::Medium,
+            Priority::Medium => Priority::High,
+            Priority::High => Priority::Urgent,
+            Priority::Urgent => Priority::Urgent,
+        },
+        ..ticket
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_customer(
+    ctx: &ReducerContext,
+    customer_id: u64,
+    name: Option<String>,
+    email: String,
+    phone: Option<String>,
+    company: Option<String>,
+    plan: Option<String>,
+) -> Result<(), String> {
+    let existing = ctx.db.customer().id().find(&customer_id)
+        .ok_or("Customer not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.customer().id().update(Customer {
+        name,
+        email,
+        phone,
+        company,
+        plan,
+        ..existing
+    });
+    Ok(())
+}
+
 // ============================================================================
 // SAVED REPORTS
 // ============================================================================

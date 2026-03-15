@@ -53,6 +53,9 @@ import {
   Trash2,
   BookTemplate,
   ChevronUp,
+  ArrowUpCircle,
+  Edit3,
+  Tag,
 } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import GradientText from '@/components/reactbits/GradientText'
@@ -192,6 +195,9 @@ export default function SupportPage() {
   const deleteTicketNote = useSpacetimeReducer(reducers.deleteTicketNote)
   const createCannedResponse = useSpacetimeReducer(reducers.createCannedResponse)
   const deleteCannedResponse = useSpacetimeReducer(reducers.deleteCannedResponse)
+  const escalateTicket = useSpacetimeReducer(reducers.escalateTicket)
+  const updateCustomer = useSpacetimeReducer(reducers.updateCustomer)
+  const updateTicketCategory = useSpacetimeReducer(reducers.updateTicketCategory)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -228,6 +234,14 @@ export default function SupportPage() {
   const [newCannedTitle, setNewCannedTitle] = useState('')
   const [newCannedContent, setNewCannedContent] = useState('')
   const [showCannedDialog, setShowCannedDialog] = useState(false)
+
+  // Edit Customer dialog state
+  const [editCustomerOpen, setEditCustomerOpen] = useState(false)
+  const [editCustName, setEditCustName] = useState('')
+  const [editCustEmail, setEditCustEmail] = useState('')
+  const [editCustPhone, setEditCustPhone] = useState('')
+  const [editCustCompany, setEditCustCompany] = useState('')
+  const [editCustPlan, setEditCustPlan] = useState('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -349,6 +363,40 @@ export default function SupportPage() {
     } catch (e) {
       console.error('Failed to create canned response:', e)
     }
+  }
+
+  function openEditCustomer() {
+    if (!selectedCustomer) return
+    setEditCustName(selectedCustomer.name ?? '')
+    setEditCustEmail(selectedCustomer.email)
+    setEditCustPhone(selectedCustomer.phone ?? '')
+    setEditCustCompany(selectedCustomer.company ?? '')
+    setEditCustPlan(selectedCustomer.plan ?? '')
+    setEditCustomerOpen(true)
+  }
+
+  function handleUpdateCustomer() {
+    if (!selectedCustomer || !editCustEmail.trim()) return
+    updateCustomer({
+      customerId: selectedCustomer.id,
+      name: editCustName.trim() || undefined,
+      email: editCustEmail.trim(),
+      phone: editCustPhone.trim() || undefined,
+      company: editCustCompany.trim() || undefined,
+      plan: editCustPlan.trim() || undefined,
+    })
+    setEditCustomerOpen(false)
+  }
+
+  function slaStatus(slaDue: any): { label: string; className: string; overdue: boolean } {
+    if (!slaDue) return { label: '', className: '', overdue: false }
+    const due = slaDue.toMillis()
+    const now = Date.now()
+    const diff = due - now
+    if (diff < 0) return { label: `Overdue by ${Math.ceil(Math.abs(diff) / 3_600_000)}h`, className: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20', overdue: true }
+    if (diff < 3_600_000) return { label: `Due in ${Math.ceil(diff / 60_000)}m`, className: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20', overdue: false }
+    if (diff < 86_400_000) return { label: `Due in ${Math.ceil(diff / 3_600_000)}h`, className: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20', overdue: false }
+    return { label: `SLA: ${formatDate(slaDue)}`, className: 'text-neutral-500 bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700', overdue: false }
   }
 
   function handleCreateTicket() {
@@ -737,17 +785,43 @@ export default function SupportPage() {
                         </SelectContent>
                       </Select>
 
-                      {selectedTicket.category && (
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {selectedTicket.category}
+                      {/* Category selector */}
+                      <Select
+                        value={selectedTicket.category ?? '__none'}
+                        onValueChange={(val) => updateTicketCategory({ ticketId: selectedTicket.id, category: val === '__none' ? '' : val })}
+                      >
+                        <SelectTrigger className="h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700">
+                          <Tag className="h-3 w-3 mr-0.5" />
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none" className="text-xs">No Category</SelectItem>
+                          <SelectItem value="Billing" className="text-xs">Billing</SelectItem>
+                          <SelectItem value="Technical" className="text-xs">Technical</SelectItem>
+                          <SelectItem value="Account" className="text-xs">Account</SelectItem>
+                          <SelectItem value="Feature Request" className="text-xs">Feature Request</SelectItem>
+                          <SelectItem value="Bug Report" className="text-xs">Bug Report</SelectItem>
+                          <SelectItem value="General" className="text-xs">General</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {selectedTicket.escalationCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                          <ArrowUpCircle className="h-3 w-3" />
+                          Escalated {selectedTicket.escalationCount}x
                         </span>
                       )}
-                      {selectedTicket.slaDue && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600">
-                          <Clock className="h-3 w-3" />
-                          SLA: {formatDate(selectedTicket.slaDue)}
-                        </span>
-                      )}
+
+                      {(() => {
+                        const sla = slaStatus(selectedTicket.slaDue)
+                        if (!sla.label) return null
+                        return (
+                          <span className={`flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded border ${sla.className}`}>
+                            <Clock className={`h-3 w-3 ${sla.overdue ? 'animate-pulse' : ''}`} />
+                            {sla.label}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -771,6 +845,19 @@ export default function SupportPage() {
                       >
                         <AlertCircle className="h-3 w-3" />
                         Reopen
+                      </Button>
+                    )}
+
+                    {selectedTicket.status.tag !== 'Resolved' && selectedTicket.status.tag !== 'Closed' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
+                        onClick={() => escalateTicket({ ticketId: selectedTicket.id })}
+                        title="Escalate — bumps priority up one level"
+                      >
+                        <ArrowUpCircle className="h-3 w-3" />
+                        Escalate
                       </Button>
                     )}
 
@@ -1079,7 +1166,7 @@ export default function SupportPage() {
                       {(selectedCustomer.name ?? selectedCustomer.email)[0]?.toUpperCase() ?? 'C'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                       {selectedCustomer.name ?? 'Unknown'}
                     </p>
@@ -1092,6 +1179,13 @@ export default function SupportPage() {
                       </p>
                     )}
                   </div>
+                  <button
+                    onClick={openEditCustomer}
+                    className="shrink-0 size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="Edit customer"
+                  >
+                    <Edit3 className="size-3.5" />
+                  </button>
                 </div>
 
                 <Separator />
@@ -1241,6 +1335,53 @@ export default function SupportPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={editCustomerOpen} onOpenChange={setEditCustomerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="ec-name">Name</Label>
+              <Input id="ec-name" value={editCustName} onChange={(e) => setEditCustName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="ec-email">Email *</Label>
+              <Input id="ec-email" type="email" value={editCustEmail} onChange={(e) => setEditCustEmail(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="ec-phone">Phone</Label>
+                <Input id="ec-phone" value={editCustPhone} onChange={(e) => setEditCustPhone(e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ec-company">Company</Label>
+                <Input id="ec-company" value={editCustCompany} onChange={(e) => setEditCustCompany(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Plan</Label>
+              <Select value={editCustPlan || '__none'} onValueChange={(v) => setEditCustPlan(v === '__none' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="No plan" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">No Plan</SelectItem>
+                  <SelectItem value="Free">Free</SelectItem>
+                  <SelectItem value="Pro">Pro</SelectItem>
+                  <SelectItem value="Enterprise">Enterprise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCustomerOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateCustomer} disabled={!editCustEmail.trim()} className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white border-0">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   )

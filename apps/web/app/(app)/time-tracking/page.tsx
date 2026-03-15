@@ -114,7 +114,7 @@ function getDayOfWeek(d: Date): number {
 export default function TimeTrackingPage() {
   const { identity } = useSpacetimeDB()
   const { currentOrgId } = useOrg()
-  const [allTimeEntries] = useTable(tables.timeEntry)
+  const [allTimeEntries] = useTable(tables.time_entry)
   const [employees] = useTable(tables.employee)
 
   const startTimeEntry = useReducer(reducers.startTimeEntry)

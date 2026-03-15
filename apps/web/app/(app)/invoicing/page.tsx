@@ -144,7 +144,7 @@ export default function InvoicingPage() {
 
   // SpacetimeDB
   const allInvoices = useTable(tables.invoice)
-  const allLineItems = useTable(tables.invoiceLineItem)
+  const allLineItems = useTable(tables.invoice_line_item)
   const createInvoice = useReducer(reducers.createInvoice)
   const updateInvoiceStatus = useReducer(reducers.updateInvoiceStatus)
   const deleteInvoice = useReducer(reducers.deleteInvoice)

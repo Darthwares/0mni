@@ -23,6 +23,8 @@ import {
   Plus,
   Trash2,
   Pencil,
+  Download,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -40,6 +42,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -76,6 +79,11 @@ function timestampToDate(ts: any): Date {
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function readingTime(content: string): number {
+  const words = content.split(/\s+/).filter(Boolean).length
+  return Math.max(1, Math.ceil(words / 200))
 }
 
 type SortOption = 'recent' | 'views' | 'helpful'
@@ -289,6 +297,25 @@ export default function KnowledgeBasePage() {
         </div>
         <BlurText text="Create and share knowledge across your organization" delay={35} animateBy="words" className="text-xs text-muted-foreground ml-0.5 hidden lg:block" />
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => exportCSV('knowledge-base.csv', [
+              { header: 'Title', accessor: (a: any) => a.title },
+              { header: 'Category', accessor: (a: any) => a.category?.tag ?? 'General' },
+              { header: 'Author', accessor: (a: any) => employeeMap.get(a.author.toHexString())?.name ?? 'Unknown' },
+              { header: 'Views', accessor: (a: any) => a.views },
+              { header: 'Helpful', accessor: (a: any) => a.helpful },
+              { header: 'Pinned', accessor: (a: any) => a.pinned ? 'Yes' : 'No' },
+              { header: 'Tags', accessor: (a: any) => a.tags },
+              { header: 'Reading Time', accessor: (a: any) => `${readingTime(a.content)} min` },
+              { header: 'Updated', accessor: (a: any) => formatDate(timestampToDate(a.updatedAt)) },
+            ], filteredArticles)}
+          >
+            <Download className="size-3.5" />
+            Export
+          </Button>
           <PresenceBar />
           <Button size="sm" onClick={() => setShowCreateDialog(true)} className="h-8 gap-1.5">
             <Plus className="size-3.5" />
@@ -449,6 +476,10 @@ export default function KnowledgeBasePage() {
                         <ThumbsUp className="size-3.5" />
                         {selectedArticle.helpful} helpful
                       </span>
+                      <span className="flex items-center gap-1">
+                        <BarChart3 className="size-3.5" />
+                        {readingTime(selectedArticle.content)} min read
+                      </span>
                       <Badge variant="outline" className={categoryBadgeClass(selectedArticle.category?.tag ?? 'General')}>
                         {CATEGORY_CONFIG[selectedArticle.category?.tag ?? 'General']?.label ?? 'General'}
                       </Badge>
@@ -561,6 +592,10 @@ export default function KnowledgeBasePage() {
                                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                       <ThumbsUp className="size-3" />
                                       {article.helpful}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="size-3" />
+                                      {readingTime(article.content)} min read
                                     </span>
                                   </div>
                                 </div>

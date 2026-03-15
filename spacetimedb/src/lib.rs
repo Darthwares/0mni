@@ -4807,3 +4807,138 @@ pub fn delete_key_result(ctx: &ReducerContext, kr_id: u64) -> Result<(), String>
     ctx.db.key_result().id().delete(&kr_id);
     Ok(())
 }
+
+// === KNOWLEDGE BASE ==========================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ArticleCategory {
+    Engineering,
+    Product,
+    Design,
+    Hr,
+    Operations,
+    Onboarding,
+    Security,
+    General,
+}
+
+#[spacetimedb::table(accessor = kb_article, public)]
+#[derive(Clone)]
+pub struct KbArticle {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub content: String,
+    pub category: ArticleCategory,
+    pub author: Identity,
+    pub tags: String, // comma-separated
+    pub pinned: bool,
+    pub views: u32,
+    pub helpful: u32,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_kb_article(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    content: String,
+    category_tag: String,
+    tags: String,
+) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Title cannot be empty".to_string());
+    }
+    let category = match category_tag.as_str() {
+        "Engineering" => ArticleCategory::Engineering,
+        "Product" => ArticleCategory::Product,
+        "Design" => ArticleCategory::Design,
+        "Hr" => ArticleCategory::Hr,
+        "Operations" => ArticleCategory::Operations,
+        "Onboarding" => ArticleCategory::Onboarding,
+        "Security" => ArticleCategory::Security,
+        "General" => ArticleCategory::General,
+        _ => ArticleCategory::General,
+    };
+    ctx.db.kb_article().insert(KbArticle {
+        id: 0,
+        org_id,
+        title,
+        content,
+        category,
+        author: ctx.sender(),
+        tags,
+        pinned: false,
+        views: 0,
+        helpful: 0,
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_kb_article(
+    ctx: &ReducerContext,
+    article_id: u64,
+    title: String,
+    content: String,
+    category_tag: String,
+    tags: String,
+) -> Result<(), String> {
+    let article = ctx.db.kb_article().id().find(&article_id)
+        .ok_or("Article not found")?;
+    let category = match category_tag.as_str() {
+        "Engineering" => ArticleCategory::Engineering,
+        "Product" => ArticleCategory::Product,
+        "Design" => ArticleCategory::Design,
+        "Hr" => ArticleCategory::Hr,
+        "Operations" => ArticleCategory::Operations,
+        "Onboarding" => ArticleCategory::Onboarding,
+        "Security" => ArticleCategory::Security,
+        _ => ArticleCategory::General,
+    };
+    ctx.db.kb_article().id().update(KbArticle {
+        title,
+        content,
+        category,
+        tags,
+        updated_at: ctx.timestamp,
+        ..article
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_kb_article(ctx: &ReducerContext, article_id: u64) -> Result<(), String> {
+    ctx.db.kb_article().id().delete(&article_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_kb_article_pin(ctx: &ReducerContext, article_id: u64) -> Result<(), String> {
+    let article = ctx.db.kb_article().id().find(&article_id)
+        .ok_or("Article not found")?;
+    ctx.db.kb_article().id().update(KbArticle { pinned: !article.pinned, ..article });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_kb_article_helpful(ctx: &ReducerContext, article_id: u64) -> Result<(), String> {
+    let article = ctx.db.kb_article().id().find(&article_id)
+        .ok_or("Article not found")?;
+    ctx.db.kb_article().id().update(KbArticle { helpful: article.helpful + 1, ..article });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn increment_kb_article_views(ctx: &ReducerContext, article_id: u64) -> Result<(), String> {
+    let article = ctx.db.kb_article().id().find(&article_id)
+        .ok_or("Article not found")?;
+    ctx.db.kb_article().id().update(KbArticle { views: article.views + 1, ..article });
+    Ok(())
+}

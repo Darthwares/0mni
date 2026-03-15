@@ -49,8 +49,10 @@ import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateEmailLabelReducer from "./create_email_label_reducer";
 import CreateEpicReducer from "./create_epic_reducer";
+import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
 import CreateNotificationReducer from "./create_notification_reducer";
+import CreateObjectiveReducer from "./create_objective_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
@@ -58,7 +60,9 @@ import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
+import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
+import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
@@ -112,7 +116,9 @@ import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
 import UpdateEpicReducer from "./update_epic_reducer";
+import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
+import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
 import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
@@ -142,11 +148,13 @@ import EmployeeRow from "./employee_table";
 import EpicRow from "./epic_table";
 import InterviewRow from "./interview_table";
 import JobPostingRow from "./job_posting_table";
+import KeyResultRow from "./key_result_table";
 import LeadRow from "./lead_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
 import NotificationRow from "./notification_table";
+import ObjectiveRow from "./objective_table";
 import OrgInviteLinkRow from "./org_invite_link_table";
 import OrgMembershipRow from "./org_membership_table";
 import OrganizationRow from "./organization_table";
@@ -384,6 +392,17 @@ const tablesSchema = __schema({
       { name: 'job_posting_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, JobPostingRow),
+  key_result: __table({
+    name: 'key_result',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'key_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, KeyResultRow),
   lead: __table({
     name: 'lead',
     indexes: [
@@ -439,6 +458,17 @@ const tablesSchema = __schema({
       { name: 'notification_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, NotificationRow),
+  objective: __table({
+    name: 'objective',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'objective_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ObjectiveRow),
   org_invite_link: __table({
     name: 'org_invite_link',
     indexes: [
@@ -653,8 +683,10 @@ const reducersSchema = __reducers(
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_email_label", CreateEmailLabelReducer),
   __reducerSchema("create_epic", CreateEpicReducer),
+  __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
   __reducerSchema("create_notification", CreateNotificationReducer),
+  __reducerSchema("create_objective", CreateObjectiveReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
@@ -662,7 +694,9 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
+  __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
+  __reducerSchema("delete_objective", DeleteObjectiveReducer),
   __reducerSchema("delete_sprint", DeleteSprintReducer),
   __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
   __reducerSchema("deploy_agent", DeployAgentReducer),
@@ -716,7 +750,9 @@ const reducersSchema = __reducers(
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
   __reducerSchema("update_epic", UpdateEpicReducer),
+  __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
+  __reducerSchema("update_objective_status", UpdateObjectiveStatusReducer),
   __reducerSchema("update_organization", UpdateOrganizationReducer),
   __reducerSchema("update_sprint", UpdateSprintReducer),
   __reducerSchema("update_task", UpdateTaskReducer),

@@ -4666,3 +4666,144 @@ pub fn dismiss_notification(ctx: &ReducerContext, notification_id: u64) -> Resul
     ctx.db.notification().id().update(Notification { dismissed: true, read: true, ..notif });
     Ok(())
 }
+
+// === GOALS & OKRs ===========================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ObjectiveStatus {
+    OnTrack,
+    AtRisk,
+    Behind,
+    Completed,
+}
+
+#[spacetimedb::table(accessor = objective, public)]
+#[derive(Clone)]
+pub struct Objective {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub description: String,
+    pub quarter: String,
+    pub status: ObjectiveStatus,
+    pub owner: Identity,
+    pub department: String,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = key_result, public)]
+#[derive(Clone)]
+pub struct KeyResult {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub objective_id: u64,
+    pub title: String,
+    pub target_value: u32,
+    pub current_value: u32,
+    pub unit: String,
+    pub owner: Identity,
+}
+
+#[spacetimedb::reducer]
+pub fn create_objective(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    description: String,
+    quarter: String,
+    department: String,
+) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Title cannot be empty".to_string());
+    }
+    ctx.db.objective().insert(Objective {
+        id: 0,
+        org_id,
+        title,
+        description,
+        quarter,
+        status: ObjectiveStatus::OnTrack,
+        owner: ctx.sender(),
+        department,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_objective_status(
+    ctx: &ReducerContext,
+    objective_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let obj = ctx.db.objective().id().find(&objective_id)
+        .ok_or("Objective not found")?;
+    let status = match status_tag.as_str() {
+        "OnTrack" => ObjectiveStatus::OnTrack,
+        "AtRisk" => ObjectiveStatus::AtRisk,
+        "Behind" => ObjectiveStatus::Behind,
+        "Completed" => ObjectiveStatus::Completed,
+        _ => return Err(format!("Invalid status: {}", status_tag)),
+    };
+    ctx.db.objective().id().update(Objective { status, ..obj });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_objective(ctx: &ReducerContext, objective_id: u64) -> Result<(), String> {
+    // Delete all key results first
+    let krs: Vec<_> = ctx.db.key_result().iter()
+        .filter(|kr| kr.objective_id == objective_id)
+        .collect();
+    for kr in krs {
+        ctx.db.key_result().id().delete(&kr.id);
+    }
+    ctx.db.objective().id().delete(&objective_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_key_result(
+    ctx: &ReducerContext,
+    objective_id: u64,
+    title: String,
+    target_value: u32,
+    unit: String,
+) -> Result<(), String> {
+    let _obj = ctx.db.objective().id().find(&objective_id)
+        .ok_or("Objective not found")?;
+    if title.trim().is_empty() {
+        return Err("Key result title cannot be empty".to_string());
+    }
+    ctx.db.key_result().insert(KeyResult {
+        id: 0,
+        objective_id,
+        title,
+        target_value,
+        current_value: 0,
+        unit,
+        owner: ctx.sender(),
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_kr_progress(
+    ctx: &ReducerContext,
+    kr_id: u64,
+    current_value: u32,
+) -> Result<(), String> {
+    let kr = ctx.db.key_result().id().find(&kr_id)
+        .ok_or("Key result not found")?;
+    ctx.db.key_result().id().update(KeyResult { current_value, ..kr });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_key_result(ctx: &ReducerContext, kr_id: u64) -> Result<(), String> {
+    ctx.db.key_result().id().delete(&kr_id);
+    Ok(())
+}

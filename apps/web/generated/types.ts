@@ -617,6 +617,17 @@ export const JobStatus = __t.enum("JobStatus", {
 });
 export type JobStatus = __Infer<typeof JobStatus>;
 
+export const KeyResult = __t.object("KeyResult", {
+  id: __t.u64(),
+  objectiveId: __t.u64(),
+  title: __t.string(),
+  targetValue: __t.u32(),
+  currentValue: __t.u32(),
+  unit: __t.string(),
+  owner: __t.identity(),
+});
+export type KeyResult = __Infer<typeof KeyResult>;
+
 export const Lead = __t.object("Lead", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -803,6 +814,30 @@ export const NotificationType = __t.enum("NotificationType", {
   SystemAlert: __t.unit(),
 });
 export type NotificationType = __Infer<typeof NotificationType>;
+
+export const Objective = __t.object("Objective", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  description: __t.string(),
+  quarter: __t.string(),
+  get status() {
+    return ObjectiveStatus;
+  },
+  owner: __t.identity(),
+  department: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type Objective = __Infer<typeof Objective>;
+
+// The tagged union or sum type for the algebraic type `ObjectiveStatus`.
+export const ObjectiveStatus = __t.enum("ObjectiveStatus", {
+  OnTrack: __t.unit(),
+  AtRisk: __t.unit(),
+  Behind: __t.unit(),
+  Completed: __t.unit(),
+});
+export type ObjectiveStatus = __Infer<typeof ObjectiveStatus>;
 
 export const OrgInviteLink = __t.object("OrgInviteLink", {
   id: __t.u64(),

@@ -70,6 +70,7 @@ import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
+import CreateWhiteboardBoardReducer from "./create_whiteboard_board_reducer";
 import CreateWorkflowReducer from "./create_workflow_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
@@ -88,6 +89,7 @@ import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteStandupReducer from "./delete_standup_reducer";
 import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
+import DeleteWhiteboardBoardReducer from "./delete_whiteboard_board_reducer";
 import DeleteWorkflowReducer from "./delete_workflow_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
 import DismissNotificationReducer from "./dismiss_notification_reducer";
@@ -171,6 +173,7 @@ import UpdateOrganizationReducer from "./update_organization_reducer";
 import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
 import UpdateTaskStatusReducer from "./update_task_status_reducer";
+import UpdateWhiteboardBoardReducer from "./update_whiteboard_board_reducer";
 import UpdateWorkflowReducer from "./update_workflow_reducer";
 import UpdateWorkflowStatusReducer from "./update_workflow_status_reducer";
 import WatchTaskReducer from "./watch_task_reducer";
@@ -237,6 +240,7 @@ import TimeEntryRow from "./time_entry_table";
 import TypingIndicatorRow from "./typing_indicator_table";
 import UserLocationRow from "./user_location_table";
 import VideoFrameEventRow from "./video_frame_event_table";
+import WhiteboardBoardRow from "./whiteboard_board_table";
 import WorkflowRow from "./workflow_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -883,6 +887,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, VideoFrameEventRow),
+  whiteboard_board: __table({
+    name: 'whiteboard_board',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'whiteboard_board_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WhiteboardBoardRow),
   workflow: __table({
     name: 'workflow',
     indexes: [
@@ -934,6 +949,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
+  __reducerSchema("create_whiteboard_board", CreateWhiteboardBoardReducer),
   __reducerSchema("create_workflow", CreateWorkflowReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
@@ -952,6 +968,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_sprint", DeleteSprintReducer),
   __reducerSchema("delete_standup", DeleteStandupReducer),
   __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
+  __reducerSchema("delete_whiteboard_board", DeleteWhiteboardBoardReducer),
   __reducerSchema("delete_workflow", DeleteWorkflowReducer),
   __reducerSchema("deploy_agent", DeployAgentReducer),
   __reducerSchema("dismiss_notification", DismissNotificationReducer),
@@ -1035,6 +1052,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_sprint", UpdateSprintReducer),
   __reducerSchema("update_task", UpdateTaskReducer),
   __reducerSchema("update_task_status", UpdateTaskStatusReducer),
+  __reducerSchema("update_whiteboard_board", UpdateWhiteboardBoardReducer),
   __reducerSchema("update_workflow", UpdateWorkflowReducer),
   __reducerSchema("update_workflow_status", UpdateWorkflowStatusReducer),
   __reducerSchema("watch_task", WatchTaskReducer),

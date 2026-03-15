@@ -20,6 +20,7 @@ import {
   Settings,
   KanbanSquare,
   PenTool,
+  CalendarDays,
   Globe,
   AlertTriangle,
   Share2,
@@ -98,6 +99,7 @@ const navSections = [
     label: "Workspace",
     items: [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
+      { title: "Calendar", href: "/calendar", icon: CalendarDays },
       { title: "Canvas", href: "/canvas", icon: PenTool },
     ],
   },

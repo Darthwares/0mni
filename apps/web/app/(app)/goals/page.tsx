@@ -22,6 +22,9 @@ import {
   History,
   MessageSquarePlus,
   Clock,
+  Search,
+  Download,
+  Filter,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -39,6 +42,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -117,6 +121,7 @@ export default function GoalsPage() {
   const addKrCheckIn = useReducer(reducers.addKrCheckIn)
   const deleteKrCheckIn = useReducer(reducers.deleteKrCheckIn)
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedQuarter, setSelectedQuarter] = useState('Q1 2026')
   const [departmentFilter, setDepartmentFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState<ObjStatusFilter>('all')
@@ -199,9 +204,13 @@ export default function GoalsPage() {
       if (obj.quarter !== selectedQuarter) return false
       if (departmentFilter !== 'All' && obj.department !== departmentFilter) return false
       if (statusFilter !== 'all' && obj.status?.tag !== statusFilter) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        if (!obj.title.toLowerCase().includes(q) && !obj.description.toLowerCase().includes(q)) return false
+      }
       return true
     })
-  }, [orgObjectives, selectedQuarter, departmentFilter, statusFilter])
+  }, [orgObjectives, selectedQuarter, departmentFilter, statusFilter, searchQuery])
 
   // ─── Stats ─────────────────────────────────────────────────────────────
 
@@ -228,6 +237,16 @@ export default function GoalsPage() {
     const total = quarterObjectives.reduce((sum, o) => sum + getObjectiveProgress(o.id), 0)
     return Math.round(total / quarterObjectives.length)
   }, [quarterObjectives, getObjectiveProgress])
+
+  // Status distribution for visual bar
+  const statusDistribution = useMemo(() => {
+    const counts = { OnTrack: 0, AtRisk: 0, Behind: 0, Completed: 0 }
+    quarterObjectives.forEach(o => {
+      const tag = o.status?.tag ?? 'OnTrack'
+      if (tag in counts) counts[tag as keyof typeof counts]++
+    })
+    return counts
+  }, [quarterObjectives])
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
@@ -378,6 +397,32 @@ export default function GoalsPage() {
           <BlurText text="Set objectives and track key results" delay={35} animateBy="words" className="text-xs text-muted-foreground" />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search objectives..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 w-48 text-sm"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => exportCSV('goals-okrs.csv', [
+              { header: 'Title', accessor: (o: any) => o.title },
+              { header: 'Department', accessor: (o: any) => o.department },
+              { header: 'Quarter', accessor: (o: any) => o.quarter },
+              { header: 'Status', accessor: (o: any) => o.status?.tag ?? 'OnTrack' },
+              { header: 'Progress %', accessor: (o: any) => getObjectiveProgress(o.id) },
+              { header: 'Key Results', accessor: (o: any) => (krsByObjective.get(o.id)?.length ?? 0) },
+              { header: 'Description', accessor: (o: any) => o.description },
+            ], filtered)}
+          >
+            <Download className="size-3.5" />
+            Export
+          </Button>
           <PresenceBar />
           <Button
             size="sm"
@@ -477,6 +522,60 @@ export default function GoalsPage() {
               </p>
             </SpotlightCard>
           </div>
+
+          {/* Status Distribution Bar */}
+          {totalObjectives > 0 && (
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status Distribution</span>
+                <span className="text-[10px] text-muted-foreground">{totalObjectives} objectives this quarter</span>
+              </div>
+              <div className="h-3 rounded-full bg-muted overflow-hidden flex">
+                {statusDistribution.Completed > 0 && (
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${(statusDistribution.Completed / totalObjectives) * 100}%` }}
+                    title={`Completed: ${statusDistribution.Completed}`}
+                  />
+                )}
+                {statusDistribution.OnTrack > 0 && (
+                  <div
+                    className="h-full bg-green-500 transition-all duration-700"
+                    style={{ width: `${(statusDistribution.OnTrack / totalObjectives) * 100}%` }}
+                    title={`On Track: ${statusDistribution.OnTrack}`}
+                  />
+                )}
+                {statusDistribution.AtRisk > 0 && (
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-700"
+                    style={{ width: `${(statusDistribution.AtRisk / totalObjectives) * 100}%` }}
+                    title={`At Risk: ${statusDistribution.AtRisk}`}
+                  />
+                )}
+                {statusDistribution.Behind > 0 && (
+                  <div
+                    className="h-full bg-red-500 transition-all duration-700"
+                    style={{ width: `${(statusDistribution.Behind / totalObjectives) * 100}%` }}
+                    title={`Behind: ${statusDistribution.Behind}`}
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                {([
+                  { label: 'Completed', count: statusDistribution.Completed, color: 'bg-emerald-500' },
+                  { label: 'On Track', count: statusDistribution.OnTrack, color: 'bg-green-500' },
+                  { label: 'At Risk', count: statusDistribution.AtRisk, color: 'bg-amber-500' },
+                  { label: 'Behind', count: statusDistribution.Behind, color: 'bg-red-500' },
+                ] as const).map(s => (
+                  <div key={s.label} className="flex items-center gap-1.5">
+                    <div className={`size-2 rounded-full ${s.color}`} />
+                    <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                    <span className="text-[10px] font-bold tabular-nums">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quarter Tabs + Filters */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -614,23 +713,48 @@ export default function GoalsPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                        {/* Status change dropdown */}
-                        <select
-                          value={statusTag}
-                          onChange={e => handleStatusChange(obj.id, e.target.value)}
-                          className="h-7 px-2 rounded border bg-background text-[10px] cursor-pointer"
-                        >
-                          <option value="OnTrack">On Track</option>
-                          <option value="AtRisk">At Risk</option>
-                          <option value="Behind">Behind</option>
-                          <option value="Completed">Completed</option>
-                        </select>
+                        {/* Status change buttons */}
+                        <div className="relative group/statusdd">
+                          <button className="h-7 px-2.5 rounded-md border bg-background text-[10px] font-medium flex items-center gap-1.5 hover:border-primary/30 transition-colors">
+                            <span className={`size-1.5 rounded-full ${statusCfg.dot}`} />
+                            {statusCfg.label}
+                            <ChevronDown className="size-3 text-muted-foreground" />
+                          </button>
+                          <div className="absolute top-full right-0 mt-1 z-50 hidden group-hover/statusdd:block">
+                            <div className="bg-popover border rounded-lg shadow-lg p-1 min-w-[120px]">
+                              {(['OnTrack', 'AtRisk', 'Behind', 'Completed'] as const).map(s => {
+                                const sc = STATUS_CONFIG[s]
+                                return (
+                                  <button
+                                    key={s}
+                                    onClick={() => handleStatusChange(obj.id, s)}
+                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors ${statusTag === s ? 'bg-muted' : ''}`}
+                                  >
+                                    <span className={`size-2 rounded-full ${sc.dot}`} />
+                                    <span>{sc.label}</span>
+                                    {statusTag === s && <Check className="size-3 ml-auto text-primary" />}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </div>
                         <button
                           onClick={() => handleDeleteObjective(obj.id)}
                           className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Progress bar below header */}
+                    <div className="px-5 pb-3 -mt-1">
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${progressColor(progress)}`}
+                          style={{ width: `${progress}%` }}
+                        />
                       </div>
                     </div>
 

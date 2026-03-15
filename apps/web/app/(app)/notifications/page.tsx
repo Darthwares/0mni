@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { PresenceBar } from '@/components/presence-bar'
 import { useAuth } from 'react-oidc-context'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -233,7 +236,13 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col">
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -454,6 +463,7 @@ export default function NotificationsPage() {
           </div>
         )}
       </ScrollArea>
+      </div>
     </div>
   )
 }

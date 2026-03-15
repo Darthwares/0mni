@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -245,6 +247,13 @@ export default function SettingsPage() {
   }
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="p-6 space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-slate-500 to-zinc-600 shadow-lg shadow-slate-500/20">
@@ -668,6 +677,8 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+    </div>
     </div>
   )
 }

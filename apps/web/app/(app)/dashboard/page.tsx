@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Tooltip,
@@ -372,6 +374,13 @@ export default function DashboardPage() {
   }, [allDeals, currentOrgId])
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
       {/* Welcome header */}
       <div className="flex items-center justify-between">
@@ -832,6 +841,8 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+    </div>
+    </div>
     </div>
   )
 }

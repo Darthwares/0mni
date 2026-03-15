@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Table,
@@ -572,6 +574,13 @@ export default function CollaborationPage() {
   )
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="flex flex-col h-full overflow-hidden">
       {/* Page header */}
       <div className="px-6 py-4 border-b flex-shrink-0">
@@ -654,6 +663,8 @@ export default function CollaborationPage() {
           <MeetingsTab />
         </TabsContent>
       </Tabs>
+    </div>
+    </div>
     </div>
   )
 }

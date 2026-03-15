@@ -3,6 +3,9 @@
 import { useTable } from 'spacetimedb/react'
 import { useMemo } from 'react'
 import { tables } from '@/generated'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { PresenceBar } from '@/components/presence-bar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -181,7 +184,14 @@ export default function EngineeringPage() {
   )
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-6 p-6">
       {/* ── Header */}
       <div className="flex items-center gap-4">
         <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
@@ -572,6 +582,8 @@ export default function EngineeringPage() {
           )}
         </TabsContent>
       </Tabs>
+    </div>
+    </div>
     </div>
   )
 }

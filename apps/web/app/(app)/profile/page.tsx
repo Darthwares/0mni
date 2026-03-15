@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTable, useReducer as useSpacetimeReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { PresenceBar } from '@/components/presence-bar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -176,8 +179,17 @@ export default function ProfilePage() {
 
   if (!me) {
     return (
+      <div className="flex flex-col h-full">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <PresenceBar />
+        </header>
+        <div className="flex-1 overflow-y-auto">
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Loading profile...</p>
+      </div>
+        </div>
       </div>
     )
   }
@@ -197,6 +209,13 @@ export default function ProfilePage() {
   }[me.status.tag] ?? 'bg-neutral-400'
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <Card className="overflow-hidden">
@@ -694,6 +713,8 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+    </div>
+    </div>
     </div>
   )
 }

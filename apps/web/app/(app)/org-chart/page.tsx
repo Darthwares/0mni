@@ -6,7 +6,10 @@ import { useTable, useSpacetimeDB } from 'spacetimedb/react'
 import { tables } from '@/generated'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -548,6 +551,13 @@ export default function OrgChartPage() {
   const orgName = displayOrgName(currentOrg?.name)
 
   return (
+    <div className="flex flex-col h-full">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <PresenceBar />
+      </header>
+      <div className="flex-1 overflow-y-auto">
     <div className="min-h-full bg-neutral-50 dark:bg-neutral-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Header */}
@@ -725,6 +735,8 @@ export default function OrgChartPage() {
             ))}
           </div>
         )}
+      </div>
+    </div>
       </div>
     </div>
   )

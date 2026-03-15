@@ -3677,3 +3677,126 @@ pub fn create_candidate(
 
     Ok(())
 }
+
+// ============================================================================
+// AI AGENT DEPLOYMENTS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum AgentDeploymentStatus {
+    Draft,
+    Deploying,
+    Active,
+    Paused,
+    Failed,
+}
+
+#[spacetimedb::table(accessor = ai_agent_deployment, public)]
+pub struct AiAgentDeployment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub department: Department,
+    pub role_description: String,
+    pub system_prompt: String,
+    pub model: String,
+    pub capabilities: Vec<String>,
+    pub self_verification_threshold: f32,
+    pub max_task_duration_minutes: u32,
+    pub status: AgentDeploymentStatus,
+    pub tasks_completed: u64,
+    pub avg_confidence: Option<f32>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+    pub last_active: Option<Timestamp>,
+}
+
+#[spacetimedb::reducer]
+pub fn create_agent_deployment(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    department: String,
+    role_description: String,
+    system_prompt: String,
+    model: String,
+    capabilities: Vec<String>,
+    self_verification_threshold: f32,
+    max_task_duration_minutes: u32,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Agent name cannot be empty".to_string());
+    }
+
+    let dept = match department.as_str() {
+        "Support" => Department::Support,
+        "Sales" => Department::Sales,
+        "Recruitment" => Department::Recruitment,
+        "Engineering" => Department::Engineering,
+        "Operations" => Department::Operations,
+        "Marketing" => Department::Marketing,
+        "Finance" => Department::Finance,
+        _ => return Err(format!("Invalid department: {}", department)),
+    };
+
+    ctx.db.ai_agent_deployment().insert(AiAgentDeployment {
+        id: 0,
+        org_id,
+        name,
+        department: dept,
+        role_description,
+        system_prompt,
+        model,
+        capabilities,
+        self_verification_threshold,
+        max_task_duration_minutes,
+        status: AgentDeploymentStatus::Draft,
+        tasks_completed: 0,
+        avg_confidence: None,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+        last_active: None,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn deploy_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let mut agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Agent is already active".to_string());
+    }
+
+    agent.status = AgentDeploymentStatus::Active;
+    agent.last_active = Some(ctx.timestamp);
+    ctx.db.ai_agent_deployment().id().update(agent);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn pause_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let mut agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    agent.status = AgentDeploymentStatus::Paused;
+    ctx.db.ai_agent_deployment().id().update(agent);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_agent_deployment(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Cannot delete an active agent. Pause it first.".to_string());
+    }
+
+    ctx.db.ai_agent_deployment().id().delete(&agent_id);
+    Ok(())
+}

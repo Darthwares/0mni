@@ -1535,3 +1535,30 @@ export const VideoFrameEvent = __t.object("VideoFrameEvent", {
 });
 export type VideoFrameEvent = __Infer<typeof VideoFrameEvent>;
 
+export const Workflow = __t.object("Workflow", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  description: __t.string(),
+  get status() {
+    return WorkflowStatus;
+  },
+  nodesJson: __t.string(),
+  connectionsJson: __t.string(),
+  runsTotal: __t.u64(),
+  runsSuccess: __t.u64(),
+  lastRun: __t.timestamp(),
+  createdAt: __t.timestamp(),
+  creator: __t.identity(),
+});
+export type Workflow = __Infer<typeof Workflow>;
+
+// The tagged union or sum type for the algebraic type `WorkflowStatus`.
+export const WorkflowStatus = __t.enum("WorkflowStatus", {
+  Active: __t.unit(),
+  Paused: __t.unit(),
+  Draft: __t.unit(),
+  Error: __t.unit(),
+});
+export type WorkflowStatus = __Infer<typeof WorkflowStatus>;
+

@@ -11,6 +11,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 import {
   MessageSquare,
   KanbanSquare,
@@ -30,6 +33,8 @@ import {
   Trash2,
   Star,
   Clock,
+  Sparkles,
+  Zap,
 } from 'lucide-react'
 
 const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
@@ -236,30 +241,54 @@ export default function DashboardPage() {
     return emp && (emp.status.tag === 'Online' || emp.status.tag === 'Busy')
   }).length
 
+  const greeting = useMemo(() => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+  }, [])
+
+  const me = identity ? employeeMap.get(myHex) : null
+  const firstName = me?.name?.split(' ')[0] ?? ''
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
       {/* Welcome header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {isGlobalOrg ? (
-              <span className="flex items-center gap-2">
-                <Globe className="size-5 text-amber-500" />
+          {isGlobalOrg ? (
+            <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+              <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                <Globe className="size-4 text-white" />
+              </div>
+              <GradientText
+                colors={['#F59E0B', '#EA580C', '#F59E0B', '#D97706']}
+                animationSpeed={6}
+                className="font-bold"
+              >
                 World
-              </span>
-            ) : 'Feed'}
-          </h1>
+              </GradientText>
+            </h1>
+          ) : (
+            <h1 className="text-xl font-semibold tracking-tight">
+              {greeting}{firstName ? `, ${firstName}` : ''}
+            </h1>
+          )}
           <p className="text-sm text-muted-foreground mt-0.5">
-            {isGlobalOrg ? 'Global workspace activity' : 'Latest activity in your workspace'}
+            {isGlobalOrg ? 'Global workspace activity' : 'Here\'s what\'s happening in your workspace'}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-emerald-500" />
-            {onlineCount} online
+        <div className="hidden sm:flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 px-3 py-1.5">
+            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-medium tabular-nums"><CountUp to={onlineCount} duration={1} /></span>
+            <span className="text-[10px] text-muted-foreground">online</span>
           </div>
-          <span>&middot;</span>
-          <span>{orgMembers.length} members</span>
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5">
+            <Users className="size-3 text-muted-foreground" />
+            <span className="text-xs font-medium tabular-nums">{orgMembers.length}</span>
+            <span className="text-[10px] text-muted-foreground">members</span>
+          </div>
         </div>
       </div>
 
@@ -318,47 +347,47 @@ export default function DashboardPage() {
         </Card>
       </Link>
 
-      {/* Quick nav cards (desktop: 3-col, mobile: 2-col with messages hidden since it has its own CTA above) */}
+      {/* Quick nav cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Link href="/messages" className="group hidden md:block">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer border-violet-500/20 hover:border-violet-500/40">
+          <Card className="hover:ring-ring/30 transition-all hover:shadow-lg hover:shadow-violet-500/5 cursor-pointer border-violet-500/20 hover:border-violet-500/40 hover:-translate-y-0.5">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/10">
-                <MessageSquare className="size-5 text-violet-500" />
+              <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
+                <MessageSquare className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Messages</p>
-                <p className="text-xs text-muted-foreground">{activeChannelCount} channels</p>
+                <p className="text-xs text-muted-foreground tabular-nums"><CountUp to={activeChannelCount} duration={1} /> channels</p>
               </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/tickets" className="group">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
+          <Card className="hover:ring-ring/30 transition-all hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer hover:border-amber-500/30 hover:-translate-y-0.5">
             <CardContent className="p-3 md:p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <KanbanSquare className="size-5 text-amber-500" />
+              <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                <KanbanSquare className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Tickets</p>
-                <p className="text-xs text-muted-foreground">{openTaskCount} open</p>
+                <p className="text-xs text-muted-foreground tabular-nums"><CountUp to={openTaskCount} duration={1} /> open</p>
               </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/canvas" className="group">
-          <Card className="hover:ring-ring/30 transition-all hover:shadow-md cursor-pointer">
+          <Card className="hover:ring-ring/30 transition-all hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer hover:border-blue-500/30 hover:-translate-y-0.5">
             <CardContent className="p-3 md:p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <PenTool className="size-5 text-blue-500" />
+              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+                <PenTool className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Canvas</p>
-                <p className="text-xs text-muted-foreground">{docCount} docs</p>
+                <p className="text-xs text-muted-foreground tabular-nums"><CountUp to={docCount} duration={1} /> docs</p>
               </div>
-              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
             </CardContent>
           </Card>
         </Link>
@@ -367,11 +396,11 @@ export default function DashboardPage() {
       {/* Activity feed */}
       <div className="space-y-1">
         <div className="flex items-center justify-between py-2">
-          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-            <Activity className="size-3.5" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Zap className="size-3" />
             Activity Feed
           </h2>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/10 tabular-nums">
             {feedItems.length} updates
           </Badge>
         </div>

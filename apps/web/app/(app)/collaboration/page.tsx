@@ -40,6 +40,9 @@ import {
   Wrench,
   ListChecks,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 // ---- Helpers ----
 
@@ -89,38 +92,19 @@ const MEETING_TYPE_LABELS: Record<string, string> = {
 // ---- Meeting Status ----
 
 function MeetingStatusBadge({ tag }: { tag: string }) {
-  switch (tag) {
-    case 'Scheduled':
-      return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-200 gap-1" variant="outline">
-          <Calendar className="size-3" />
-          Scheduled
-        </Badge>
-      )
-    case 'InProgress':
-      return (
-        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1" variant="outline">
-          <Play className="size-3" />
-          In Progress
-        </Badge>
-      )
-    case 'Completed':
-      return (
-        <Badge className="bg-gray-100 text-gray-600 border-gray-200 gap-1" variant="outline">
-          <CheckCircle2 className="size-3" />
-          Completed
-        </Badge>
-      )
-    case 'Cancelled':
-      return (
-        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1" variant="outline">
-          <XCircle className="size-3" />
-          Cancelled
-        </Badge>
-      )
-    default:
-      return <Badge variant="outline">{tag}</Badge>
+  const configs: Record<string, { cls: string; icon: React.ReactNode; label: string }> = {
+    Scheduled:  { cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', icon: <Calendar className="size-3" />, label: 'Scheduled' },
+    InProgress: { cls: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20', icon: <Play className="size-3" />, label: 'In Progress' },
+    Completed:  { cls: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20', icon: <CheckCircle2 className="size-3" />, label: 'Completed' },
+    Cancelled:  { cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', icon: <XCircle className="size-3" />, label: 'Cancelled' },
   }
+  const config = configs[tag] ?? { cls: 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20', icon: null, label: tag }
+  return (
+    <Badge className={`${config.cls} gap-1`} variant="outline">
+      {config.icon}
+      {config.label}
+    </Badge>
+  )
 }
 
 // ---- Channels Tab ----
@@ -387,8 +371,10 @@ function DocumentsTab() {
             return (
               <div
                 key={doc.id.toString()}
-                className="rounded-xl border bg-card p-4 flex flex-col gap-3 hover:shadow-sm transition-shadow cursor-pointer"
+                className="rounded-xl border bg-card overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
               >
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-violet-600" />
+              <div className="p-4 flex flex-col gap-3">
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-semibold text-sm leading-snug flex-1 min-w-0 truncate">
@@ -439,6 +425,7 @@ function DocumentsTab() {
                   </span>
                 </div>
               </div>
+              </div>
             )
           })}
         </div>
@@ -469,15 +456,15 @@ function MeetingsTab() {
         <div className="rounded-xl border bg-card overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Scheduled</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Participants</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>AI Summary</TableHead>
-                <TableHead>Action Items</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-4 text-[11px] uppercase tracking-wider font-semibold">Title</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Type</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Scheduled</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Duration</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Participants</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Status</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">AI Summary</TableHead>
+                <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -589,25 +576,40 @@ export default function CollaborationPage() {
       {/* Page header */}
       <div className="px-6 py-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Collaboration</h1>
-            <p className="text-sm text-muted-foreground">
-              Unified workspace for teams and AI agents
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
+              <Users className="size-5.5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                <GradientText
+                  colors={['#6366f1', '#8b5cf6', '#a855f7', '#6366f1']}
+                  animationSpeed={6}
+                >
+                  Collaboration
+                </GradientText>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Unified workspace for teams and AI agents
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Hash className="size-4" />
-              <span className="font-medium text-foreground">{channelCount}</span> channels
-            </span>
-            <span className="flex items-center gap-1.5">
-              <FileText className="size-4" />
-              <span className="font-medium text-foreground">{documentCount}</span> docs
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CircleDot className="size-4 text-green-500" />
-              <span className="font-medium text-foreground">{upcomingCount}</span> upcoming
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-sm">
+              <Hash className="size-3.5 text-indigo-500" />
+              <span className="font-bold tabular-nums"><CountUp to={channelCount} duration={1.2} /></span>
+              <span className="text-muted-foreground text-xs">channels</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-sm">
+              <FileText className="size-3.5 text-violet-500" />
+              <span className="font-bold tabular-nums"><CountUp to={documentCount} duration={1.2} /></span>
+              <span className="text-muted-foreground text-xs">docs</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-sm">
+              <CircleDot className="size-3.5 text-green-500" />
+              <span className="font-bold tabular-nums text-green-600 dark:text-green-400"><CountUp to={upcomingCount} duration={1.2} /></span>
+              <span className="text-muted-foreground text-xs">upcoming</span>
+            </div>
           </div>
         </div>
       </div>
@@ -617,25 +619,25 @@ export default function CollaborationPage() {
         <div className="px-6 py-2 border-b flex-shrink-0">
           <TabsList variant="line">
             <TabsTrigger value="channels" className="gap-1.5">
-              <Hash className="size-3.5" />
+              <Hash className="size-4" />
               Channels
-              {channelCount > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">({channelCount})</span>
-              )}
+              <span className="ml-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono tabular-nums leading-none">
+                {channelCount}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="documents" className="gap-1.5">
-              <FileText className="size-3.5" />
+              <FileText className="size-4" />
               Documents
-              {documentCount > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">({documentCount})</span>
-              )}
+              <span className="ml-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono tabular-nums leading-none">
+                {documentCount}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="meetings" className="gap-1.5">
-              <Calendar className="size-3.5" />
+              <Calendar className="size-4" />
               Meetings
-              {allMeetings.length > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">({allMeetings.length})</span>
-              )}
+              <span className="ml-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono tabular-nums leading-none">
+                {allMeetings.length}
+              </span>
             </TabsTrigger>
           </TabsList>
         </div>

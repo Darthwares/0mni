@@ -40,6 +40,7 @@ import {
   Mail,
   Send,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
 import { useAuth } from 'react-oidc-context'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
@@ -244,7 +245,12 @@ export default function SettingsPage() {
   return (
     <div className="p-6 space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <div className="size-9 rounded-lg bg-gradient-to-br from-neutral-600 to-neutral-800 dark:from-neutral-500 dark:to-neutral-700 flex items-center justify-center">
+            <Settings className="size-4.5 text-white" />
+          </div>
+          <GradientText colors={['#737373', '#a3a3a3', '#525252']} animationSpeed={6}>Settings</GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
       </div>
 

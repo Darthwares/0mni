@@ -40,6 +40,7 @@ import {
   Wrench,
   ListChecks,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
 
 // ---- Helpers ----
 
@@ -590,7 +591,12 @@ export default function CollaborationPage() {
       <div className="px-6 py-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Collaboration</h1>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <div className="size-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+                <Sparkles className="size-4 text-white" />
+              </div>
+              <GradientText colors={['#f97316', '#f59e0b', '#fb923c']} animationSpeed={6}>Collaboration</GradientText>
+            </h1>
             <p className="text-sm text-muted-foreground">
               Unified workspace for teams and AI agents
             </p>

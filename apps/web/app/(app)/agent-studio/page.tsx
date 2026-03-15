@@ -33,6 +33,7 @@ import {
   Pause,
   RotateCcw,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
 
 const agentTemplates = [
   {
@@ -106,7 +107,12 @@ export default function AgentStudioPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Studio</h1>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <div className="size-9 rounded-lg bg-gradient-to-br from-fuchsia-500 to-pink-600 flex items-center justify-center">
+            <Sparkles className="size-4.5 text-white" />
+          </div>
+          <GradientText colors={['#d946ef', '#ec4899', '#f0abfc']} animationSpeed={6}>Agent Studio</GradientText>
+        </h1>
         <p className="text-muted-foreground text-sm">
           Design, configure, and deploy AI employees for your organization
         </p>

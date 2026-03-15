@@ -13,6 +13,7 @@ import {
   Bot,
   Sparkles,
   Activity,
+  BarChart3,
   ChevronsUpDown,
   Plus,
   Check,
@@ -75,6 +76,7 @@ const navSections = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Analytics", href: "/analytics", icon: BarChart3 },
       { title: "Activity", href: "/activity", icon: Activity },
     ],
   },

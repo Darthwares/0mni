@@ -441,6 +441,17 @@ export const DocumentType = __t.enum("DocumentType", {
 });
 export type DocumentType = __Infer<typeof DocumentType>;
 
+export const DocumentVersion = __t.object("DocumentVersion", {
+  id: __t.u64(),
+  documentId: __t.u64(),
+  versionNumber: __t.u32(),
+  title: __t.string(),
+  content: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type DocumentVersion = __Infer<typeof DocumentVersion>;
+
 // The tagged union or sum type for the algebraic type `DocumentVisibility`.
 export const DocumentVisibility = __t.enum("DocumentVisibility", {
   Public: __t.unit(),

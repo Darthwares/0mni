@@ -67,6 +67,11 @@ import {
   Users,
   Star,
   BarChart3,
+  MessageSquare,
+  History,
+  RotateCcw,
+  Send,
+  Save,
   type LucideIcon,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
@@ -351,6 +356,8 @@ export default function CanvasPage() {
   const { currentOrgId } = useOrg()
   const [allDocuments] = useTable(tables.document)
   const [employees] = useTable(tables.employee)
+  const [allMessages] = useTable(tables.message)
+  const [allDocVersions] = useTable(tables.documentVersion)
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -358,6 +365,9 @@ export default function CanvasPage() {
   const shareDocument = useReducer(reducers.shareDocument)
   const unshareDocument = useReducer(reducers.unshareDocument)
   const setDocVisibility = useReducer(reducers.setDocumentVisibility)
+  const sendMessage = useReducer(reducers.sendMessage)
+  const saveDocumentVersion = useReducer(reducers.saveDocumentVersion)
+  const restoreDocumentVersion = useReducer(reducers.restoreDocumentVersion)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -372,6 +382,9 @@ export default function CanvasPage() {
   const [showMoveDialog, setShowMoveDialog] = useState(false)
   const [moveDocId, setMoveDocId] = useState<bigint | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [showComments, setShowComments] = useState(false)
+  const [showVersions, setShowVersions] = useState(false)
+  const [commentText, setCommentText] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [showShareDialog, setShowShareDialog] = useState(false)
@@ -510,6 +523,27 @@ export default function CanvasPage() {
     return emp?.name ?? null
   }, [activeDoc, employeeMap])
 
+  // Comments for active document (messages with contextType: Document)
+  const docComments = useMemo(() => {
+    if (!activeDocId) return []
+    return allMessages
+      .filter(
+        (m) =>
+          m.contextType.tag === 'Document' &&
+          m.contextId === activeDocId &&
+          m.messageType.tag === 'Comment'
+      )
+      .sort((a, b) => timestampToDate(a.sentAt).getTime() - timestampToDate(b.sentAt).getTime())
+  }, [allMessages, activeDocId])
+
+  // Version history for active document
+  const docVersions = useMemo(() => {
+    if (!activeDocId) return []
+    return allDocVersions
+      .filter((v) => v.documentId === activeDocId)
+      .sort((a, b) => Number(b.versionNumber) - Number(a.versionNumber))
+  }, [allDocVersions, activeDocId])
+
   // ---- Actions ----
 
   const handleCreate = async () => {
@@ -636,6 +670,42 @@ export default function CanvasPage() {
     [activeDocId, updateDocument]
   )
 
+  // Add a comment to the active document
+  const handleAddComment = useCallback(async () => {
+    if (!activeDocId || !commentText.trim()) return
+    try {
+      await sendMessage({
+        contextType: { tag: 'Document' } as any,
+        contextId: activeDocId,
+        content: commentText.trim(),
+        messageType: { tag: 'Comment' } as any,
+      })
+      setCommentText('')
+    } catch (e) {
+      console.error('Failed to add comment:', e)
+    }
+  }, [activeDocId, commentText, sendMessage])
+
+  // Save a version snapshot of the active document
+  const handleSaveVersion = useCallback(async () => {
+    if (!activeDocId) return
+    try {
+      await saveDocumentVersion({ documentId: activeDocId })
+    } catch (e) {
+      console.error('Failed to save version:', e)
+    }
+  }, [activeDocId, saveDocumentVersion])
+
+  // Restore a previous version
+  const handleRestoreVersion = useCallback(async (versionId: bigint) => {
+    if (!activeDocId) return
+    try {
+      await restoreDocumentVersion({ documentId: activeDocId, versionId })
+    } catch (e) {
+      console.error('Failed to restore version:', e)
+    }
+  }, [activeDocId, restoreDocumentVersion])
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -703,6 +773,39 @@ export default function CanvasPage() {
               <Share2 className="size-3.5" />
               Share
             </Button>
+            <Separator orientation="vertical" className="h-5" />
+            <Button
+              variant={showComments ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => { setShowComments(!showComments); if (!showComments) setShowVersions(false) }}
+              className="h-7 gap-1.5 text-xs relative"
+              title="Comments"
+            >
+              <MessageSquare className="size-3.5" />
+              {docComments.length > 0 && (
+                <span className="absolute -top-1 -right-1 size-4 rounded-full bg-violet-500 text-[9px] text-white flex items-center justify-center font-medium">
+                  {docComments.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={showVersions ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => { setShowVersions(!showVersions); if (!showVersions) setShowComments(false) }}
+              className="h-7 gap-1.5 text-xs"
+              title="Version history"
+            >
+              <History className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveVersion}
+              className="h-7 gap-1.5 text-xs"
+              title="Save version snapshot"
+            >
+              <Save className="size-3.5" />
+            </Button>
             <PresenceBar />
             {/* Save status indicator */}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -740,18 +843,191 @@ export default function CanvasPage() {
           </div>
         </div>
 
-        {/* Editor body */}
-        <div className="flex-1 overflow-hidden">
-          {isWhiteboard ? (
-            <ExcalidrawEditor
-              initialData={parsedContent ? { elements: parsedContent } : undefined}
-              onChange={(elements) => handleContentChange(elements)}
-            />
-          ) : (
-            <BlockEditor
-              initialContent={parsedContent}
-              onChange={handleContentChange}
-            />
+        {/* Editor body + sidebar */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Main editor area */}
+          <div className="flex-1 overflow-hidden">
+            {isWhiteboard ? (
+              <ExcalidrawEditor
+                initialData={parsedContent ? { elements: parsedContent } : undefined}
+                onChange={(elements) => handleContentChange(elements)}
+              />
+            ) : (
+              <BlockEditor
+                initialContent={parsedContent}
+                onChange={handleContentChange}
+              />
+            )}
+          </div>
+
+          {/* Comments sidebar */}
+          {showComments && (
+            <div className="w-80 border-l flex flex-col bg-background shrink-0">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="size-4 text-violet-400" />
+                  <h3 className="text-sm font-semibold">Comments</h3>
+                  {docComments.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{docComments.length}</Badge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowComments(false)} className="h-6 w-6 p-0">
+                  <span className="sr-only">Close</span>
+                  <span className="text-xs text-muted-foreground">&times;</span>
+                </Button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-3">
+                  {docComments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <MessageSquare className="size-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">No comments yet</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Start the conversation below</p>
+                    </div>
+                  ) : (
+                    docComments.map((comment) => {
+                      const author = employeeMap.get(comment.sender.toHexString())
+                      const initials = author?.name
+                        ? author.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                        : '??'
+                      return (
+                        <div key={comment.id.toString()} className="group rounded-lg border bg-card/50 p-3 transition-colors hover:bg-card">
+                          <div className="flex items-start gap-2.5">
+                            <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] text-white font-medium shrink-0 mt-0.5">
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-medium truncate">{author?.name ?? 'Unknown'}</span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {formatTimeAgo(timestampToDate(comment.sentAt))}
+                                </span>
+                              </div>
+                              <p className="text-xs text-foreground/80 whitespace-pre-wrap break-words">{comment.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+              {/* Comment input */}
+              <div className="p-3 border-t">
+                <div className="flex gap-2">
+                  <Input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="h-8 text-xs flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleAddComment()
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddComment}
+                    disabled={!commentText.trim()}
+                    className="h-8 w-8 p-0 shrink-0"
+                  >
+                    <Send className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Version History sidebar */}
+          {showVersions && (
+            <div className="w-80 border-l flex flex-col bg-background shrink-0">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History className="size-4 text-blue-400" />
+                  <h3 className="text-sm font-semibold">Version History</h3>
+                  {docVersions.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{docVersions.length}</Badge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowVersions(false)} className="h-6 w-6 p-0">
+                  <span className="sr-only">Close</span>
+                  <span className="text-xs text-muted-foreground">&times;</span>
+                </Button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-2">
+                  {/* Current version */}
+                  <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="size-2 rounded-full bg-green-400 animate-pulse" />
+                      <span className="text-xs font-medium text-green-400">Current Version</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Auto-saved {saveStatus === 'saved' ? 'just now' : formatTimeAgo(timestampToDate(activeDoc.updatedAt))}
+                    </p>
+                  </div>
+
+                  {docVersions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <History className="size-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">No saved versions</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Click the save icon to create a snapshot</p>
+                    </div>
+                  ) : (
+                    docVersions.map((version) => {
+                      const author = employeeMap.get(version.createdBy.toHexString())
+                      return (
+                        <div key={version.id.toString()} className="group rounded-lg border bg-card/50 p-3 transition-colors hover:bg-card">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-foreground/90">v{version.versionNumber.toString()}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {formatTimeAgo(timestampToDate(version.createdAt))}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestoreVersion(version.id)}
+                              className="h-6 px-2 text-[10px] gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-300"
+                            >
+                              <RotateCcw className="size-3" />
+                              Restore
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {version.title}
+                          </p>
+                          {author && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              by {author.name}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+              {/* Save version button */}
+              <div className="p-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveVersion}
+                  className="w-full h-8 gap-1.5 text-xs"
+                >
+                  <Save className="size-3.5" />
+                  Save Version Snapshot
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </div>

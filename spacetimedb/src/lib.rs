@@ -1299,6 +1299,24 @@ pub struct DocumentFavorite {
 }
 
 // ============================================================================
+// DOCUMENT VERSIONS
+// ============================================================================
+
+#[spacetimedb::table(accessor = document_version, public)]
+#[derive(Clone)]
+pub struct DocumentVersion {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub document_id: u64,
+    pub version_number: u32,
+    pub title: String,
+    pub content: String,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
 // EMAIL METADATA (per-user state on messages used as emails)
 // ============================================================================
 
@@ -4162,6 +4180,85 @@ pub fn create_candidate(
         recruiter: None,
         status: CandidateStatus::Sourced,
         created_at: now,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DOCUMENT VERSIONS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn save_document_version(
+    ctx: &ReducerContext,
+    document_id: u64,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+
+    // Determine the next version number
+    let max_version = ctx.db.document_version().iter()
+        .filter(|v| v.document_id == document_id)
+        .map(|v| v.version_number)
+        .max()
+        .unwrap_or(0);
+
+    ctx.db.document_version().insert(DocumentVersion {
+        id: 0,
+        document_id,
+        version_number: max_version + 1,
+        title: doc.title.clone(),
+        content: doc.content.clone(),
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn restore_document_version(
+    ctx: &ReducerContext,
+    document_id: u64,
+    version_id: u64,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+
+    let version = ctx.db.document_version().id().find(&version_id)
+        .ok_or("Version not found")?;
+
+    if version.document_id != document_id {
+        return Err("Version doesn't belong to this document".to_string());
+    }
+
+    // Save current state as a version first
+    let max_version = ctx.db.document_version().iter()
+        .filter(|v| v.document_id == document_id)
+        .map(|v| v.version_number)
+        .max()
+        .unwrap_or(0);
+
+    ctx.db.document_version().insert(DocumentVersion {
+        id: 0,
+        document_id,
+        version_number: max_version + 1,
+        title: doc.title.clone(),
+        content: doc.content.clone(),
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    // Restore the version
+    ctx.db.document().id().update(Document {
+        title: version.title.clone(),
+        content: version.content.clone(),
+        last_edited_by: Some(ctx.sender()),
+        updated_at: ctx.timestamp,
+        ..doc
     });
 
     Ok(())

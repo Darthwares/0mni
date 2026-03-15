@@ -30,6 +30,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ---- type helpers -----------------------------------------------------------
 
@@ -258,7 +259,12 @@ export default function NotificationsPage() {
               >
                 Notifications
               </GradientText>
-              <p className="text-xs text-muted-foreground">Stay on top of everything</p>
+              <BlurText
+                text="Stay on top of everything"
+                delay={40}
+                animateBy="words"
+                className="text-xs text-muted-foreground"
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">

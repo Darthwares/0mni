@@ -15,6 +15,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Zap, Play, Pause, GitBranch, Clock, Sparkles, Plus, ArrowLeft,
   Trash2, Activity, CheckCircle2, LayoutGrid, ChevronDown, Copy, ArrowRight,
@@ -443,7 +444,12 @@ export default function WorkflowsPage() {
 
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">AI-powered automation engine — build triggers, actions, and intelligent pipelines</p>
+          <BlurText
+            text="AI-powered automation engine — build triggers, actions, and intelligent pipelines"
+            delay={30}
+            animateBy="words"
+            className="text-sm text-muted-foreground"
+          />
           <div className="flex items-center gap-2">
             <div className="relative">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTemplates(!showTemplates)}>

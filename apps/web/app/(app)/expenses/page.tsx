@@ -14,6 +14,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -238,7 +239,12 @@ export default function ExpensesPage() {
               <h1 className="text-2xl font-bold tracking-tight">
                 <GradientText colors={['#ef4444', '#f97316', '#f59e0b']} animationSpeed={6}>Expenses</GradientText>
               </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Track spending and manage reimbursements</p>
+              <BlurText
+                text="Track spending and manage reimbursements"
+                delay={35}
+                animateBy="words"
+                className="text-sm text-muted-foreground mt-0.5"
+              />
             </div>
           </div>
 

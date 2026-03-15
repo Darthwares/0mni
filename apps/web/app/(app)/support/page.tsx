@@ -51,6 +51,8 @@ import {
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -352,9 +354,16 @@ export default function SupportPage() {
         <Separator orientation="vertical" className="h-4" />
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-violet-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
-            <CountUp to={aiResolvedCount} /> AI Auto-Resolved
+          <span className="text-sm font-medium tabular-nums">
+            <CountUp to={aiResolvedCount} />
           </span>
+          <ShinyText
+            text="AI Auto-Resolved"
+            speed={3}
+            color="#7c3aed"
+            shineColor="#a78bfa"
+            className="text-sm font-medium"
+          />
         </div>
 
         <div className="ml-auto flex items-center gap-2">

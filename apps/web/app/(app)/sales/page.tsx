@@ -66,6 +66,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -405,9 +406,15 @@ export default function SalesPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            <TrendingUp className="size-4" />
-            {fmtCurrency(pipelineValue)}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-semibold tabular-nums">
+            <TrendingUp className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <ShinyText
+              text={fmtCurrency(pipelineValue)}
+              speed={3}
+              color="#059669"
+              shineColor="#34d399"
+              className="font-semibold"
+            />
           </div>
 
           <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>

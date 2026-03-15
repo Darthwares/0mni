@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Users,
   Search,
@@ -391,9 +392,12 @@ export default function PeoplePage() {
               </GradientText>
             </h1>
           </div>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Your team directory — find anyone across the organization
-          </p>
+          <BlurText
+            text="Your team directory — find anyone across the organization"
+            delay={35}
+            animateBy="words"
+            className="text-sm text-neutral-500 dark:text-neutral-400"
+          />
         </div>
 
         {/* ── Stats Row ── */}

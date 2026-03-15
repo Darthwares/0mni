@@ -33,6 +33,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ─── Action config ──────────────────────────────────────────────────────────
 
@@ -267,9 +268,12 @@ export default function ActivityPage() {
                 Activity Feed
               </GradientText>
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Real-time audit trail across all modules
-            </p>
+            <BlurText
+              text="Real-time audit trail across all modules"
+              delay={35}
+              animateBy="words"
+              className="text-sm text-muted-foreground mt-0.5"
+            />
           </div>
         </div>
       </div>

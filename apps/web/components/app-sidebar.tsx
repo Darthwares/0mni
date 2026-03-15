@@ -36,6 +36,9 @@ import {
   Target,
   Receipt,
   Presentation,
+  Workflow,
+  Network,
+  FileBarChart,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -90,7 +93,9 @@ const navSections = [
       { title: "Notifications", href: "/notifications", icon: Bell, countKey: "notifications" as const },
       { title: "Activity", href: "/activity", icon: Activity },
       { title: "People", href: "/people", icon: Users2 },
+      { title: "Org Chart", href: "/org-chart", icon: Network },
       { title: "Analytics", href: "/analytics", icon: BarChart3, globalHidden: true },
+      { title: "Reports", href: "/reports", icon: FileBarChart, globalHidden: true },
     ],
   },
   {
@@ -139,6 +144,7 @@ const navSections = [
     items: [
       { title: "AI Employees", href: "/ai-employees", icon: Bot },
       { title: "Agent Studio", href: "/agent-studio", icon: Sparkles },
+      { title: "Workflows", href: "/workflows", icon: Workflow },
     ],
   },
 ]

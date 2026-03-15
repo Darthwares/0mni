@@ -6197,6 +6197,45 @@ pub fn delete_expense(ctx: &ReducerContext, expense_id: u64) -> Result<(), Strin
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_expense(
+    ctx: &ReducerContext,
+    expense_id: u64,
+    description: String,
+    amount_cents: u64,
+    category_tag: String,
+    has_receipt: bool,
+    notes: String,
+) -> Result<(), String> {
+    let expense = ctx.db.expense().id().find(&expense_id)
+        .ok_or("Expense not found")?;
+    if expense.submitter != ctx.sender() {
+        return Err("Only the submitter can edit this expense".to_string());
+    }
+    if description.trim().is_empty() {
+        return Err("Description cannot be empty".to_string());
+    }
+    let category = match category_tag.as_str() {
+        "Travel" => ExpenseCategory::Travel,
+        "Meals" => ExpenseCategory::Meals,
+        "Software" => ExpenseCategory::Software,
+        "Office" => ExpenseCategory::Office,
+        "Equipment" => ExpenseCategory::Equipment,
+        "Training" => ExpenseCategory::Training,
+        "Other" => ExpenseCategory::Other,
+        _ => return Err("Invalid expense category".to_string()),
+    };
+    ctx.db.expense().id().update(Expense {
+        description,
+        amount_cents,
+        category,
+        has_receipt,
+        notes,
+        ..expense
+    });
+    Ok(())
+}
+
 // ============================================================================
 // Standups
 // ============================================================================
@@ -6689,6 +6728,54 @@ pub fn delete_invoice(
         ctx.db.invoice_line_item().id().delete(&item.id);
     }
     ctx.db.invoice().id().delete(&invoice_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_invoice(
+    ctx: &ReducerContext,
+    invoice_id: u64,
+    client_name: String,
+    client_email: String,
+    tax_rate: String,
+    notes: String,
+    due_date: Timestamp,
+) -> Result<(), String> {
+    let inv = ctx.db.invoice().id().find(invoice_id)
+        .ok_or("Invoice not found")?;
+    if client_name.trim().is_empty() {
+        return Err("Client name is required".to_string());
+    }
+    ctx.db.invoice().id().update(Invoice {
+        client_name,
+        client_email,
+        tax_rate,
+        notes,
+        due_date,
+        ..inv
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_invoice_line_item(
+    ctx: &ReducerContext,
+    line_item_id: u64,
+    description: String,
+    quantity: u32,
+    unit_price_cents: u64,
+) -> Result<(), String> {
+    let item = ctx.db.invoice_line_item().id().find(&line_item_id)
+        .ok_or("Line item not found")?;
+    if description.trim().is_empty() {
+        return Err("Description cannot be empty".to_string());
+    }
+    ctx.db.invoice_line_item().id().update(InvoiceLineItem {
+        description,
+        quantity,
+        unit_price_cents,
+        ..item
+    });
     Ok(())
 }
 

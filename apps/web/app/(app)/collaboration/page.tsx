@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { exportCSV } from '@/lib/csv-export'
 import {
   Hash,
   Lock,
@@ -60,6 +61,8 @@ import {
   ListChecks,
   Plus,
   Trash2,
+  Search,
+  Download,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -365,23 +368,65 @@ function ChannelsTab() {
 
 function DocumentsTab() {
   const [allDocuments] = useTable(tables.document)
+  const [docSearch, setDocSearch] = useState('')
+  const [docTypeFilter, setDocTypeFilter] = useState<string>('all')
 
   const documents = useMemo(
     () => [...allDocuments].sort((a, b) => Number(b.updatedAt.toMillis()) - Number(a.updatedAt.toMillis())),
     [allDocuments]
   )
 
+  const filteredDocs = useMemo(() => {
+    let list = documents
+    if (docTypeFilter !== 'all') list = list.filter(d => d.docType.tag === docTypeFilter)
+    if (docSearch.trim()) {
+      const q = docSearch.toLowerCase()
+      list = list.filter(d => d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q))
+    }
+    return list
+  }, [documents, docTypeFilter, docSearch])
+
+  const docTypeCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const d of documents) c[d.docType.tag] = (c[d.docType.tag] ?? 0) + 1
+    return c
+  }, [documents])
+
   return (
-    <div className="p-6">
-      {documents.length === 0 ? (
+    <div className="p-6 space-y-4">
+      {/* Search + type filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input placeholder="Search documents..." value={docSearch} onChange={e => setDocSearch(e.target.value)} className="pl-9 h-9" />
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          <button onClick={() => setDocTypeFilter('all')}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${docTypeFilter === 'all' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20' : 'text-neutral-500 hover:text-neutral-700 border border-transparent'}`}>
+            All
+          </button>
+          {Object.entries(DOC_TYPE_CONFIG).map(([key, cfg]) => {
+            const count = docTypeCounts[key] ?? 0
+            if (count === 0) return null
+            return (
+              <button key={key} onClick={() => setDocTypeFilter(docTypeFilter === key ? 'all' : key)}
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${docTypeFilter === key ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20' : 'text-neutral-500 hover:text-neutral-700 border border-transparent'}`}>
+                {cfg.icon} {cfg.label} <span className="text-[10px] opacity-60">{count}</span>
+              </button>
+            )
+          })}
+          <span className="text-xs text-neutral-400 tabular-nums ml-auto">{filteredDocs.length} doc{filteredDocs.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+      {filteredDocs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
           <FileText className="size-12 mb-4 opacity-20" />
-          <p className="text-base font-medium">No documents yet</p>
-          <p className="text-sm mt-1">Documents will appear here when they are created</p>
+          <p className="text-base font-medium">{docSearch || docTypeFilter !== 'all' ? 'No matching documents' : 'No documents yet'}</p>
+          <p className="text-sm mt-1">{docSearch || docTypeFilter !== 'all' ? 'Try adjusting your filters' : 'Documents will appear here when they are created'}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {documents.map(doc => {
+          {filteredDocs.map(doc => {
             const typeKey = doc.docType.tag
             const typeConfig = DOC_TYPE_CONFIG[typeKey] ?? {
               label: typeKey,
@@ -470,11 +515,35 @@ function MeetingsTab() {
   const [mtgType, setMtgType] = useState('TeamSync')
   const [mtgDate, setMtgDate] = useState('')
   const [mtgDuration, setMtgDuration] = useState('30')
+  const [mtgSearch, setMtgSearch] = useState('')
 
   const meetings = useMemo(
     () => [...allMeetings].sort((a, b) => Number(a.scheduledAt.toMillis()) - Number(b.scheduledAt.toMillis())),
     [allMeetings]
   )
+
+  const filteredMeetings = useMemo(() => {
+    if (!mtgSearch.trim()) return meetings
+    const q = mtgSearch.toLowerCase()
+    return meetings.filter(m => m.title.toLowerCase().includes(q) || (MEETING_TYPE_LABELS[m.meetingType.tag] ?? '').toLowerCase().includes(q))
+  }, [meetings, mtgSearch])
+
+  const handleExportMeetings = useCallback(() => {
+    exportCSV(
+      'meetings',
+      ['Title', 'Type', 'Scheduled', 'Duration (min)', 'Participants', 'Status', 'AI Notetaker', 'AI Summary'],
+      filteredMeetings.map(m => [
+        m.title,
+        MEETING_TYPE_LABELS[m.meetingType.tag] ?? m.meetingType.tag,
+        formatDateTime(m.scheduledAt),
+        String(m.durationMinutes),
+        String(m.participants.length),
+        m.status.tag,
+        m.aiNotetaker ? 'Yes' : 'No',
+        m.aiSummary ?? '',
+      ])
+    )
+  }, [filteredMeetings])
 
   const handleCreate = useCallback(() => {
     if (!mtgTitle.trim() || !mtgDate || currentOrgId === null) return
@@ -494,11 +563,20 @@ function MeetingsTab() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger render={<Button size="sm" />}>
-            <Plus className="size-4" /> Schedule Meeting
-          </DialogTrigger>
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input placeholder="Search meetings..." value={mtgSearch} onChange={e => setMtgSearch(e.target.value)} className="pl-9 h-9" />
+        </div>
+        <span className="text-xs text-neutral-400 tabular-nums">{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportMeetings} className="gap-1.5 h-8">
+            <Download className="size-3.5" />Export
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger render={<Button size="sm" />}>
+              <Plus className="size-4" /> Schedule Meeting
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Schedule Meeting</DialogTitle></DialogHeader>
             <div className="flex flex-col gap-3 py-2">
@@ -533,13 +611,14 @@ function MeetingsTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
-      {meetings.length === 0 ? (
+      {filteredMeetings.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
           <Calendar className="size-12 mb-4 opacity-20" />
-          <p className="text-base font-medium">No meetings scheduled</p>
-          <p className="text-sm mt-1">Click &ldquo;Schedule Meeting&rdquo; to get started</p>
+          <p className="text-base font-medium">{mtgSearch ? 'No matching meetings' : 'No meetings scheduled'}</p>
+          <p className="text-sm mt-1">{mtgSearch ? 'Try a different search term' : 'Click "Schedule Meeting" to get started'}</p>
         </div>
       ) : (
         <div className="rounded-xl border bg-card overflow-hidden">
@@ -557,7 +636,7 @@ function MeetingsTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {meetings.map(meeting => {
+              {filteredMeetings.map(meeting => {
                 const typeLabel = MEETING_TYPE_LABELS[meeting.meetingType.tag] ?? meeting.meetingType.tag
                 const summaryPreview = meeting.aiSummary
                   ? meeting.aiSummary.slice(0, 80) + (meeting.aiSummary.length > 80 ? '…' : '')

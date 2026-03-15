@@ -23,6 +23,7 @@ import { useNotificationManager } from "@/hooks/use-notification-manager"
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/notifications": "Notifications",
   "/activity": "Activity Feed",
   "/messages": "Messages",
   "/email": "Email",

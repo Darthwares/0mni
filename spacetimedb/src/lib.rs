@@ -1158,6 +1158,45 @@ pub struct TaskWatcher {
     pub created_at: Timestamp,
 }
 
+// ============================================================================
+// TICKET LABELS
+// ============================================================================
+
+#[spacetimedb::table(accessor = ticket_label, public)]
+#[derive(Clone)]
+pub struct TicketLabel {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub color: String,
+}
+
+#[spacetimedb::table(accessor = ticket_label_assignment, public)]
+#[derive(Clone)]
+pub struct TicketLabelAssignment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub task_id: u64,
+    pub label_id: u64,
+}
+
+// ============================================================================
+// DOCUMENT FAVORITES
+// ============================================================================
+
+#[spacetimedb::table(accessor = document_favorite, public)]
+#[derive(Clone)]
+pub struct DocumentFavorite {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub user_id: Identity,
+    pub document_id: u64,
+    pub created_at: Timestamp,
+}
 
 // ============================================================================
 // REDUCERS - CORE SYSTEM
@@ -1958,6 +1997,68 @@ pub fn set_document_visibility(ctx: &ReducerContext, document_id: u64, visibilit
     }
     doc.visibility = visibility;
     ctx.db.document().id().update(doc);
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DOCUMENT FAVORITES
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn favorite_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    // Check if already favorited
+    let already = ctx.db.document_favorite().iter()
+        .any(|f| f.user_id == who && f.document_id == document_id);
+    if already {
+        return Err("Already favorited".to_string());
+    }
+    ctx.db.document_favorite().insert(DocumentFavorite {
+        id: 0,
+        user_id: who,
+        document_id,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unfavorite_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let fav = ctx.db.document_favorite().iter()
+        .find(|f| f.user_id == who && f.document_id == document_id);
+    match fav {
+        Some(f) => { ctx.db.document_favorite().id().delete(&f.id); Ok(()) }
+        None => Err("Not favorited".to_string()),
+    }
+}
+
+#[spacetimedb::reducer]
+pub fn duplicate_document(ctx: &ReducerContext, document_id: u64) -> Result<(), String> {
+    let who = ctx.sender();
+    let doc = ctx.db.document().id().find(&document_id).ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    let now = ctx.timestamp;
+    ctx.db.document().insert(Document {
+        id: 0,
+        org_id: doc.org_id,
+        title: format!("{} (Copy)", doc.title),
+        content: doc.content,
+        doc_type: doc.doc_type,
+        parent_id: doc.parent_id,
+        created_by: who,
+        last_edited_by: Some(who),
+        editors: vec![who.to_hex().to_string()],
+        visibility: DocumentVisibility::Public,
+        shared_with: vec![],
+        ai_generated: false,
+        ai_maintained: false,
+        auto_sync_with: None,
+        created_at: now,
+        updated_at: now,
+    });
     Ok(())
 }
 
@@ -3675,5 +3776,226 @@ pub fn create_candidate(
         created_at: now,
     });
 
+    Ok(())
+}
+
+// ============================================================================
+// AI AGENT DEPLOYMENTS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum AgentDeploymentStatus {
+    Draft,
+    Deploying,
+    Active,
+    Paused,
+    Failed,
+}
+
+#[spacetimedb::table(accessor = ai_agent_deployment, public)]
+pub struct AiAgentDeployment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub department: Department,
+    pub role_description: String,
+    pub system_prompt: String,
+    pub model: String,
+    pub capabilities: Vec<String>,
+    pub self_verification_threshold: f32,
+    pub max_task_duration_minutes: u32,
+    pub status: AgentDeploymentStatus,
+    pub tasks_completed: u64,
+    pub avg_confidence: Option<f32>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+    pub last_active: Option<Timestamp>,
+}
+
+#[spacetimedb::reducer]
+pub fn create_agent_deployment(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    department: String,
+    role_description: String,
+    system_prompt: String,
+    model: String,
+    capabilities: Vec<String>,
+    self_verification_threshold: f32,
+    max_task_duration_minutes: u32,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Agent name cannot be empty".to_string());
+    }
+    let dept = match department.as_str() {
+        "Support" => Department::Support,
+        "Sales" => Department::Sales,
+        "Recruitment" => Department::Recruitment,
+        "Engineering" => Department::Engineering,
+        "Operations" => Department::Operations,
+        "Marketing" => Department::Marketing,
+        "Finance" => Department::Finance,
+        _ => return Err(format!("Invalid department: {}", department)),
+    };
+    ctx.db.ai_agent_deployment().insert(AiAgentDeployment {
+        id: 0, org_id, name, department: dept, role_description, system_prompt, model,
+        capabilities, self_verification_threshold, max_task_duration_minutes,
+        status: AgentDeploymentStatus::Draft, tasks_completed: 0, avg_confidence: None,
+        created_by: ctx.sender(), created_at: ctx.timestamp, last_active: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn deploy_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Agent is already active".to_string());
+    }
+    ctx.db.ai_agent_deployment().id().update(AiAgentDeployment {
+        status: AgentDeploymentStatus::Active,
+        last_active: Some(ctx.timestamp),
+        ..agent
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn pause_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    ctx.db.ai_agent_deployment().id().update(AiAgentDeployment {
+        status: AgentDeploymentStatus::Paused,
+        ..agent
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_agent_deployment(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Cannot delete an active agent. Pause it first.".to_string());
+    }
+    ctx.db.ai_agent_deployment().id().delete(&agent_id);
+    Ok(())
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationType {
+    TaskAssigned,
+    TaskCompleted,
+    MentionInMessage,
+    TicketUpdate,
+    PrReviewRequested,
+    AgentCompleted,
+    MeetingReminder,
+    DocumentShared,
+    SystemAlert,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+#[spacetimedb::table(accessor = notification, public)]
+pub struct Notification {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub recipient: Identity,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
+    pub title: String,
+    pub body: String,
+    pub link: Option<String>,
+    pub read: bool,
+    pub dismissed: bool,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_notification(
+    ctx: &ReducerContext,
+    org_id: u64,
+    recipient_hex: String,
+    notification_type: String,
+    priority: String,
+    title: String,
+    body: String,
+    link: Option<String>,
+) -> Result<(), String> {
+    let recipient = Identity::from_hex(&recipient_hex)
+        .map_err(|_| "Invalid recipient identity")?;
+    let ntype = match notification_type.as_str() {
+        "TaskAssigned" => NotificationType::TaskAssigned,
+        "TaskCompleted" => NotificationType::TaskCompleted,
+        "MentionInMessage" => NotificationType::MentionInMessage,
+        "TicketUpdate" => NotificationType::TicketUpdate,
+        "PrReviewRequested" => NotificationType::PrReviewRequested,
+        "AgentCompleted" => NotificationType::AgentCompleted,
+        "MeetingReminder" => NotificationType::MeetingReminder,
+        "DocumentShared" => NotificationType::DocumentShared,
+        "SystemAlert" => NotificationType::SystemAlert,
+        _ => return Err(format!("Invalid notification type: {}", notification_type)),
+    };
+    let prio = match priority.as_str() {
+        "Low" => NotificationPriority::Low,
+        "Normal" => NotificationPriority::Normal,
+        "High" => NotificationPriority::High,
+        "Urgent" => NotificationPriority::Urgent,
+        _ => NotificationPriority::Normal,
+    };
+    ctx.db.notification().insert(Notification {
+        id: 0, org_id, recipient, notification_type: ntype, priority: prio,
+        title, body, link, read: false, dismissed: false, created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+    ctx.db.notification().id().update(Notification { read: true, ..notif });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_all_notifications_read(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
+    let my_notifs: Vec<_> = ctx.db.notification().iter()
+        .filter(|n| n.recipient == ctx.sender() && n.org_id == org_id && !n.read)
+        .collect();
+    for n in my_notifs {
+        ctx.db.notification().id().update(Notification { read: true, ..n });
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn dismiss_notification(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+    ctx.db.notification().id().update(Notification { dismissed: true, read: true, ..notif });
     Ok(())
 }

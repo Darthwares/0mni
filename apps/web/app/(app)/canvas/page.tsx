@@ -65,7 +65,21 @@ import {
   Eye,
   EyeOff,
   Users,
+  Star,
+  BookOpen,
+  Target,
+  BarChart3,
+  MessageSquare,
+  Lightbulb,
+  Repeat,
+  ClipboardList,
+  UserCheck,
+  FileType,
+  AlignLeft,
 } from 'lucide-react'
+import { GradientText } from '@/components/reactbits/GradientText'
+import { CountUp } from '@/components/reactbits/CountUp'
+import { SpotlightCard } from '@/components/reactbits/SpotlightCard'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -96,15 +110,17 @@ type SaveStatus = 'idle' | 'saving' | 'saved'
 
 // ---- Templates --------------------------------------------------------------
 
-const TEMPLATES: { name: string; description: string; content: any }[] = [
+const TEMPLATES: { name: string; description: string; icon: string; content: any }[] = [
   {
     name: 'Blank',
     description: 'Start from scratch',
+    icon: 'blank',
     content: null,
   },
   {
     name: 'Meeting Notes',
     description: 'Structured meeting template',
+    icon: 'meeting',
     content: [
       { type: 'heading', content: [{ type: 'text', text: 'Meeting Notes' }], props: { level: 1 } },
       { type: 'heading', content: [{ type: 'text', text: 'Date' }], props: { level: 2 } },
@@ -122,6 +138,7 @@ const TEMPLATES: { name: string; description: string; content: any }[] = [
   {
     name: 'Technical Spec',
     description: 'Technical design document',
+    icon: 'tech',
     content: [
       { type: 'heading', content: [{ type: 'text', text: 'Technical Specification' }], props: { level: 1 } },
       { type: 'heading', content: [{ type: 'text', text: 'Overview' }], props: { level: 2 } },
@@ -143,6 +160,7 @@ const TEMPLATES: { name: string; description: string; content: any }[] = [
   {
     name: 'Project Brief',
     description: 'Project overview and plan',
+    icon: 'project',
     content: [
       { type: 'heading', content: [{ type: 'text', text: 'Project Brief' }], props: { level: 1 } },
       { type: 'heading', content: [{ type: 'text', text: 'Summary' }], props: { level: 2 } },
@@ -160,7 +178,135 @@ const TEMPLATES: { name: string; description: string; content: any }[] = [
       { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
     ],
   },
+  {
+    name: 'Sprint Retro',
+    description: 'Sprint retrospective',
+    icon: 'retro',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Sprint Retrospective' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Sprint Goal' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'What Went Well' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'What Could Be Improved' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Shoutouts' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'Decision Log',
+    description: 'Track key decisions',
+    icon: 'decision',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Decision Log' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Decision' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Describe the decision made.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Context' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'What led to this decision?' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Options Considered' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'Option A: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'Option B: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Outcome' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Stakeholders' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'PRD',
+    description: 'Product requirements document',
+    icon: 'prd',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Product Requirements Document' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Problem' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Describe the user problem.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'User Stories' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'As a [user], I want [feature] so that [benefit]' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Requirements' }], props: { level: 2 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Must Have' }], props: { level: 3 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Nice to Have' }], props: { level: 3 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Design Mockups' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Launch Plan' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'Weekly Status',
+    description: 'Weekly status update',
+    icon: 'status',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Weekly Status Update' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Highlights' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'In Progress' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Blockers' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Next Week' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Metrics' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: '1:1 Notes',
+    description: 'One-on-one meeting notes',
+    icon: 'oneone',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: '1:1 Meeting Notes' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Check-in' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'How are things going?' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Updates' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Discussion Topics' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Feedback' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+    ],
+  },
+  {
+    name: 'Onboarding',
+    description: 'New hire onboarding guide',
+    icon: 'onboarding',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Onboarding Guide' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Welcome!' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Welcome to the team! Here is everything you need to get started.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Day 1' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Set up your development environment' }], props: { checked: false } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Access company tools & accounts' }], props: { checked: false } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Meet the team' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Week 1' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Review codebase architecture' }], props: { checked: false } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Complete first task' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Key Resources' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Key Contacts' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
 ]
+
+const TEMPLATE_ICONS: Record<string, typeof FileText> = {
+  blank: FileText,
+  meeting: Clock,
+  tech: Sparkles,
+  project: Target,
+  retro: Repeat,
+  decision: Lightbulb,
+  prd: ClipboardList,
+  status: BarChart3,
+  oneone: MessageSquare,
+  onboarding: UserCheck,
+}
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -178,7 +324,6 @@ function formatTimeAgo(date: Date): string {
 }
 
 function timestampToDate(ts: any): Date {
-  // SpacetimeDB timestamps may be BigInt microseconds or Date
   if (ts instanceof Date) return ts
   if (typeof ts === 'bigint') return new Date(Number(ts / 1000n))
   if (typeof ts === 'number') return new Date(ts / 1000)
@@ -194,7 +339,6 @@ function parseContent(content: string): any {
   }
 }
 
-/** Check if a SpacetimeDB Option<u64> parentId matches a given folder id (null = root) */
 function parentIdMatches(docParentId: bigint | null | undefined, folderId: bigint | null): boolean {
   if (folderId === null) {
     return docParentId === null || docParentId === undefined
@@ -202,6 +346,41 @@ function parentIdMatches(docParentId: bigint | null | undefined, folderId: bigin
   return docParentId === folderId
 }
 
+function countWords(content: string): number {
+  if (!content) return 0
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) {
+      const text = extractText(parsed)
+      return text.split(/\s+/).filter(Boolean).length
+    }
+  } catch {
+    // plain text fallback
+    return content.split(/\s+/).filter(Boolean).length
+  }
+  return 0
+}
+
+function extractText(blocks: any[]): string {
+  let result = ''
+  for (const block of blocks) {
+    if (block.content) {
+      for (const inline of block.content) {
+        if (inline.text) result += inline.text + ' '
+      }
+    }
+    if (block.children) {
+      result += extractText(block.children)
+    }
+  }
+  return result
+}
+
+function readingTime(words: number): string {
+  const mins = Math.ceil(words / 200)
+  if (mins < 1) return 'less than 1 min read'
+  return `${mins} min read`
+}
 
 // ---- Main Page --------------------------------------------------------------
 
@@ -210,6 +389,7 @@ export default function CanvasPage() {
   const { currentOrgId } = useOrg()
   const [allDocuments] = useTable(tables.document)
   const [employees] = useTable(tables.employee)
+  const [allFavorites] = useTable(tables.documentFavorite)
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -217,6 +397,9 @@ export default function CanvasPage() {
   const shareDocument = useReducer(reducers.shareDocument)
   const unshareDocument = useReducer(reducers.unshareDocument)
   const setDocVisibility = useReducer(reducers.setDocumentVisibility)
+  const favoriteDocument = useReducer(reducers.favoriteDocument)
+  const unfavoriteDocument = useReducer(reducers.unfavoriteDocument)
+  const duplicateDocument = useReducer(reducers.duplicateDocument)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -241,8 +424,18 @@ export default function CanvasPage() {
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
 
-  // Ref to hold latest documents for use inside debounced callbacks (avoids stale closures)
+  // Ref to hold latest documents for use inside debounced callbacks
   const canvasDocumentsRef = useRef<SpacetimeDocument[]>([])
+
+  // My favorites set
+  const myFavoriteDocIds = useMemo(() => {
+    if (!identity) return new Set<bigint>()
+    return new Set(
+      allFavorites
+        .filter((f) => f.userId.toHexString() === identity.toHexString())
+        .map((f) => f.documentId)
+    )
+  }, [allFavorites, identity])
 
   // Employee lookup
   const employeeMap = useMemo(() => {
@@ -258,7 +451,6 @@ export default function CanvasPage() {
     )
   }, [allDocuments])
 
-  // Keep the ref in sync
   useEffect(() => {
     canvasDocumentsRef.current = canvasDocuments
   }, [canvasDocuments])
@@ -284,6 +476,21 @@ export default function CanvasPage() {
     return path
   }, [currentFolderId, canvasDocuments])
 
+  // Recently edited docs (top 5)
+  const recentDocs = useMemo(() => {
+    return canvasDocuments
+      .filter((d) => d.docType.tag !== 'Folder')
+      .sort((a, b) => timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime())
+      .slice(0, 5)
+  }, [canvasDocuments])
+
+  // Favorited docs
+  const favoriteDocs = useMemo(() => {
+    return canvasDocuments
+      .filter((d) => myFavoriteDocIds.has(d.id) && d.docType.tag !== 'Folder')
+      .sort((a, b) => timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime())
+  }, [canvasDocuments, myFavoriteDocIds])
+
   // Items in current folder, filtered
   const filteredDocuments = useMemo(() => {
     let items = canvasDocuments.filter((d) => parentIdMatches(d.parentId, currentFolderId))
@@ -291,7 +498,6 @@ export default function CanvasPage() {
       const q = searchQuery.toLowerCase()
       items = items.filter((d) => d.title.toLowerCase().includes(q))
     }
-    // Sort: folders first, then by updatedAt descending
     return items.sort((a, b) => {
       const aFolder = a.docType.tag === 'Folder' ? 0 : 1
       const bFolder = b.docType.tag === 'Folder' ? 0 : 1
@@ -312,6 +518,12 @@ export default function CanvasPage() {
     const emp = employeeMap.get(activeDoc.lastEditedBy.toHexString())
     return emp?.name ?? null
   }, [activeDoc, employeeMap])
+
+  // Word count for active doc
+  const activeDocWordCount = useMemo(() => {
+    if (!activeDoc) return 0
+    return countWords(activeDoc.content)
+  }, [activeDoc])
 
   // ---- Actions ----
 
@@ -363,6 +575,26 @@ export default function CanvasPage() {
     }
   }
 
+  const handleDuplicate = async (id: bigint) => {
+    try {
+      await duplicateDocument({ documentId: id })
+    } catch (e) {
+      console.error('Failed to duplicate document:', e)
+    }
+  }
+
+  const handleToggleFavorite = async (id: bigint) => {
+    try {
+      if (myFavoriteDocIds.has(id)) {
+        await unfavoriteDocument({ documentId: id })
+      } else {
+        await favoriteDocument({ documentId: id })
+      }
+    } catch (e) {
+      console.error('Failed to toggle favorite:', e)
+    }
+  }
+
   const handleMoveToFolder = async (targetFolderId: bigint | null) => {
     if (moveDocId === null) return
     const doc = canvasDocuments.find((d) => d.id === moveDocId)
@@ -373,9 +605,6 @@ export default function CanvasPage() {
         title: doc.title,
         content: doc.content,
       })
-      // NOTE: The updateDocument reducer only takes documentId, title, content.
-      // Moving to a folder would require a separate reducer or extending updateDocument.
-      // For now we close the dialog. If parentId update is needed, a backend change is required.
       setShowMoveDialog(false)
       setMoveDocId(null)
     } catch (e) {
@@ -383,7 +612,6 @@ export default function CanvasPage() {
     }
   }
 
-  // Title rename (from editor header)
   const handleTitleSave = useCallback(
     async (docId: bigint, newTitleValue: string) => {
       const doc = canvasDocumentsRef.current.find((d) => d.id === docId)
@@ -407,21 +635,17 @@ export default function CanvasPage() {
     [updateDocument]
   )
 
-  // Debounced auto-save (2-second debounce)
   const handleContentChange = useCallback(
     (content: any) => {
       if (activeDocId === null) return
-
       setSaveStatus('saving')
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current)
 
       saveTimerRef.current = setTimeout(async () => {
         try {
-          // Read latest doc from ref to avoid stale closure
           const doc = canvasDocumentsRef.current.find((d) => d.id === activeDocId)
           if (!doc) return
-
           const serialized = typeof content === 'string' ? content : JSON.stringify(content)
           await updateDocument({
             documentId: activeDocId,
@@ -439,7 +663,6 @@ export default function CanvasPage() {
     [activeDocId, updateDocument]
   )
 
-  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -451,11 +674,12 @@ export default function CanvasPage() {
   if (activeDoc) {
     const isWhiteboard = activeDoc.docType.tag === 'Whiteboard'
     const parsedContent = parseContent(activeDoc.content)
+    const isFav = myFavoriteDocIds.has(activeDoc.id)
 
     return (
       <div className="flex h-full flex-col">
         {/* Editor header */}
-        <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0">
+        <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0 bg-background/95 backdrop-blur-sm">
           <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1">
             <ArrowLeft className="size-4" />
             Back
@@ -496,6 +720,23 @@ export default function CanvasPage() {
             </Badge>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Word count + reading time */}
+            {!isWhiteboard && activeDocWordCount > 0 && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1.5 border rounded-full px-2 py-0.5">
+                <AlignLeft className="size-3" />
+                {activeDocWordCount.toLocaleString()} words
+                <span className="text-muted-foreground/50">|</span>
+                {readingTime(activeDocWordCount)}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleToggleFavorite(activeDoc.id)}
+              className="h-7 w-7 p-0"
+            >
+              <Star className={`size-4 ${isFav ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+            </Button>
             <PresenceAvatars users={canvasPresence} size="sm" label="Also here:" />
             <Button
               variant="outline"
@@ -507,7 +748,6 @@ export default function CanvasPage() {
               Share
             </Button>
             <PresenceBar />
-            {/* Save status indicator */}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               {saveStatus === 'saving' && (
                 <>
@@ -525,7 +765,6 @@ export default function CanvasPage() {
                 <>Saved {formatTimeAgo(timestampToDate(activeDoc.updatedAt))}</>
               )}
             </span>
-            {/* Last edited by */}
             {lastEditedByName && (
               <span className="text-[10px] text-muted-foreground">
                 Last edited by {lastEditedByName}
@@ -553,17 +792,24 @@ export default function CanvasPage() {
   }
 
   // ---- List View ----
+  const nonFolderCount = canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length
+  const showRecentsAndFavorites = currentFolderId === null && !searchQuery
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0">
+      <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0 bg-background/95 backdrop-blur-sm">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
           <PenTool className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Canvas</h1>
-          <Badge variant="secondary" className="text-xs">
-            {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
+          <h1 className="text-lg font-bold">
+            <GradientText colors={['#8b5cf6', '#6366f1', '#a855f7']} animationSpeed={4}>
+              Canvas
+            </GradientText>
+          </h1>
+          <Badge variant="secondary" className="text-xs font-mono">
+            <CountUp to={nonFolderCount} duration={0.6} />
           </Badge>
         </div>
 
@@ -650,37 +896,99 @@ export default function CanvasPage() {
 
       {/* Document List */}
       <ScrollArea className="flex-1">
-        <div className="p-6">
+        <div className="p-6 space-y-8">
+          {/* Favorites Section */}
+          {showRecentsAndFavorites && favoriteDocs.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="size-4 text-yellow-400 fill-yellow-400" />
+                <h2 className="text-sm font-semibold text-foreground">Favorites</h2>
+                <Badge variant="outline" className="text-[10px]">{favoriteDocs.length}</Badge>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                {favoriteDocs.map((doc) => (
+                  <RecentDocCard
+                    key={doc.id.toString()}
+                    doc={doc}
+                    employeeMap={employeeMap}
+                    isFavorite={true}
+                    onOpen={() => setActiveDocId(doc.id)}
+                    onToggleFavorite={() => handleToggleFavorite(doc.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Recent Documents Section */}
+          {showRecentsAndFavorites && recentDocs.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="size-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-foreground">Recently Edited</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                {recentDocs.map((doc) => (
+                  <RecentDocCard
+                    key={doc.id.toString()}
+                    doc={doc}
+                    employeeMap={employeeMap}
+                    isFavorite={myFavoriteDocIds.has(doc.id)}
+                    onOpen={() => setActiveDocId(doc.id)}
+                    onToggleFavorite={() => handleToggleFavorite(doc.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* All Documents */}
+          {showRecentsAndFavorites && (favoriteDocs.length > 0 || recentDocs.length > 0) && (
+            <Separator />
+          )}
+
           {filteredDocuments.length === 0 ? (
             <EmptyState
               inFolder={currentFolderId !== null}
               onCreateClick={() => setShowCreate(true)}
             />
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredDocuments.map((doc) => (
-                <CanvasCard
-                  key={doc.id.toString()}
-                  doc={doc}
-                  employeeMap={employeeMap}
-                  onOpen={() => {
-                    if (doc.docType.tag === 'Folder') {
-                      setCurrentFolderId(doc.id)
-                    } else {
-                      setActiveDocId(doc.id)
-                    }
-                  }}
-                  onDelete={() => handleDelete(doc.id)}
-                  onMove={() => {
-                    setMoveDocId(doc.id)
-                    setShowMoveDialog(true)
-                  }}
-                  onShare={() => {
-                    setShareDocId(doc.id)
-                    setShowShareDialog(true)
-                  }}
-                />
-              ))}
+            <div>
+              {showRecentsAndFavorites && (
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="size-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">All Documents</h2>
+                  <Badge variant="outline" className="text-[10px]">{filteredDocuments.length}</Badge>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredDocuments.map((doc) => (
+                  <CanvasCard
+                    key={doc.id.toString()}
+                    doc={doc}
+                    employeeMap={employeeMap}
+                    isFavorite={myFavoriteDocIds.has(doc.id)}
+                    onOpen={() => {
+                      if (doc.docType.tag === 'Folder') {
+                        setCurrentFolderId(doc.id)
+                      } else {
+                        setActiveDocId(doc.id)
+                      }
+                    }}
+                    onDelete={() => handleDelete(doc.id)}
+                    onDuplicate={() => handleDuplicate(doc.id)}
+                    onToggleFavorite={() => handleToggleFavorite(doc.id)}
+                    onMove={() => {
+                      setMoveDocId(doc.id)
+                      setShowMoveDialog(true)
+                    }}
+                    onShare={() => {
+                      setShareDocId(doc.id)
+                      setShowShareDialog(true)
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-2">
@@ -689,6 +997,7 @@ export default function CanvasPage() {
                   key={doc.id.toString()}
                   doc={doc}
                   employeeMap={employeeMap}
+                  isFavorite={myFavoriteDocIds.has(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
                       setCurrentFolderId(doc.id)
@@ -697,6 +1006,8 @@ export default function CanvasPage() {
                     }
                   }}
                   onDelete={() => handleDelete(doc.id)}
+                  onDuplicate={() => handleDuplicate(doc.id)}
+                  onToggleFavorite={() => handleToggleFavorite(doc.id)}
                   onMove={() => {
                     setMoveDocId(doc.id)
                     setShowMoveDialog(true)
@@ -714,9 +1025,12 @@ export default function CanvasPage() {
 
       {/* Create Canvas Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>New Canvas</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="size-5" />
+              New Canvas
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -763,27 +1077,25 @@ export default function CanvasPage() {
             {newType === 'Canvas' && (
               <div>
                 <Label className="text-sm mb-2 block">Template</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {TEMPLATES.map((tmpl, idx) => (
-                    <button
-                      key={tmpl.name}
-                      onClick={() => setSelectedTemplate(idx)}
-                      className={`rounded-lg border p-3 text-left transition-all ${
-                        selectedTemplate === idx
-                          ? 'border-violet-500 bg-violet-500/5'
-                          : 'border-border hover:border-muted-foreground/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-0.5">
-                        {idx === 0 && <FileText className="size-3.5 text-muted-foreground" />}
-                        {idx === 1 && <Clock className="size-3.5 text-muted-foreground" />}
-                        {idx === 2 && <Sparkles className="size-3.5 text-muted-foreground" />}
-                        {idx === 3 && <FileText className="size-3.5 text-muted-foreground" />}
-                        <p className="text-xs font-medium">{tmpl.name}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 max-h-[240px] overflow-y-auto">
+                  {TEMPLATES.map((tmpl, idx) => {
+                    const IconComp = TEMPLATE_ICONS[tmpl.icon] || FileText
+                    return (
+                      <button
+                        key={tmpl.name}
+                        onClick={() => setSelectedTemplate(idx)}
+                        className={`rounded-lg border p-3 text-left transition-all ${
+                          selectedTemplate === idx
+                            ? 'border-violet-500 bg-violet-500/5 ring-1 ring-violet-500/20'
+                            : 'border-border hover:border-muted-foreground/30'
+                        }`}
+                      >
+                        <IconComp className={`size-4 mb-1.5 ${selectedTemplate === idx ? 'text-violet-400' : 'text-muted-foreground'}`} />
+                        <p className="text-xs font-medium leading-tight">{tmpl.name}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{tmpl.description}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -971,18 +1283,67 @@ export default function CanvasPage() {
 
 // ---- Sub-components ---------------------------------------------------------
 
+function RecentDocCard({
+  doc,
+  employeeMap,
+  isFavorite,
+  onOpen,
+  onToggleFavorite,
+}: {
+  doc: SpacetimeDocument
+  employeeMap: Map<string, any>
+  isFavorite: boolean
+  onOpen: () => void
+  onToggleFavorite: () => void
+}) {
+  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+  const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
+
+  return (
+    <div
+      onClick={onOpen}
+      className="group relative rounded-lg border bg-card/50 cursor-pointer transition-all hover:bg-card hover:shadow-sm hover:border-primary/20 p-3"
+    >
+      <div className="flex items-center gap-2 mb-1">
+        {isWhiteboard ? (
+          <PenTool className="size-3.5 text-emerald-400 shrink-0" />
+        ) : (
+          <FileText className="size-3.5 text-blue-400 shrink-0" />
+        )}
+        <h4 className="text-xs font-medium truncate flex-1">{doc.title}</h4>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Star className={`size-3 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+        </button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        {formatTimeAgo(timestampToDate(doc.updatedAt))}
+        {lastEditor && ` by ${lastEditor.name}`}
+      </p>
+    </div>
+  )
+}
+
 function CanvasCard({
   doc,
   employeeMap,
+  isFavorite,
   onOpen,
   onDelete,
+  onDuplicate,
+  onToggleFavorite,
   onMove,
   onShare,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
+  isFavorite: boolean
   onOpen: () => void
   onDelete: () => void
+  onDuplicate: () => void
+  onToggleFavorite: () => void
   onMove: () => void
   onShare: () => void
 }) {
@@ -994,6 +1355,11 @@ function CanvasCard({
   return (
     <ContextMenu>
       <ContextMenuTrigger>
+    <SpotlightCard spotlightColor={
+      isFolder ? 'rgba(251, 191, 36, 0.08)' :
+      isWhiteboard ? 'rgba(52, 211, 153, 0.08)' :
+      'rgba(96, 165, 250, 0.08)'
+    }>
     <div
       onClick={onOpen}
       className="group relative rounded-xl border bg-card cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden"
@@ -1034,19 +1400,20 @@ function CanvasCard({
           ) : (
             <FileText className="size-3.5 text-blue-400 shrink-0" />
           )}
-          <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
+          <h3 className="text-sm font-semibold truncate flex-1">{doc.title}</h3>
+          {isFavorite && !isFolder && <Star className="size-3 fill-yellow-400 text-yellow-400 shrink-0" />}
           {isPrivate && <Lock className="size-3 text-muted-foreground shrink-0" />}
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <Clock className="size-3" />
           {formatTimeAgo(timestampToDate(doc.updatedAt))}
           {lastEditor && (
-            <span className="ml-1">Last edited by {lastEditor.name}</span>
+            <span className="ml-1">by {lastEditor.name}</span>
           )}
           {(doc.sharedWith?.length ?? 0) > 0 && (
             <span className="flex items-center gap-0.5 ml-1">
               <Users className="size-2.5" />
-              {doc.sharedWith.length} shared
+              {doc.sharedWith.length}
             </span>
           )}
         </div>
@@ -1054,6 +1421,15 @@ function CanvasCard({
 
       {/* Action buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
+            title={isFavorite ? 'Unfavorite' : 'Favorite'}
+          >
+            <Star className={`size-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+          </button>
+        )}
         {!isFolder && (
           <button
             onClick={(e) => { e.stopPropagation(); onShare() }}
@@ -1080,6 +1456,7 @@ function CanvasCard({
         </button>
       </div>
     </div>
+    </SpotlightCard>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuLabel>{doc.title}</ContextMenuLabel>
@@ -1089,8 +1466,19 @@ function CanvasCard({
           Open
         </ContextMenuItem>
         {!isFolder && (
+          <ContextMenuItem onClick={onToggleFavorite}>
+            <Star className={`size-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+            {isFavorite ? 'Unfavorite' : 'Favorite'}
+          </ContextMenuItem>
+        )}
+        {!isFolder && (
           <ContextMenuItem onClick={onShare}>
             <Share2 className="size-3.5" /> Share
+          </ContextMenuItem>
+        )}
+        {!isFolder && (
+          <ContextMenuItem onClick={onDuplicate}>
+            <Copy className="size-3.5" /> Duplicate
           </ContextMenuItem>
         )}
         {!isFolder && (
@@ -1113,15 +1501,21 @@ function CanvasCard({
 function CanvasListItem({
   doc,
   employeeMap,
+  isFavorite,
   onOpen,
   onDelete,
+  onDuplicate,
+  onToggleFavorite,
   onMove,
   onShare,
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
+  isFavorite: boolean
   onOpen: () => void
   onDelete: () => void
+  onDuplicate: () => void
+  onToggleFavorite: () => void
   onMove: () => void
   onShare: () => void
 }) {
@@ -1155,13 +1549,32 @@ function CanvasListItem({
           {isFolder && (
             <ChevronRight className="size-3.5 text-muted-foreground" />
           )}
+          {isFavorite && !isFolder && <Star className="size-3 fill-yellow-400 text-yellow-400" />}
         </div>
         <p className="text-[11px] text-muted-foreground">
           {isFolder ? 'Folder' : isWhiteboard ? 'Whiteboard' : 'Document'} · Updated {formatTimeAgo(timestampToDate(doc.updatedAt))}
-          {lastEditor && <span> · Last edited by {lastEditor.name}</span>}
+          {lastEditor && <span> · by {lastEditor.name}</span>}
         </p>
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title={isFavorite ? 'Unfavorite' : 'Favorite'}
+          >
+            <Star className={`size-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+          </button>
+        )}
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate() }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title="Duplicate"
+          >
+            <Copy className="size-3.5" />
+          </button>
+        )}
         {!isFolder && (
           <button
             onClick={(e) => { e.stopPropagation(); onMove() }}

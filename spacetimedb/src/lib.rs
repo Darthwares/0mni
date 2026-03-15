@@ -5728,3 +5728,179 @@ pub fn add_approval_comment(
     });
     Ok(())
 }
+
+// ── Invoicing ────────────────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum InvoiceStatus {
+    Draft,
+    Sent,
+    Paid,
+    Overdue,
+    Cancelled,
+}
+
+#[spacetimedb::table(accessor = invoice, public)]
+#[derive(Clone)]
+pub struct Invoice {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub invoice_number: String,
+    pub client_name: String,
+    pub client_email: String,
+    pub status: InvoiceStatus,
+    pub tax_rate: String,
+    pub notes: String,
+    pub creator: Identity,
+    pub issued_at: Timestamp,
+    pub due_date: Timestamp,
+    pub paid_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = invoice_line_item, public)]
+#[derive(Clone)]
+pub struct InvoiceLineItem {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub invoice_id: u64,
+    pub description: String,
+    pub quantity: u32,
+    pub unit_price_cents: u64,
+    pub sort_order: u32,
+}
+
+#[spacetimedb::reducer]
+pub fn create_invoice(
+    ctx: &ReducerContext,
+    org_id: u64,
+    client_name: String,
+    client_email: String,
+    tax_rate: String,
+    notes: String,
+    due_date: Timestamp,
+    // Format: "description|quantity|priceCents\n..."
+    line_items_data: String,
+) -> Result<(), String> {
+    if client_name.trim().is_empty() {
+        return Err("Client name is required".to_string());
+    }
+    // Generate invoice number from count
+    let count = ctx.db.invoice().iter()
+        .filter(|i| i.org_id == org_id)
+        .count();
+    let invoice_number = format!("INV-{:03}", count + 1);
+
+    let row = ctx.db.invoice().insert(Invoice {
+        id: 0,
+        org_id,
+        invoice_number,
+        client_name,
+        client_email,
+        status: InvoiceStatus::Draft,
+        tax_rate,
+        notes,
+        creator: ctx.sender(),
+        issued_at: ctx.timestamp,
+        due_date,
+        paid_at: Timestamp::UNIX_EPOCH,
+    });
+
+    // Parse and insert line items
+    for (idx, line) in line_items_data.lines().enumerate() {
+        let parts: Vec<&str> = line.split('|').collect();
+        if parts.len() >= 3 {
+            let desc = parts[0].to_string();
+            let qty: u32 = parts[1].parse().unwrap_or(1);
+            let price: u64 = parts[2].parse().unwrap_or(0);
+            if !desc.trim().is_empty() {
+                ctx.db.invoice_line_item().insert(InvoiceLineItem {
+                    id: 0,
+                    invoice_id: row.id,
+                    description: desc,
+                    quantity: qty,
+                    unit_price_cents: price,
+                    sort_order: idx as u32,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_invoice_status(
+    ctx: &ReducerContext,
+    invoice_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let inv = ctx.db.invoice().id().find(invoice_id)
+        .ok_or("Invoice not found")?;
+    let status = match status_tag.as_str() {
+        "Draft" => InvoiceStatus::Draft,
+        "Sent" => InvoiceStatus::Sent,
+        "Paid" => InvoiceStatus::Paid,
+        "Overdue" => InvoiceStatus::Overdue,
+        "Cancelled" => InvoiceStatus::Cancelled,
+        _ => return Err("Invalid status".to_string()),
+    };
+    let paid_at = if status == InvoiceStatus::Paid { ctx.timestamp } else { inv.paid_at };
+    ctx.db.invoice().id().update(Invoice {
+        status,
+        paid_at,
+        ..inv
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn add_invoice_line_item(
+    ctx: &ReducerContext,
+    invoice_id: u64,
+    description: String,
+    quantity: u32,
+    unit_price_cents: u64,
+) -> Result<(), String> {
+    ctx.db.invoice().id().find(invoice_id)
+        .ok_or("Invoice not found")?;
+    let max_order = ctx.db.invoice_line_item().iter()
+        .filter(|li| li.invoice_id == invoice_id)
+        .map(|li| li.sort_order)
+        .max()
+        .unwrap_or(0);
+    ctx.db.invoice_line_item().insert(InvoiceLineItem {
+        id: 0,
+        invoice_id,
+        description,
+        quantity,
+        unit_price_cents,
+        sort_order: max_order + 1,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_invoice_line_item(
+    ctx: &ReducerContext,
+    line_item_id: u64,
+) -> Result<(), String> {
+    ctx.db.invoice_line_item().id().delete(&line_item_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_invoice(
+    ctx: &ReducerContext,
+    invoice_id: u64,
+) -> Result<(), String> {
+    let items: Vec<_> = ctx.db.invoice_line_item().iter()
+        .filter(|li| li.invoice_id == invoice_id)
+        .collect();
+    for item in items {
+        ctx.db.invoice_line_item().id().delete(&item.id);
+    }
+    ctx.db.invoice().id().delete(&invoice_id);
+    Ok(())
+}

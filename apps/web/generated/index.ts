@@ -37,6 +37,7 @@ import {
 import AcceptCallReducer from "./accept_call_reducer";
 import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
+import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
 import ApproveRequestReducer from "./approve_request_reducer";
@@ -57,6 +58,7 @@ import CreateEmailLabelReducer from "./create_email_label_reducer";
 import CreateEpicReducer from "./create_epic_reducer";
 import CreateExpenseReducer from "./create_expense_reducer";
 import CreateFormReducer from "./create_form_reducer";
+import CreateInvoiceReducer from "./create_invoice_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
@@ -73,6 +75,7 @@ import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
+import DeleteInvoiceReducer from "./delete_invoice_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
@@ -105,6 +108,7 @@ import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RejectRequestReducer from "./reject_request_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
+import RemoveInvoiceLineItemReducer from "./remove_invoice_line_item_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
@@ -144,6 +148,7 @@ import UpdateExpenseStatusReducer from "./update_expense_status_reducer";
 import UpdateFormReducer from "./update_form_reducer";
 import UpdateFormQuestionReducer from "./update_form_question_reducer";
 import UpdateFormStatusReducer from "./update_form_status_reducer";
+import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
@@ -184,6 +189,8 @@ import FormDefRow from "./form_def_table";
 import FormQuestionRow from "./form_question_table";
 import FormResponseRow from "./form_response_table";
 import InterviewRow from "./interview_table";
+import InvoiceRow from "./invoice_table";
+import InvoiceLineItemRow from "./invoice_line_item_table";
 import JobPostingRow from "./job_posting_table";
 import KbArticleRow from "./kb_article_table";
 import KeyResultRow from "./key_result_table";
@@ -508,6 +515,28 @@ const tablesSchema = __schema({
       { name: 'interview_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, InterviewRow),
+  invoice: __table({
+    name: 'invoice',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'invoice_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, InvoiceRow),
+  invoice_line_item: __table({
+    name: 'invoice_line_item',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'invoice_line_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, InvoiceLineItemRow),
   job_posting: __table({
     name: 'job_posting',
     indexes: [
@@ -820,6 +849,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
+  __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("approve_request", ApproveRequestReducer),
@@ -840,6 +870,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_epic", CreateEpicReducer),
   __reducerSchema("create_expense", CreateExpenseReducer),
   __reducerSchema("create_form", CreateFormReducer),
+  __reducerSchema("create_invoice", CreateInvoiceReducer),
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
@@ -856,6 +887,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
+  __reducerSchema("delete_invoice", DeleteInvoiceReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
@@ -888,6 +920,7 @@ const reducersSchema = __reducers(
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("reject_request", RejectRequestReducer),
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
+  __reducerSchema("remove_invoice_line_item", RemoveInvoiceLineItemReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
@@ -927,6 +960,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_form", UpdateFormReducer),
   __reducerSchema("update_form_question", UpdateFormQuestionReducer),
   __reducerSchema("update_form_status", UpdateFormStatusReducer),
+  __reducerSchema("update_invoice_status", UpdateInvoiceStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),

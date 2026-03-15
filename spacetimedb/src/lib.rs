@@ -5592,11 +5592,17 @@ pub fn update_objective_status(
 
 #[spacetimedb::reducer]
 pub fn delete_objective(ctx: &ReducerContext, objective_id: u64) -> Result<(), String> {
-    // Delete all key results first
+    // Delete all key results and their check-ins first
     let krs: Vec<_> = ctx.db.key_result().iter()
         .filter(|kr| kr.objective_id == objective_id)
         .collect();
     for kr in krs {
+        let checkins: Vec<_> = ctx.db.kr_check_in().iter()
+            .filter(|c| c.kr_id == kr.id)
+            .collect();
+        for c in checkins {
+            ctx.db.kr_check_in().id().delete(&c.id);
+        }
         ctx.db.key_result().id().delete(&kr.id);
     }
     ctx.db.objective().id().delete(&objective_id);
@@ -5642,7 +5648,60 @@ pub fn update_kr_progress(
 
 #[spacetimedb::reducer]
 pub fn delete_key_result(ctx: &ReducerContext, kr_id: u64) -> Result<(), String> {
+    // Cascade-delete check-ins for this KR
+    let checkins: Vec<_> = ctx.db.kr_check_in().iter()
+        .filter(|c| c.kr_id == kr_id)
+        .collect();
+    for c in checkins {
+        ctx.db.kr_check_in().id().delete(&c.id);
+    }
     ctx.db.key_result().id().delete(&kr_id);
+    Ok(())
+}
+
+// === KR CHECK-INS ============================================================
+
+#[spacetimedb::table(accessor = kr_check_in, public)]
+#[derive(Clone)]
+pub struct KrCheckIn {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub kr_id: u64,
+    pub progress_value: u32,
+    pub note: String,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_kr_check_in(
+    ctx: &ReducerContext,
+    kr_id: u64,
+    progress_value: u32,
+    note: String,
+) -> Result<(), String> {
+    let kr = ctx.db.key_result().id().find(&kr_id)
+        .ok_or("Key result not found")?;
+
+    ctx.db.kr_check_in().insert(KrCheckIn {
+        id: 0,
+        kr_id,
+        progress_value,
+        note,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    // Also update the KR's current value to match the check-in
+    ctx.db.key_result().id().update(KeyResult { current_value: progress_value, ..kr });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_kr_check_in(ctx: &ReducerContext, check_in_id: u64) -> Result<(), String> {
+    ctx.db.kr_check_in().id().delete(&check_in_id);
     Ok(())
 }
 

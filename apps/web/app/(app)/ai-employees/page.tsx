@@ -1,21 +1,40 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useTable } from 'spacetimedb/react'
+import { useMemo, useState, useCallback } from 'react'
+import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { Timestamp } from 'spacetimedb'
-import { tables } from '@/generated'
+import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress, ProgressTrack, ProgressIndicator, ProgressLabel, ProgressValue } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Bot,
   Brain,
@@ -421,9 +440,53 @@ function TaskRow({
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function AIEmployeesPage() {
+  const { currentOrgId } = useOrg()
   const [allEmployees] = useTable(tables.employee)
   const [allTasks] = useTable(tables.task)
+  const [allAgentConfigs] = useTable(tables.agent_config)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // Reducers
+  const createAgentConfig = useSpacetimeReducer(reducers.createAgentConfig)
+  const deleteAgentConfig = useSpacetimeReducer(reducers.deleteAgentConfig)
+  const toggleAgentStatus = useSpacetimeReducer(reducers.toggleAgentStatus)
+
+  // Create dialog state
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDescription, setNewDescription] = useState('')
+  const [newDepartment, setNewDepartment] = useState('Support')
+  const [newModel, setNewModel] = useState('claude-sonnet-4-5-20250514')
+  const [newSystemPrompt, setNewSystemPrompt] = useState('')
+  const [newCapabilities, setNewCapabilities] = useState('')
+  const [newThreshold, setNewThreshold] = useState(80)
+  const [newGradientColor, setNewGradientColor] = useState('from-violet-500 to-fuchsia-600')
+
+  const handleCreateAgent = useCallback(() => {
+    if (!newName.trim() || currentOrgId === null) return
+    createAgentConfig({
+      orgId: BigInt(currentOrgId),
+      name: newName.trim(),
+      description: newDescription.trim(),
+      department: newDepartment,
+      model: newModel,
+      systemPrompt: newSystemPrompt.trim(),
+      capabilities: newCapabilities.trim(),
+      threshold: newThreshold,
+      gradientColor: newGradientColor,
+    })
+    setShowCreateDialog(false)
+    setNewName('')
+    setNewDescription('')
+    setNewSystemPrompt('')
+    setNewCapabilities('')
+  }, [newName, newDescription, newDepartment, newModel, newSystemPrompt, newCapabilities, newThreshold, newGradientColor, currentOrgId, createAgentConfig])
+
+  // Agent configs for current org
+  const orgAgentConfigs = useMemo(
+    () => allAgentConfigs.filter((c) => c.orgId === BigInt(currentOrgId)),
+    [allAgentConfigs, currentOrgId]
+  )
 
   // Filter to AI agents only
   const aiAgents = useMemo(
@@ -499,11 +562,12 @@ export default function AIEmployeesPage() {
                 AI Employees
               </GradientText>
             </h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Manage and monitor your AI workforce across all departments
-            </p>
+            <BlurText text="Manage and monitor your AI workforce across all departments" delay={35} animateBy="words" className="text-sm text-neutral-500 dark:text-neutral-400" />
           </div>
-          <Button className="shrink-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0">
+          <Button
+            className="shrink-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0"
+            onClick={() => setShowCreateDialog(true)}
+          >
             <Plus className="w-4 h-4 mr-1.5" />
             Create AI Employee
           </Button>
@@ -598,7 +662,10 @@ export default function AIEmployeesPage() {
                 <p className="text-sm text-neutral-400 max-w-xs">
                   Create your first AI employee to start automating workflows across departments.
                 </p>
-                <Button className="mt-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0">
+                <Button
+                  className="mt-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0"
+                  onClick={() => setShowCreateDialog(true)}
+                >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Create AI Employee
                 </Button>
@@ -931,6 +998,107 @@ export default function AIEmployeesPage() {
       </div>
     </div>
     </div>
+
+    {/* ── Create AI Employee Dialog ── */}
+    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600">
+              <Bot className="w-3.5 h-3.5 text-white" />
+            </div>
+            Create AI Employee
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="agent-name">Name *</Label>
+            <Input
+              id="agent-name"
+              placeholder="e.g. Support Agent Alex"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="agent-desc">Description</Label>
+            <Textarea
+              id="agent-desc"
+              placeholder="What does this AI employee do?"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={newDepartment} onValueChange={setNewDepartment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {['Support', 'Sales', 'Engineering', 'Recruitment', 'Marketing', 'Operations', 'Finance'].map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>AI Model</Label>
+              <Select value={newModel} onValueChange={setNewModel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="claude-sonnet-4-5-20250514">Claude Sonnet 4.5</SelectItem>
+                  <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
+                  <SelectItem value="claude-haiku-4-5-20251001">Claude Haiku 4.5</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="agent-prompt">System Prompt</Label>
+            <Textarea
+              id="agent-prompt"
+              placeholder="Instructions for the AI employee..."
+              value={newSystemPrompt}
+              onChange={(e) => setNewSystemPrompt(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="agent-capabilities">Capabilities</Label>
+            <Input
+              id="agent-capabilities"
+              placeholder="e.g. ticket-triage, code-review, customer-chat"
+              value={newCapabilities}
+              onChange={(e) => setNewCapabilities(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">Comma-separated list of capabilities</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Confidence Threshold: {newThreshold}%</Label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={newThreshold}
+              onChange={(e) => setNewThreshold(Number(e.target.value))}
+              className="w-full accent-violet-600"
+            />
+            <p className="text-[11px] text-muted-foreground">Minimum confidence before escalating to a human</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+          <Button
+            onClick={handleCreateAgent}
+            disabled={!newName.trim()}
+            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0"
+          >
+            Create Agent
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </div>
   )
 }

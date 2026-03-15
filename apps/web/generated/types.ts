@@ -569,6 +569,59 @@ export const EpicStatus = __t.enum("EpicStatus", {
 });
 export type EpicStatus = __Infer<typeof EpicStatus>;
 
+export const FormAnswer = __t.object("FormAnswer", {
+  id: __t.u64(),
+  responseId: __t.u64(),
+  questionId: __t.u64(),
+  value: __t.string(),
+});
+export type FormAnswer = __Infer<typeof FormAnswer>;
+
+export const FormDef = __t.object("FormDef", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  description: __t.string(),
+  get status() {
+    return FormStatus;
+  },
+  anonymous: __t.bool(),
+  creator: __t.identity(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type FormDef = __Infer<typeof FormDef>;
+
+export const FormQuestion = __t.object("FormQuestion", {
+  id: __t.u64(),
+  formId: __t.u64(),
+  get questionType() {
+    return QuestionType;
+  },
+  label: __t.string(),
+  required: __t.bool(),
+  options: __t.string(),
+  maxRating: __t.u32(),
+  sortOrder: __t.u32(),
+});
+export type FormQuestion = __Infer<typeof FormQuestion>;
+
+export const FormResponse = __t.object("FormResponse", {
+  id: __t.u64(),
+  formId: __t.u64(),
+  respondent: __t.identity(),
+  submittedAt: __t.timestamp(),
+});
+export type FormResponse = __Infer<typeof FormResponse>;
+
+// The tagged union or sum type for the algebraic type `FormStatus`.
+export const FormStatus = __t.enum("FormStatus", {
+  Draft: __t.unit(),
+  Active: __t.unit(),
+  Closed: __t.unit(),
+});
+export type FormStatus = __Infer<typeof FormStatus>;
+
 export const Interview = __t.object("Interview", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -968,6 +1021,18 @@ export const PullRequest = __t.object("PullRequest", {
   mergedAt: __t.option(__t.timestamp()),
 });
 export type PullRequest = __Infer<typeof PullRequest>;
+
+// The tagged union or sum type for the algebraic type `QuestionType`.
+export const QuestionType = __t.enum("QuestionType", {
+  Text: __t.unit(),
+  MultipleChoice: __t.unit(),
+  Checkbox: __t.unit(),
+  Rating: __t.unit(),
+  Scale: __t.unit(),
+  Dropdown: __t.unit(),
+  Date: __t.unit(),
+});
+export type QuestionType = __Infer<typeof QuestionType>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),

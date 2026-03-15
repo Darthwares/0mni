@@ -36,6 +36,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import {
   Users,
   Briefcase,
   CalendarCheck,
@@ -47,6 +55,14 @@ import {
   Star,
   Plus,
   Sparkles,
+  Trash2,
+  ChevronRight,
+  X,
+  ArrowRight,
+  FileText,
+  Edit3,
+  UserCheck,
+  XCircle,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -203,6 +219,15 @@ export default function RecruitmentPage() {
   const [allInterviews] = useTable(tables.interview)
 
   const createCandidate = useSpacetimeReducer(reducers.createCandidate)
+  const updateCandidateStatus = useSpacetimeReducer(reducers.updateCandidateStatus)
+  const updateCandidate = useSpacetimeReducer(reducers.updateCandidate)
+  const deleteCandidate = useSpacetimeReducer(reducers.deleteCandidate)
+  const createJobPosting = useSpacetimeReducer(reducers.createJobPosting)
+  const updateJobPostingStatus = useSpacetimeReducer(reducers.updateJobPostingStatus)
+  const deleteJobPosting = useSpacetimeReducer(reducers.deleteJobPosting)
+  const scheduleInterview = useSpacetimeReducer(reducers.scheduleInterview)
+  const completeInterview = useSpacetimeReducer(reducers.completeInterview)
+  const deleteInterview = useSpacetimeReducer(reducers.deleteInterview)
 
   const [candidateSearch, setCandidateSearch] = useState('')
   const [jobSearch, setJobSearch] = useState('')
@@ -212,6 +237,33 @@ export default function RecruitmentPage() {
   const [newCandidateName, setNewCandidateName] = useState('')
   const [newCandidateEmail, setNewCandidateEmail] = useState('')
   const [newCandidateLinkedIn, setNewCandidateLinkedIn] = useState('')
+
+  // Selected candidate detail panel
+  const [selectedCandidateId, setSelectedCandidateId] = useState<bigint | null>(null)
+
+  // Create Job Posting dialog state
+  const [jobDialogOpen, setJobDialogOpen] = useState(false)
+  const [newJobTitle, setNewJobTitle] = useState('')
+  const [newJobDesc, setNewJobDesc] = useState('')
+  const [newJobDept, setNewJobDept] = useState('Engineering')
+  const [newJobLocation, setNewJobLocation] = useState('')
+  const [newJobRequirements, setNewJobRequirements] = useState('')
+  const [newJobNiceToHave, setNewJobNiceToHave] = useState('')
+  const [newJobAiSourcing, setNewJobAiSourcing] = useState(false)
+
+  // Schedule Interview dialog state
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false)
+  const [newInterviewCandidateId, setNewInterviewCandidateId] = useState('')
+  const [newInterviewJobId, setNewInterviewJobId] = useState('')
+  const [newInterviewType, setNewInterviewType] = useState('Screening')
+  const [newInterviewDate, setNewInterviewDate] = useState('')
+  const [newInterviewDuration, setNewInterviewDuration] = useState('60')
+
+  // Complete Interview dialog state
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
+  const [completingInterviewId, setCompletingInterviewId] = useState<bigint | null>(null)
+  const [completeNotes, setCompleteNotes] = useState('')
+  const [completeRec, setCompleteRec] = useState('')
 
   // Sorted candidates
   const candidates = useMemo(
@@ -301,6 +353,106 @@ export default function RecruitmentPage() {
     setNewCandidateName('')
     setNewCandidateEmail('')
     setNewCandidateLinkedIn('')
+  }
+
+  const selectedCandidate = useMemo(() => {
+    if (selectedCandidateId === null) return null
+    return candidates.find((c) => c.id === selectedCandidateId) ?? null
+  }, [candidates, selectedCandidateId])
+
+  const candidateInterviews = useMemo(() => {
+    if (!selectedCandidate) return []
+    return interviews.filter((i) => i.candidateId === selectedCandidate.id)
+  }, [interviews, selectedCandidate])
+
+  const statusPipeline: CandidateStatusTag[] = ['Sourced', 'Contacted', 'Screening', 'Interview', 'Offer', 'Hired']
+
+  function handleAdvanceStatus(candidateId: bigint, nextStatus: string) {
+    try {
+      updateCandidateStatus({ candidateId, newStatus: { tag: nextStatus } as any })
+    } catch (e) { console.error('Failed to update candidate status:', e) }
+  }
+
+  function handleRejectCandidate(candidateId: bigint) {
+    try {
+      updateCandidateStatus({ candidateId, newStatus: { tag: 'Rejected' } as any })
+    } catch (e) { console.error('Failed to reject candidate:', e) }
+  }
+
+  function handleDeleteCandidate(candidateId: bigint) {
+    if (!confirm('Delete this candidate and all their interviews? This cannot be undone.')) return
+    try {
+      deleteCandidate({ candidateId })
+      setSelectedCandidateId(null)
+    } catch (e) { console.error('Failed to delete candidate:', e) }
+  }
+
+  function handleCreateJobPosting() {
+    if (!newJobTitle.trim() || currentOrgId === null) return
+    try {
+      createJobPosting({
+        orgId: BigInt(currentOrgId),
+        title: newJobTitle.trim(),
+        description: newJobDesc.trim(),
+        department: { tag: newJobDept } as any,
+        location: newJobLocation.trim() || undefined,
+        requirements: newJobRequirements.trim() ? newJobRequirements.split('\n').map(s => s.trim()).filter(Boolean) : [],
+        niceToHave: newJobNiceToHave.trim() ? newJobNiceToHave.split('\n').map(s => s.trim()).filter(Boolean) : [],
+        aiSourcingEnabled: newJobAiSourcing,
+        idealCandidateProfile: undefined,
+      })
+    } catch (e) { console.error('Failed to create job posting:', e) }
+    setJobDialogOpen(false)
+    setNewJobTitle(''); setNewJobDesc(''); setNewJobDept('Engineering')
+    setNewJobLocation(''); setNewJobRequirements(''); setNewJobNiceToHave('')
+    setNewJobAiSourcing(false)
+  }
+
+  function handleDeleteJobPosting(jobId: bigint) {
+    if (!confirm('Delete this job posting?')) return
+    try { deleteJobPosting({ jobId }) } catch (e) { console.error('Failed to delete job posting:', e) }
+  }
+
+  function handleChangeJobStatus(jobId: bigint, newStatus: string) {
+    try {
+      updateJobPostingStatus({ jobId, newStatus: { tag: newStatus } as any })
+    } catch (e) { console.error('Failed to update job status:', e) }
+  }
+
+  function handleScheduleInterview() {
+    if (!newInterviewCandidateId || !newInterviewJobId || !newInterviewDate || currentOrgId === null) return
+    try {
+      scheduleInterview({
+        orgId: BigInt(currentOrgId),
+        candidateId: BigInt(newInterviewCandidateId),
+        jobPostingId: BigInt(newInterviewJobId),
+        interviewType: { tag: newInterviewType } as any,
+        scheduledAt: BigInt(new Date(newInterviewDate).getTime() * 1000),
+        durationMinutes: parseInt(newInterviewDuration) || 60,
+        interviewers: [],
+      })
+    } catch (e) { console.error('Failed to schedule interview:', e) }
+    setInterviewDialogOpen(false)
+    setNewInterviewCandidateId(''); setNewInterviewJobId('')
+    setNewInterviewType('Screening'); setNewInterviewDate(''); setNewInterviewDuration('60')
+  }
+
+  function handleCompleteInterview() {
+    if (completingInterviewId === null) return
+    try {
+      completeInterview({
+        interviewId: completingInterviewId,
+        notes: completeNotes.trim() || undefined,
+        recommendation: completeRec ? { tag: completeRec } as any : undefined,
+      })
+    } catch (e) { console.error('Failed to complete interview:', e) }
+    setCompleteDialogOpen(false)
+    setCompletingInterviewId(null); setCompleteNotes(''); setCompleteRec('')
+  }
+
+  function handleDeleteInterview(interviewId: bigint) {
+    if (!confirm('Delete this interview?')) return
+    try { deleteInterview({ interviewId }) } catch (e) { console.error('Failed to delete interview:', e) }
   }
 
   return (
@@ -485,110 +637,216 @@ export default function RecruitmentPage() {
               />
             </div>
 
-            {/* Candidates table */}
-            <Card>
-              <ScrollArea className="rounded-xl">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Current Company</TableHead>
-                      <TableHead>Current Title</TableHead>
-                      <TableHead>Skills</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Exp (yrs)</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCandidates.length === 0 ? (
+            {/* Candidates table + detail panel */}
+            <div className="flex gap-4">
+              <Card className={selectedCandidate ? 'flex-1 min-w-0' : 'w-full'}>
+                <ScrollArea className="rounded-xl">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell
-                          colSpan={8}
-                          className="text-center text-muted-foreground py-10"
-                        >
-                          {candidateSearch
-                            ? 'No candidates match your search.'
-                            : 'No candidates yet.'}
-                        </TableCell>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Skills</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-8" />
                       </TableRow>
-                    ) : (
-                      filteredCandidates.map((candidate) => (
-                        <TableRow key={candidate.id.toString()}>
-                          <TableCell className="font-medium">
-                            {candidate.name}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {candidate.email}
-                          </TableCell>
-                          <TableCell>
-                            {candidate.currentCompany ?? (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {candidate.currentTitle ?? (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1 max-w-[200px]">
-                              {candidate.skills.length === 0 ? (
-                                <span className="text-muted-foreground">—</span>
-                              ) : (
-                                candidate.skills.slice(0, 4).map((skill) => (
-                                  <Badge
-                                    key={skill}
-                                    variant="outline"
-                                    className="text-[10px] h-4 px-1.5"
-                                  >
-                                    {skill}
-                                  </Badge>
-                                ))
-                              )}
-                              {candidate.skills.length > 4 && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] h-4 px-1.5 text-muted-foreground"
-                                >
-                                  +{candidate.skills.length - 4}
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {candidate.overallScore !== undefined &&
-                            candidate.overallScore !== null ? (
-                              <span className="font-medium">
-                                {candidate.overallScore.toFixed(1)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {candidate.experienceYears !== undefined &&
-                            candidate.experienceYears !== null ? (
-                              candidate.experienceYears
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${candidateStatusBadgeClass(candidate.status.tag)}`}
-                            >
-                              {candidate.status.tag}
-                            </span>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCandidates.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                            {candidateSearch ? 'No candidates match your search.' : 'No candidates yet.'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </Card>
+                      ) : (
+                        filteredCandidates.map((candidate) => (
+                          <TableRow
+                            key={candidate.id.toString()}
+                            className={`cursor-pointer transition-colors ${selectedCandidateId === candidate.id ? 'bg-accent' : 'hover:bg-muted/50'}`}
+                            onClick={() => setSelectedCandidateId(selectedCandidateId === candidate.id ? null : candidate.id)}
+                          >
+                            <TableCell className="font-medium">{candidate.name}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{candidate.email}</TableCell>
+                            <TableCell className="text-xs">{candidate.currentCompany ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                            <TableCell className="text-xs">{candidate.currentTitle ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                {candidate.skills.length === 0 ? (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                ) : (
+                                  candidate.skills.slice(0, 3).map((skill) => (
+                                    <Badge key={skill} variant="outline" className="text-[10px] h-4 px-1.5">{skill}</Badge>
+                                  ))
+                                )}
+                                {candidate.skills.length > 3 && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">+{candidate.skills.length - 3}</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {candidate.overallScore != null ? (
+                                <span className="font-medium">{candidate.overallScore.toFixed(1)}</span>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${candidateStatusBadgeClass(candidate.status.tag)}`}>
+                                {candidate.status.tag}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <ChevronRight className={`size-4 text-muted-foreground transition-transform ${selectedCandidateId === candidate.id ? 'rotate-90' : ''}`} />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </Card>
+
+              {/* Candidate detail panel */}
+              {selectedCandidate && (
+                <Card className="w-[380px] shrink-0 flex flex-col">
+                  <div className="flex items-center justify-between p-4 border-b">
+                    <h3 className="font-semibold truncate">{selectedCandidate.name}</h3>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50" onClick={() => handleDeleteCandidate(selectedCandidate.id)}>
+                        <Trash2 className="size-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelectedCandidateId(null)}>
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-5">
+                      {/* Status pipeline */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Pipeline Stage</p>
+                        {selectedCandidate.status.tag === 'Rejected' ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium bg-red-500/10 text-red-600 border-red-500/20">
+                              <XCircle className="size-3 mr-1" /> Rejected
+                            </span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleAdvanceStatus(selectedCandidate.id, 'Sourced')}>
+                              Re-open
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-1">
+                              {statusPipeline.map((stage, i) => {
+                                const currentIdx = statusPipeline.indexOf(selectedCandidate.status.tag as CandidateStatusTag)
+                                const isActive = i <= currentIdx
+                                const isCurrent = i === currentIdx
+                                return (
+                                  <div key={stage} className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleAdvanceStatus(selectedCandidate.id, stage)}
+                                      className={`h-6 px-2 rounded-full text-[10px] font-medium border transition-all ${
+                                        isCurrent
+                                          ? candidateStatusBadgeClass(stage) + ' ring-2 ring-offset-1 ring-current/20'
+                                          : isActive
+                                            ? candidateStatusBadgeClass(stage)
+                                            : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                                      }`}
+                                    >
+                                      {stage === 'Hired' ? <UserCheck className="size-3" /> : stage.slice(0, 3)}
+                                    </button>
+                                    {i < statusPipeline.length - 1 && (
+                                      <ArrowRight className={`size-2.5 ${isActive && i < currentIdx ? 'text-foreground' : 'text-muted-foreground/30'}`} />
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <Button size="sm" variant="outline" className="h-7 text-xs w-fit text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50" onClick={() => handleRejectCandidate(selectedCandidate.id)}>
+                              <XCircle className="size-3 mr-1" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contact info */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Contact</p>
+                        <div className="space-y-1 text-sm">
+                          <p>{selectedCandidate.email}</p>
+                          {selectedCandidate.phone && <p>{selectedCandidate.phone}</p>}
+                          {selectedCandidate.linkedinUrl && (
+                            <a href={selectedCandidate.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">LinkedIn Profile</a>
+                          )}
+                          {selectedCandidate.githubUrl && (
+                            <a href={selectedCandidate.githubUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">GitHub Profile</a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Professional */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Professional</p>
+                        <div className="space-y-1 text-sm">
+                          <p><span className="text-muted-foreground">Company:</span> {selectedCandidate.currentCompany || '—'}</p>
+                          <p><span className="text-muted-foreground">Title:</span> {selectedCandidate.currentTitle || '—'}</p>
+                          <p><span className="text-muted-foreground">Experience:</span> {selectedCandidate.experienceYears != null ? `${selectedCandidate.experienceYears} years` : '—'}</p>
+                          <p><span className="text-muted-foreground">AI Score:</span> {selectedCandidate.overallScore != null ? selectedCandidate.overallScore.toFixed(1) : '—'}</p>
+                        </div>
+                      </div>
+
+                      {/* Skills */}
+                      {selectedCandidate.skills.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Skills</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedCandidate.skills.map((skill) => (
+                              <Badge key={skill} variant="secondary" className="text-xs">{skill}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interviews for this candidate */}
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Interviews ({candidateInterviews.length})</p>
+                        {candidateInterviews.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No interviews scheduled.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {candidateInterviews.map((iv) => {
+                              const job = jobMap.get(iv.jobPostingId)
+                              return (
+                                <div key={iv.id.toString()} className="p-2 rounded-lg border bg-muted/30 text-xs space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${interviewTypeBadgeClass(iv.interviewType.tag)}`}>
+                                      {iv.interviewType.tag}
+                                    </span>
+                                    {iv.completed ? (
+                                      <span className="flex items-center gap-0.5 text-green-600 font-medium"><CheckCircle2 className="size-3" /> Done</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">Pending</span>
+                                    )}
+                                  </div>
+                                  <p className="text-muted-foreground">{job?.title ?? 'Unknown role'}</p>
+                                  <p className="text-muted-foreground">{formatDateTime(iv.scheduledAt)} · {iv.durationMinutes}min</p>
+                                  {iv.recommendation && (
+                                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${recommendationBadgeClass(iv.recommendation.tag)}`}>
+                                      {recommendationLabel(iv.recommendation.tag)}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </Card>
+              )}
+            </div>
           </div>
         </TabsContent>
 
@@ -597,22 +855,67 @@ export default function RecruitmentPage() {
         {/* ================================================================= */}
         <TabsContent value="jobs">
           <div className="flex flex-col gap-6 mt-4">
-            {/* Search */}
-            <div className="relative max-w-sm">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Search job postings..."
-                value={jobSearch}
-                onChange={(e) => setJobSearch(e.target.value)}
-                className="pl-9"
-              />
+            {/* Search + Create */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative max-w-sm flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input placeholder="Search job postings..." value={jobSearch} onChange={(e) => setJobSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Dialog open={jobDialogOpen} onOpenChange={setJobDialogOpen}>
+                <DialogTrigger render={<Button />}>
+                  <Plus className="size-4" /> New Job Posting
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>Create Job Posting</DialogTitle></DialogHeader>
+                  <div className="flex flex-col gap-3 py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Title *</Label>
+                      <Input placeholder="Senior Software Engineer" value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Description</Label>
+                      <Textarea placeholder="Role description..." value={newJobDesc} onChange={(e) => setNewJobDesc(e.target.value)} rows={3} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Department</Label>
+                        <Select value={newJobDept} onValueChange={setNewJobDept}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Engineering', 'Sales', 'Marketing', 'Support', 'Operations', 'Finance', 'Recruitment'].map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Location</Label>
+                        <Input placeholder="Remote / City" value={newJobLocation} onChange={(e) => setNewJobLocation(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Requirements (one per line)</Label>
+                      <Textarea placeholder="5+ years experience&#10;TypeScript proficiency&#10;..." value={newJobRequirements} onChange={(e) => setNewJobRequirements(e.target.value)} rows={3} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Nice to Have (one per line)</Label>
+                      <Textarea placeholder="Rust experience&#10;Open source contributions" value={newJobNiceToHave} onChange={(e) => setNewJobNiceToHave(e.target.value)} rows={2} />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={newJobAiSourcing} onChange={(e) => setNewJobAiSourcing(e.target.checked)} className="rounded" />
+                      Enable AI Sourcing
+                    </label>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleCreateJobPosting} disabled={!newJobTitle.trim()}>Create Job Posting</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {filteredJobs.length === 0 ? (
               <p className="text-sm text-muted-foreground py-10 text-center">
-                {jobSearch
-                  ? 'No job postings match your search.'
-                  : 'No job postings yet.'}
+                {jobSearch ? 'No job postings match your search.' : 'No job postings yet. Create one above.'}
               </p>
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -620,64 +923,51 @@ export default function RecruitmentPage() {
                   <Card key={job.id.toString()}>
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base leading-snug">
-                          {job.title}
-                        </CardTitle>
-                        <span
-                          className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${jobStatusBadgeClass(job.status.tag)}`}
-                        >
-                          {job.status.tag === 'OnHold'
-                            ? 'On Hold'
-                            : job.status.tag}
+                        <CardTitle className="text-base leading-snug">{job.title}</CardTitle>
+                        <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${jobStatusBadgeClass(job.status.tag)}`}>
+                          {job.status.tag === 'OnHold' ? 'On Hold' : job.status.tag}
                         </span>
                       </div>
-
                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {departmentLabel(job.department.tag)}
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">{departmentLabel(job.department.tag)}</Badge>
                         {job.location && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="size-3" />
-                            {job.location}
-                          </span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{job.location}</span>
                         )}
                       </div>
                     </CardHeader>
-
                     <CardContent className="flex flex-col gap-3">
-                      {/* Requirements */}
                       {job.requirements.length > 0 && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                            Requirements
-                          </p>
+                          <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Requirements</p>
                           <ul className="space-y-0.5">
                             {job.requirements.slice(0, 4).map((req, i) => (
-                              <li
-                                key={i}
-                                className="text-xs text-muted-foreground flex items-start gap-1.5"
-                              >
-                                <span className="mt-1 shrink-0 w-1 h-1 rounded-full bg-muted-foreground/60" />
-                                {req}
+                              <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                <span className="mt-1 shrink-0 w-1 h-1 rounded-full bg-muted-foreground/60" />{req}
                               </li>
                             ))}
-                            {job.requirements.length > 4 && (
-                              <li className="text-xs text-muted-foreground pl-2.5">
-                                +{job.requirements.length - 4} more
-                              </li>
-                            )}
+                            {job.requirements.length > 4 && <li className="text-xs text-muted-foreground pl-2.5">+{job.requirements.length - 4} more</li>}
                           </ul>
                         </div>
                       )}
-
-                      {/* AI Sourcing */}
                       {job.aiSourcingEnabled && (
                         <div className="flex items-center gap-1.5 text-xs text-violet-600">
-                          <Bot className="size-3.5" />
-                          <span className="font-medium">AI Sourcing Enabled</span>
+                          <Bot className="size-3.5" /><span className="font-medium">AI Sourcing Enabled</span>
                         </div>
                       )}
+                      {/* Action row */}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <Select value={job.status.tag} onValueChange={(v) => handleChangeJobStatus(job.id, v)}>
+                          <SelectTrigger className="h-7 text-xs w-[100px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Draft', 'Open', 'OnHold', 'Filled', 'Closed'].map((s) => (
+                              <SelectItem key={s} value={s}>{s === 'OnHold' ? 'On Hold' : s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" variant="outline" className="h-7 text-xs ml-auto text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50" onClick={() => handleDeleteJobPosting(job.id)}>
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -691,6 +981,93 @@ export default function RecruitmentPage() {
         {/* ================================================================= */}
         <TabsContent value="interviews">
           <div className="flex flex-col gap-4 mt-4">
+            {/* Schedule Interview button + Complete Interview dialog */}
+            <div className="flex items-center justify-end gap-2">
+              <Dialog open={interviewDialogOpen} onOpenChange={setInterviewDialogOpen}>
+                <DialogTrigger render={<Button />}>
+                  <Plus className="size-4" /> Schedule Interview
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Schedule Interview</DialogTitle></DialogHeader>
+                  <div className="flex flex-col gap-3 py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Candidate *</Label>
+                      <Select value={newInterviewCandidateId} onValueChange={setNewInterviewCandidateId}>
+                        <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
+                        <SelectContent>
+                          {candidates.filter(c => c.status.tag !== 'Hired' && c.status.tag !== 'Rejected').map((c) => (
+                            <SelectItem key={c.id.toString()} value={c.id.toString()}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Job Posting *</Label>
+                      <Select value={newInterviewJobId} onValueChange={setNewInterviewJobId}>
+                        <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
+                        <SelectContent>
+                          {jobPostings.filter(j => j.status.tag === 'Open').map((j) => (
+                            <SelectItem key={j.id.toString()} value={j.id.toString()}>{j.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Type</Label>
+                        <Select value={newInterviewType} onValueChange={setNewInterviewType}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Screening', 'Technical', 'Behavioral', 'Final'].map((t) => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Duration (min)</Label>
+                        <Input type="number" value={newInterviewDuration} onChange={(e) => setNewInterviewDuration(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Scheduled Date & Time *</Label>
+                      <Input type="datetime-local" value={newInterviewDate} onChange={(e) => setNewInterviewDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleScheduleInterview} disabled={!newInterviewCandidateId || !newInterviewJobId || !newInterviewDate}>Schedule</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Complete Interview dialog */}
+            <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Complete Interview</DialogTitle></DialogHeader>
+                <div className="flex flex-col gap-3 py-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Notes</Label>
+                    <Textarea placeholder="Interview notes, observations..." value={completeNotes} onChange={(e) => setCompleteNotes(e.target.value)} rows={4} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Recommendation</Label>
+                    <Select value={completeRec} onValueChange={setCompleteRec}>
+                      <SelectTrigger><SelectValue placeholder="Select recommendation..." /></SelectTrigger>
+                      <SelectContent>
+                        {['StrongYes', 'Yes', 'Maybe', 'No', 'StrongNo'].map((r) => (
+                          <SelectItem key={r} value={r}>{recommendationLabel(r)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCompleteInterview}>Mark Complete</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Card>
               <ScrollArea className="rounded-xl">
                 <Table>
@@ -701,46 +1078,28 @@ export default function RecruitmentPage() {
                       <TableHead>Type</TableHead>
                       <TableHead>Scheduled At</TableHead>
                       <TableHead>Duration</TableHead>
-                      <TableHead>Completed</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Recommendation</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {interviews.length === 0 ? (
                       <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-center text-muted-foreground py-10"
-                        >
-                          No interviews scheduled yet.
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                          No interviews scheduled yet. Create one above.
                         </TableCell>
                       </TableRow>
                     ) : (
                       interviews.map((interview) => {
-                        const candidate = candidateMap.get(
-                          interview.candidateId
-                        )
+                        const candidate = candidateMap.get(interview.candidateId)
                         const job = jobMap.get(interview.jobPostingId)
                         return (
                           <TableRow key={interview.id.toString()}>
-                            <TableCell className="font-medium">
-                              {candidate?.name ?? (
-                                <span className="text-muted-foreground">
-                                  Unknown
-                                </span>
-                              )}
-                            </TableCell>
+                            <TableCell className="font-medium">{candidate?.name ?? <span className="text-muted-foreground">Unknown</span>}</TableCell>
+                            <TableCell>{job?.title ?? <span className="text-muted-foreground">Unknown</span>}</TableCell>
                             <TableCell>
-                              {job?.title ?? (
-                                <span className="text-muted-foreground">
-                                  Unknown
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${interviewTypeBadgeClass(interview.interviewType.tag)}`}
-                              >
+                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${interviewTypeBadgeClass(interview.interviewType.tag)}`}>
                                 {interview.interviewType.tag}
                               </span>
                             </TableCell>
@@ -756,27 +1115,37 @@ export default function RecruitmentPage() {
                             <TableCell>
                               {interview.completed ? (
                                 <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                                  <CheckCircle2 className="size-3.5" />
-                                  Done
+                                  <CheckCircle2 className="size-3.5" /> Done
                                 </span>
                               ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  Pending
-                                </span>
+                                <span className="text-xs text-muted-foreground">Pending</span>
                               )}
                             </TableCell>
                             <TableCell>
                               {interview.recommendation ? (
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${recommendationBadgeClass(interview.recommendation.tag)}`}
-                                >
-                                  {recommendationLabel(
-                                    interview.recommendation.tag
-                                  )}
+                                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${recommendationBadgeClass(interview.recommendation.tag)}`}>
+                                  {recommendationLabel(interview.recommendation.tag)}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {!interview.completed && (
+                                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => {
+                                    setCompletingInterviewId(interview.id)
+                                    setCompleteNotes(interview.notes ?? '')
+                                    setCompleteRec(interview.recommendation?.tag ?? '')
+                                    setCompleteDialogOpen(true)
+                                  }}>
+                                    <CheckCircle2 className="size-3" /> Complete
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50" onClick={() => handleDeleteInterview(interview.id)}>
+                                  <Trash2 className="size-3" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )

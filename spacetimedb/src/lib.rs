@@ -6405,3 +6405,128 @@ pub fn delete_whiteboard_board(
     ctx.db.whiteboard_board().id().delete(&board_id);
     Ok(())
 }
+
+// ─── Agent Studio ─────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum AgentStatus {
+    Active,
+    Paused,
+    Draft,
+}
+
+#[spacetimedb::table(accessor = agent_config, public)]
+pub struct AgentConfig {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub description: String,
+    pub department: String,
+    pub model: String,
+    pub system_prompt: String,
+    pub capabilities: String,       // comma-separated
+    pub threshold: u32,             // 0-100
+    pub status: AgentStatus,
+    pub runs_total: u64,
+    pub runs_success: u64,
+    pub gradient_color: String,
+    pub creator: Identity,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_agent_config(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    description: String,
+    department: String,
+    model: String,
+    system_prompt: String,
+    capabilities: String,
+    threshold: u32,
+    gradient_color: String,
+) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Name is required".to_string());
+    }
+    ctx.db.agent_config().insert(AgentConfig {
+        id: 0,
+        org_id,
+        name,
+        description,
+        department,
+        model,
+        system_prompt,
+        capabilities,
+        threshold,
+        status: AgentStatus::Active,
+        runs_total: 0,
+        runs_success: 0,
+        gradient_color,
+        creator: ctx.sender(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_agent_config(
+    ctx: &ReducerContext,
+    agent_id: u64,
+    name: String,
+    description: String,
+    department: String,
+    model: String,
+    system_prompt: String,
+    capabilities: String,
+    threshold: u32,
+) -> Result<(), String> {
+    let existing = ctx.db.agent_config().id().find(agent_id)
+        .ok_or("Agent not found")?;
+    ctx.db.agent_config().id().update(AgentConfig {
+        name,
+        description,
+        department,
+        model,
+        system_prompt,
+        capabilities,
+        threshold,
+        updated_at: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_agent_status(
+    ctx: &ReducerContext,
+    agent_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.agent_config().id().find(agent_id)
+        .ok_or("Agent not found")?;
+    let status = match existing.status {
+        AgentStatus::Active => AgentStatus::Paused,
+        AgentStatus::Paused => AgentStatus::Active,
+        AgentStatus::Draft => AgentStatus::Active,
+    };
+    ctx.db.agent_config().id().update(AgentConfig {
+        status,
+        updated_at: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_agent_config(
+    ctx: &ReducerContext,
+    agent_id: u64,
+) -> Result<(), String> {
+    ctx.db.agent_config().id().delete(&agent_id);
+    Ok(())
+}

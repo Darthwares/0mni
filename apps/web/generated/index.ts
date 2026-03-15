@@ -46,6 +46,7 @@ import CancelRequestReducer from "./cancel_request_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
+import CreateAgentConfigReducer from "./create_agent_config_reducer";
 import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
 import CreateApprovalRequestReducer from "./create_approval_request_reducer";
 import CreateCalEventReducer from "./create_cal_event_reducer";
@@ -72,6 +73,7 @@ import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import CreateWhiteboardBoardReducer from "./create_whiteboard_board_reducer";
 import CreateWorkflowReducer from "./create_workflow_reducer";
+import DeleteAgentConfigReducer from "./delete_agent_config_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
@@ -143,6 +145,7 @@ import StopTimeEntryReducer from "./stop_time_entry_reducer";
 import SubmitFormResponseReducer from "./submit_form_response_reducer";
 import SubmitStandupReducer from "./submit_standup_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
+import ToggleAgentStatusReducer from "./toggle_agent_status_reducer";
 import ToggleContactStarReducer from "./toggle_contact_star_reducer";
 import ToggleDriveSharedReducer from "./toggle_drive_shared_reducer";
 import ToggleDriveStarReducer from "./toggle_drive_star_reducer";
@@ -153,6 +156,7 @@ import UnfavoriteDocumentReducer from "./unfavorite_document_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
+import UpdateAgentConfigReducer from "./update_agent_config_reducer";
 import UpdateCalEventReducer from "./update_cal_event_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
@@ -182,6 +186,7 @@ import WatchTaskReducer from "./watch_task_reducer";
 
 // Import all table schema definitions
 import ActivityLogRow from "./activity_log_table";
+import AgentConfigRow from "./agent_config_table";
 import AgentThoughtEventRow from "./agent_thought_event_table";
 import AiAgentDeploymentRow from "./ai_agent_deployment_table";
 import ApprovalCommentRow from "./approval_comment_table";
@@ -258,6 +263,17 @@ const tablesSchema = __schema({
       { name: 'activity_log_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ActivityLogRow),
+  agent_config: __table({
+    name: 'agent_config',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_config_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AgentConfigRow),
   agent_thought_event: __table({
     name: 'agent_thought_event',
     indexes: [
@@ -925,6 +941,7 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
+  __reducerSchema("create_agent_config", CreateAgentConfigReducer),
   __reducerSchema("create_agent_deployment", CreateAgentDeploymentReducer),
   __reducerSchema("create_approval_request", CreateApprovalRequestReducer),
   __reducerSchema("create_cal_event", CreateCalEventReducer),
@@ -951,6 +968,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("create_whiteboard_board", CreateWhiteboardBoardReducer),
   __reducerSchema("create_workflow", CreateWorkflowReducer),
+  __reducerSchema("delete_agent_config", DeleteAgentConfigReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
@@ -1022,6 +1040,7 @@ const reducersSchema = __reducers(
   __reducerSchema("submit_form_response", SubmitFormResponseReducer),
   __reducerSchema("submit_standup", SubmitStandupReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
+  __reducerSchema("toggle_agent_status", ToggleAgentStatusReducer),
   __reducerSchema("toggle_contact_star", ToggleContactStarReducer),
   __reducerSchema("toggle_drive_shared", ToggleDriveSharedReducer),
   __reducerSchema("toggle_drive_star", ToggleDriveStarReducer),
@@ -1032,6 +1051,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unpin_message", UnpinMessageReducer),
   __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
+  __reducerSchema("update_agent_config", UpdateAgentConfigReducer),
   __reducerSchema("update_cal_event", UpdateCalEventReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),

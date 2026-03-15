@@ -46,6 +46,28 @@ export const ActivityLog = __t.object("ActivityLog", {
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 
+export const AgentConfig = __t.object("AgentConfig", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  description: __t.string(),
+  department: __t.string(),
+  model: __t.string(),
+  systemPrompt: __t.string(),
+  capabilities: __t.string(),
+  threshold: __t.u32(),
+  get status() {
+    return AgentStatus;
+  },
+  runsTotal: __t.u64(),
+  runsSuccess: __t.u64(),
+  gradientColor: __t.string(),
+  creator: __t.identity(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type AgentConfig = __Infer<typeof AgentConfig>;
+
 // The tagged union or sum type for the algebraic type `AgentDeploymentStatus`.
 export const AgentDeploymentStatus = __t.enum("AgentDeploymentStatus", {
   Draft: __t.unit(),
@@ -55,6 +77,14 @@ export const AgentDeploymentStatus = __t.enum("AgentDeploymentStatus", {
   Failed: __t.unit(),
 });
 export type AgentDeploymentStatus = __Infer<typeof AgentDeploymentStatus>;
+
+// The tagged union or sum type for the algebraic type `AgentStatus`.
+export const AgentStatus = __t.enum("AgentStatus", {
+  Active: __t.unit(),
+  Paused: __t.unit(),
+  Draft: __t.unit(),
+});
+export type AgentStatus = __Infer<typeof AgentStatus>;
 
 export const AgentThoughtEvent = __t.object("AgentThoughtEvent", {
   taskId: __t.u64(),

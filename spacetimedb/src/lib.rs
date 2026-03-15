@@ -6053,3 +6053,134 @@ pub fn delete_contact(
     ctx.db.contact().id().delete(&contact_id);
     Ok(())
 }
+
+// ── Workflows ────────────────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum WorkflowStatus {
+    Active,
+    Paused,
+    Draft,
+    Error,
+}
+
+#[spacetimedb::table(accessor = workflow, public)]
+#[derive(Clone)]
+pub struct Workflow {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub description: String,
+    pub status: WorkflowStatus,
+    pub nodes_json: String,
+    pub connections_json: String,
+    pub runs_total: u64,
+    pub runs_success: u64,
+    pub last_run: Timestamp,
+    pub created_at: Timestamp,
+    pub creator: Identity,
+}
+
+#[spacetimedb::reducer]
+pub fn create_workflow(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    description: String,
+    nodes_json: String,
+    connections_json: String,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Name is required".to_string());
+    }
+    ctx.db.workflow().insert(Workflow {
+        id: 0,
+        org_id,
+        name,
+        description,
+        status: WorkflowStatus::Draft,
+        nodes_json,
+        connections_json,
+        runs_total: 0,
+        runs_success: 0,
+        last_run: Timestamp::UNIX_EPOCH,
+        created_at: ctx.timestamp,
+        creator: ctx.sender(),
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_workflow(
+    ctx: &ReducerContext,
+    workflow_id: u64,
+    name: String,
+    description: String,
+    nodes_json: String,
+    connections_json: String,
+) -> Result<(), String> {
+    let existing = ctx.db.workflow().id().find(workflow_id)
+        .ok_or("Workflow not found")?;
+    ctx.db.workflow().id().update(Workflow {
+        name,
+        description,
+        nodes_json,
+        connections_json,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_workflow_status(
+    ctx: &ReducerContext,
+    workflow_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let existing = ctx.db.workflow().id().find(workflow_id)
+        .ok_or("Workflow not found")?;
+    let status = match status_tag.as_str() {
+        "Active" => WorkflowStatus::Active,
+        "Paused" => WorkflowStatus::Paused,
+        "Draft" => WorkflowStatus::Draft,
+        "Error" => WorkflowStatus::Error,
+        _ => return Err("Invalid status".to_string()),
+    };
+    ctx.db.workflow().id().update(Workflow {
+        status,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_workflow(
+    ctx: &ReducerContext,
+    workflow_id: u64,
+) -> Result<(), String> {
+    ctx.db.workflow().id().delete(&workflow_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn duplicate_workflow(
+    ctx: &ReducerContext,
+    workflow_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.workflow().id().find(workflow_id)
+        .ok_or("Workflow not found")?;
+    ctx.db.workflow().insert(Workflow {
+        id: 0,
+        name: format!("{} (Copy)", existing.name),
+        status: WorkflowStatus::Draft,
+        runs_total: 0,
+        runs_success: 0,
+        last_run: Timestamp::UNIX_EPOCH,
+        created_at: ctx.timestamp,
+        creator: ctx.sender(),
+        ..existing
+    });
+    Ok(())
+}

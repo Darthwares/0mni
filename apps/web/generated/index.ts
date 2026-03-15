@@ -37,6 +37,7 @@ import {
 import AcceptCallReducer from "./accept_call_reducer";
 import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddContactInteractionReducer from "./add_contact_interaction_reducer";
+import AddEventAttendeeReducer from "./add_event_attendee_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
@@ -152,6 +153,7 @@ import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RejectRequestReducer from "./reject_request_reducer";
+import RemoveEventAttendeeReducer from "./remove_event_attendee_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveInvoiceLineItemReducer from "./remove_invoice_line_item_reducer";
 import RemoveLabelFromTaskReducer from "./remove_label_from_task_reducer";
@@ -160,6 +162,7 @@ import RemoveTaskParentReducer from "./remove_task_parent_reducer";
 import RenameDriveItemReducer from "./rename_drive_item_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import ResolveBlockerReducer from "./resolve_blocker_reducer";
+import RespondToEventReducer from "./respond_to_event_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
 import SaveDocumentVersionReducer from "./save_document_version_reducer";
@@ -252,6 +255,7 @@ import AudioFrameEventRow from "./audio_frame_event_table";
 import BlockerResolutionRow from "./blocker_resolution_table";
 import BugRow from "./bug_table";
 import CalEventRow from "./cal_event_table";
+import CalEventAttendeeRow from "./cal_event_attendee_table";
 import CallSessionRow from "./call_session_table";
 import CandidateRow from "./candidate_table";
 import CannedResponseRow from "./canned_response_table";
@@ -423,6 +427,17 @@ const tablesSchema = __schema({
       { name: 'cal_event_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CalEventRow),
+  cal_event_attendee: __table({
+    name: 'cal_event_attendee',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'cal_event_attendee_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CalEventAttendeeRow),
   call_session: __table({
     name: 'call_session',
     indexes: [
@@ -1109,6 +1124,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
   __reducerSchema("add_contact_interaction", AddContactInteractionReducer),
+  __reducerSchema("add_event_attendee", AddEventAttendeeReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
@@ -1224,6 +1240,7 @@ const reducersSchema = __reducers(
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("reject_request", RejectRequestReducer),
+  __reducerSchema("remove_event_attendee", RemoveEventAttendeeReducer),
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_invoice_line_item", RemoveInvoiceLineItemReducer),
   __reducerSchema("remove_label_from_task", RemoveLabelFromTaskReducer),
@@ -1232,6 +1249,7 @@ const reducersSchema = __reducers(
   __reducerSchema("rename_drive_item", RenameDriveItemReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("resolve_blocker", ResolveBlockerReducer),
+  __reducerSchema("respond_to_event", RespondToEventReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
   __reducerSchema("save_document_version", SaveDocumentVersionReducer),

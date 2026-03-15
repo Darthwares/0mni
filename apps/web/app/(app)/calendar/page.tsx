@@ -38,6 +38,10 @@ import {
   Video,
   Trash2,
   Edit3,
+  UserPlus,
+  Check,
+  X,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -138,9 +142,14 @@ export default function CalendarPage() {
 
   // SpacetimeDB data
   const allCalEvents = useTable(tables.calEvent) ?? []
+  const allAttendees = useTable(tables.calEventAttendee) ?? []
+  const allEmployees = useTable(tables.employee) ?? []
   const createCalEvent = useReducer(reducers.createCalEvent)
   const updateCalEvent = useReducer(reducers.updateCalEvent)
   const deleteCalEvent = useReducer(reducers.deleteCalEvent)
+  const addEventAttendee = useReducer(reducers.addEventAttendee)
+  const respondToEvent = useReducer(reducers.respondToEvent)
+  const removeEventAttendee = useReducer(reducers.removeEventAttendee)
 
   // Org-scoped events with Date conversions
   const events = useMemo(() => {
@@ -187,6 +196,27 @@ export default function CalendarPage() {
   const [editAllDay, setEditAllDay] = useState(false)
   const [editLocation, setEditLocation] = useState('')
   const [editIsVirtual, setEditIsVirtual] = useState(false)
+
+  // Attendee invite state
+  const [attendeeSearch, setAttendeeSearch] = useState('')
+
+  // Helper: get attendees for an event
+  const getEventAttendees = useCallback((eventId: bigint) => {
+    return allAttendees.filter(a => a.eventId === eventId)
+  }, [allAttendees])
+
+  // Helper: get employee name by identity hex
+  const getEmployeeName = useCallback((identityHex: string) => {
+    const emp = allEmployees.find(e => e.id.toHexString() === identityHex)
+    return emp?.name ?? identityHex.slice(0, 8) + '...'
+  }, [allEmployees])
+
+  // Helper: get employee initials
+  const getInitials = useCallback((name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }, [])
+
+  const myHex = identity?.toHexString() ?? ''
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -831,6 +861,133 @@ export default function CalendarPage() {
                     <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>
                   </>
                 )}
+
+                {/* Attendees Section */}
+                <Separator />
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <Users className="size-4 text-muted-foreground" />
+                      Attendees
+                      {(() => {
+                        const eventAtts = getEventAttendees(selectedEvent.id)
+                        return eventAtts.length > 0 ? (
+                          <span className="text-xs text-muted-foreground ml-1">({eventAtts.length})</span>
+                        ) : null
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Attendee list */}
+                  {(() => {
+                    const eventAtts = getEventAttendees(selectedEvent.id)
+                    const myRsvp = eventAtts.find(a => a.identity.toHexString() === myHex)
+                    return (
+                      <>
+                        {eventAtts.length > 0 ? (
+                          <div className="space-y-1.5 mb-3">
+                            {eventAtts.map(att => {
+                              const name = getEmployeeName(att.identity.toHexString())
+                              const rsvpTag = att.rsvpStatus?.tag ?? 'Pending'
+                              const rsvpConfig: Record<string, { icon: typeof Check; color: string }> = {
+                                Accepted: { icon: Check, color: 'text-green-600 dark:text-green-400' },
+                                Declined: { icon: X, color: 'text-red-600 dark:text-red-400' },
+                                Maybe: { icon: HelpCircle, color: 'text-amber-600 dark:text-amber-400' },
+                                Pending: { icon: Clock, color: 'text-muted-foreground' },
+                              }
+                              const rCfg = rsvpConfig[rsvpTag] ?? rsvpConfig.Pending
+                              const RsvpIcon = rCfg.icon
+                              return (
+                                <div key={att.id.toString()} className="flex items-center gap-2 group">
+                                  <div className="flex items-center justify-center size-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[10px] font-bold shrink-0">
+                                    {getInitials(name)}
+                                  </div>
+                                  <span className="text-sm flex-1 truncate">{name}</span>
+                                  <span className={`flex items-center gap-1 text-xs ${rCfg.color}`}>
+                                    <RsvpIcon className="size-3" />
+                                    {rsvpTag}
+                                  </span>
+                                  <button
+                                    onClick={() => removeEventAttendee({ attendeeId: att.id })}
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
+                                  >
+                                    <X className="size-3" />
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mb-3">No attendees yet</p>
+                        )}
+
+                        {/* RSVP buttons (if I'm an attendee) */}
+                        {myRsvp && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs text-muted-foreground mr-1">Your RSVP:</span>
+                            {(['Accepted', 'Maybe', 'Declined'] as const).map(status => {
+                              const isActive = (myRsvp.rsvpStatus?.tag ?? 'Pending') === status
+                              const colors: Record<string, string> = {
+                                Accepted: isActive ? 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/30' : 'hover:bg-green-500/10',
+                                Maybe: isActive ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'hover:bg-amber-500/10',
+                                Declined: isActive ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30' : 'hover:bg-red-500/10',
+                              }
+                              return (
+                                <button
+                                  key={status}
+                                  onClick={() => respondToEvent({ eventId: selectedEvent.id, rsvpTag: status })}
+                                  className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${colors[status]}`}
+                                >
+                                  {status}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Invite attendee */}
+                        <div className="relative">
+                          <Input
+                            placeholder="Search to invite..."
+                            value={attendeeSearch}
+                            onChange={e => setAttendeeSearch(e.target.value)}
+                            className="h-8 text-sm pr-8"
+                          />
+                          <UserPlus className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                        </div>
+                        {attendeeSearch.trim() && (() => {
+                          const q = attendeeSearch.toLowerCase()
+                          const existingHexes = new Set(eventAtts.map(a => a.identity.toHexString()))
+                          const matches = allEmployees
+                            .filter(e => (e.name.toLowerCase().includes(q) || (e.email?.toLowerCase().includes(q) ?? false)) && !existingHexes.has(e.id.toHexString()))
+                            .slice(0, 5)
+                          return matches.length > 0 ? (
+                            <div className="border rounded-md mt-1 divide-y max-h-40 overflow-y-auto">
+                              {matches.map(emp => (
+                                <button
+                                  key={emp.id.toHexString()}
+                                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-sm hover:bg-accent transition-colors"
+                                  onClick={() => {
+                                    addEventAttendee({ eventId: selectedEvent.id, attendeeIdentity: emp.id.toHexString() })
+                                    setAttendeeSearch('')
+                                  }}
+                                >
+                                  <div className="flex items-center justify-center size-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[9px] font-bold shrink-0">
+                                    {getInitials(emp.name)}
+                                  </div>
+                                  <span className="truncate">{emp.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-auto">{emp.role}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-1">No matching team members</p>
+                          )
+                        })()}
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedEvent)}>

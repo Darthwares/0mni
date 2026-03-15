@@ -1,8 +1,9 @@
 'use client'
 
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { tables, reducers } from '@/generated'
+import { useOrg } from '@/components/org-context'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,22 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Hash,
   Lock,
@@ -41,6 +58,8 @@ import {
   Sparkles,
   Wrench,
   ListChecks,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -440,20 +459,87 @@ function DocumentsTab() {
 // ---- Meetings Tab ----
 
 function MeetingsTab() {
+  const { currentOrgId } = useOrg()
   const [allMeetings] = useTable(tables.meeting)
+  const createMeeting = useSpacetimeReducer(reducers.createMeeting)
+  const updateMeetingStatus = useSpacetimeReducer(reducers.updateMeetingStatus)
+  const deleteMeeting = useSpacetimeReducer(reducers.deleteMeeting)
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [mtgTitle, setMtgTitle] = useState('')
+  const [mtgType, setMtgType] = useState('TeamSync')
+  const [mtgDate, setMtgDate] = useState('')
+  const [mtgDuration, setMtgDuration] = useState('30')
 
   const meetings = useMemo(
     () => [...allMeetings].sort((a, b) => Number(a.scheduledAt.toMillis()) - Number(b.scheduledAt.toMillis())),
     [allMeetings]
   )
 
+  const handleCreate = useCallback(() => {
+    if (!mtgTitle.trim() || !mtgDate || currentOrgId === null) return
+    try {
+      createMeeting({
+        orgId: BigInt(currentOrgId),
+        title: mtgTitle.trim(),
+        meetingType: { tag: mtgType } as any,
+        scheduledAt: BigInt(new Date(mtgDate).getTime() * 1000),
+        durationMinutes: parseInt(mtgDuration) || 30,
+        participants: [],
+      })
+    } catch (e) { console.error('Failed to create meeting:', e) }
+    setDialogOpen(false)
+    setMtgTitle(''); setMtgType('TeamSync'); setMtgDate(''); setMtgDuration('30')
+  }, [mtgTitle, mtgType, mtgDate, mtgDuration, currentOrgId, createMeeting])
+
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
+      <div className="flex justify-end">
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger render={<Button size="sm" />}>
+            <Plus className="size-4" /> Schedule Meeting
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Schedule Meeting</DialogTitle></DialogHeader>
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label>Title *</Label>
+                <Input placeholder="Weekly standup" value={mtgTitle} onChange={(e) => setMtgTitle(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Type</Label>
+                  <Select value={mtgType} onValueChange={setMtgType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(MEETING_TYPE_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Duration (min)</Label>
+                  <Input type="number" value={mtgDuration} onChange={(e) => setMtgDuration(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Date & Time *</Label>
+                <Input type="datetime-local" value={mtgDate} onChange={(e) => setMtgDate(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreate} disabled={!mtgTitle.trim() || !mtgDate}>Schedule</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       {meetings.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
           <Calendar className="size-12 mb-4 opacity-20" />
           <p className="text-base font-medium">No meetings scheduled</p>
-          <p className="text-sm mt-1">Meetings will appear here when they are created</p>
+          <p className="text-sm mt-1">Click &ldquo;Schedule Meeting&rdquo; to get started</p>
         </div>
       ) : (
         <div className="rounded-xl border bg-card overflow-hidden">
@@ -467,7 +553,7 @@ function MeetingsTab() {
                 <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Participants</TableHead>
                 <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Status</TableHead>
                 <TableHead className="text-[11px] uppercase tracking-wider font-semibold">AI Summary</TableHead>
-                <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold">Actions</TableHead>
+                <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -478,52 +564,32 @@ function MeetingsTab() {
                   : null
 
                 return (
-                  <TableRow key={meeting.id.toString()}>
-                    {/* Title */}
+                  <TableRow key={meeting.id.toString()} className="group">
                     <TableCell className="font-medium max-w-[200px]">
                       <span className="truncate block">{meeting.title}</span>
                       {meeting.aiNotetaker && (
                         <span className="flex items-center gap-1 text-xs text-violet-600 mt-0.5">
-                          <Bot className="size-3" />
-                          AI Notetaker
+                          <Bot className="size-3" /> AI Notetaker
                         </span>
                       )}
                     </TableCell>
-
-                    {/* Type */}
                     <TableCell>
-                      <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        {typeLabel}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs whitespace-nowrap">{typeLabel}</Badge>
                     </TableCell>
-
-                    {/* Scheduled */}
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatDateTime(meeting.scheduledAt)}
                     </TableCell>
-
-                    {/* Duration */}
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      <span className="flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {meeting.durationMinutes}m
-                      </span>
+                      <span className="flex items-center gap-1"><Clock className="size-3" />{meeting.durationMinutes}m</span>
                     </TableCell>
-
-                    {/* Participants */}
                     <TableCell>
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="size-3" />
-                        {meeting.participants.length}
+                        <Users className="size-3" />{meeting.participants.length}
                       </span>
                     </TableCell>
-
-                    {/* Status */}
                     <TableCell>
                       <MeetingStatusBadge tag={meeting.status.tag} />
                     </TableCell>
-
-                    {/* AI Summary */}
                     <TableCell className="max-w-[220px]">
                       {summaryPreview ? (
                         <span className="flex items-start gap-1 text-xs text-muted-foreground">
@@ -534,20 +600,20 @@ function MeetingsTab() {
                         <span className="text-xs text-muted-foreground/50">—</span>
                       )}
                     </TableCell>
-
-                    {/* Action Items */}
-                    <TableCell>
-                      {meeting.actionItems.length > 0 ? (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <ListChecks className="size-3" />
-                          {meeting.actionItems.length}
-                          <span className="text-muted-foreground/60">
-                            ({meeting.actionItems.filter(i => i.completed).length} done)
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/50">—</span>
-                      )}
+                    <TableCell className="pr-4">
+                      <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Select value={meeting.status.tag} onValueChange={(v) => { try { updateMeetingStatus({ meetingId: meeting.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                          <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Scheduled', 'InProgress', 'Completed', 'Cancelled'].map((s) => (
+                              <SelectItem key={s} value={s}>{s === 'InProgress' ? 'In Progress' : s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => { if (confirm('Delete this meeting?')) try { deleteMeeting({ meetingId: meeting.id }) } catch (e) { console.error(e) } }}>
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

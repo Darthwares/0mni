@@ -20,6 +20,7 @@ import {
   Settings,
   KanbanSquare,
   PenTool,
+  Users2,
   Globe,
   AlertTriangle,
   Share2,
@@ -75,6 +76,7 @@ const navSections = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "People", href: "/people", icon: Users2 },
       { title: "Activity", href: "/activity", icon: Activity },
     ],
   },

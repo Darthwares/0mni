@@ -72,11 +72,17 @@ import {
   RotateCcw,
   Send,
   Save,
+  List,
+  Download,
+  Maximize2,
+  Minimize2,
+  AlignLeft,
   type LucideIcon,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import { extractPreviewText, scrollToBlock, type HeadingItem } from '@/components/block-editor'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -391,6 +397,10 @@ export default function CanvasPage() {
   const [shareDocId, setShareDocId] = useState<bigint | null>(null)
   const [starredIds, setStarredIds] = useState<Set<bigint>>(new Set())
   const [listFilter, setListFilter] = useState<'all' | 'documents' | 'whiteboards' | 'starred'>('all')
+  const [showToc, setShowToc] = useState(false)
+  const [headings, setHeadings] = useState<HeadingItem[]>([])
+  const [fullWidth, setFullWidth] = useState(false)
+  const editorInstanceRef = useRef<any>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -706,6 +716,23 @@ export default function CanvasPage() {
     }
   }, [activeDocId, restoreDocumentVersion])
 
+  // Export document to Markdown
+  const handleExport = useCallback(async () => {
+    if (!editorInstanceRef.current || !activeDoc) return
+    try {
+      const markdown = await editorInstanceRef.current.blocksToMarkdownLossy(editorInstanceRef.current.document)
+      const blob = new Blob([markdown], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${activeDoc.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Export failed:', e)
+    }
+  }, [activeDoc])
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -806,6 +833,40 @@ export default function CanvasPage() {
             >
               <Save className="size-3.5" />
             </Button>
+            <Separator orientation="vertical" className="h-5" />
+            {!isWhiteboard && (
+              <Button
+                variant={showToc ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => { setShowToc(!showToc); if (!showToc) { setShowComments(false); setShowVersions(false) } }}
+                className="h-7 gap-1.5 text-xs"
+                title="Table of Contents"
+              >
+                <List className="size-3.5" />
+              </Button>
+            )}
+            {!isWhiteboard && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFullWidth(!fullWidth)}
+                className="h-7 gap-1.5 text-xs"
+                title={fullWidth ? 'Compact width' : 'Full width'}
+              >
+                {fullWidth ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+              </Button>
+            )}
+            {!isWhiteboard && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExport}
+                className="h-7 gap-1.5 text-xs"
+                title="Export as Markdown"
+              >
+                <Download className="size-3.5" />
+              </Button>
+            )}
             <PresenceBar />
             {/* Save status indicator */}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -856,6 +917,9 @@ export default function CanvasPage() {
               <BlockEditor
                 initialContent={parsedContent}
                 onChange={handleContentChange}
+                onHeadingsChange={setHeadings}
+                onEditorReady={(editor: any) => { editorInstanceRef.current = editor }}
+                fullWidth={fullWidth}
               />
             )}
           </div>
@@ -1027,6 +1091,56 @@ export default function CanvasPage() {
                   Save Version Snapshot
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Table of Contents sidebar */}
+          {showToc && !isWhiteboard && (
+            <div className="w-64 border-l flex flex-col bg-background shrink-0">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <List className="size-4 text-blue-400" />
+                  <h3 className="text-sm font-semibold">Contents</h3>
+                  {headings.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{headings.length}</Badge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowToc(false)} className="h-6 w-6 p-0">
+                  <span className="sr-only">Close</span>
+                  <span className="text-xs text-muted-foreground">&times;</span>
+                </Button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-0.5">
+                  {headings.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <AlignLeft className="size-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">No headings yet</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Add headings to generate a table of contents</p>
+                    </div>
+                  ) : (
+                    headings.map((heading, idx) => (
+                      <button
+                        key={`${heading.id}-${idx}`}
+                        onClick={() => scrollToBlock(heading.id)}
+                        className="w-full text-left rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors truncate group"
+                        style={{ paddingLeft: `${(heading.level - 1) * 12 + 8}px` }}
+                        title={heading.text}
+                      >
+                        <span className={`${
+                          heading.level === 1 ? 'font-semibold text-foreground' :
+                          heading.level === 2 ? 'font-medium text-foreground/80' :
+                          'text-muted-foreground'
+                        } group-hover:text-foreground transition-colors`}>
+                          {heading.text}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           )}
         </div>
@@ -1582,14 +1696,23 @@ function CanvasCard({
             <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
             <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
           </div>
-        ) : (
-          <div className="space-y-1.5 px-6 w-full">
-            <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
-            <div className="h-2 bg-foreground/10 rounded-full w-full" />
-            <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
-            <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
-          </div>
-        )}
+        ) : (() => {
+          const preview = extractPreviewText(doc.content, 100)
+          return preview ? (
+            <div className="px-5 py-3 w-full h-full flex flex-col justify-center">
+              <p className="text-[11px] leading-relaxed text-foreground/40 line-clamp-4 font-mono">
+                {preview}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5 px-6 w-full">
+              <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
+              <div className="h-2 bg-foreground/10 rounded-full w-full" />
+              <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
+              <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
+            </div>
+          )
+        })()}
       </div>
 
       {/* Info */}
@@ -1748,6 +1871,12 @@ function CanvasListItem({
           {isFolder ? 'Folder' : isWhiteboard ? 'Whiteboard' : 'Document'} · Updated {formatTimeAgo(timestampToDate(doc.updatedAt))}
           {lastEditor && <span> · Last edited by {lastEditor.name}</span>}
         </p>
+        {!isFolder && !isWhiteboard && (() => {
+          const preview = extractPreviewText(doc.content, 80)
+          return preview ? (
+            <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">{preview}</p>
+          ) : null
+        })()}
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {!isFolder && (

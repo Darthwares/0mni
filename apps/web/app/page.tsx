@@ -918,8 +918,8 @@ export default function LandingPage() {
                   Traditional Staffing
                 </span>
                 <div className="mb-6">
-                  <span className="text-5xl font-black text-red-400">$<CountUp to={185} duration={2.5} separator="," /></span>
-                  <span className="text-neutral-500 text-lg ml-2">k / year per employee</span>
+                  <span className="text-5xl font-black text-red-400">$<CountUp to={185000} duration={2.5} separator="," /></span>
+                  <span className="text-neutral-500 text-lg ml-2">/ year per employee</span>
                 </div>
                 <div className="space-y-3 text-sm text-neutral-400">
                   <CostLine label="Average salary" value="$65k-$120k" negative />
@@ -962,7 +962,7 @@ export default function LandingPage() {
             <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-neutral-900/80 px-8 py-4">
               <span className="text-neutral-400">Potential annual savings:</span>
               <span className="text-3xl font-black text-emerald-400">
-                $<CountUp to={184} duration={3} separator="," />k+
+                $<CountUp to={184000} duration={3} separator="," />+
               </span>
               <span className="text-neutral-500">per employee replaced</span>
             </div>
@@ -1027,7 +1027,7 @@ export default function LandingPage() {
             ?
           </h2>
           <p className="text-lg text-neutral-400 mb-10 max-w-xl mx-auto">
-            Join forward-thinking companies that are replacing $185k/yr employees
+            Join forward-thinking companies that are replacing $185,000/yr employees
             with AI that costs $99/month.
           </p>
 

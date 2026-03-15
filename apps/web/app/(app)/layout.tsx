@@ -37,6 +37,7 @@ const routeNames: Record<string, string> = {
   "/tickets": "Tickets",
   "/canvas": "Canvas",
   "/profile": "Profile",
+  "/people": "People",
 }
 
 const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]

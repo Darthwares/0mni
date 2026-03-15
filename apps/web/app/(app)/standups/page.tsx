@@ -7,6 +7,7 @@ import { useOrg } from '@/components/org-context'
 import {
   Coffee, ChevronLeft, ChevronRight, Send, AlertTriangle,
   CheckCircle2, XCircle, Users, Flame, BarChart3, Clock,
+  Trash2, Undo2,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -81,7 +82,11 @@ export default function StandupsPage() {
 
   const allStandups = useTable(tables.standupEntry) ?? []
   const allEmployees = useTable(tables.employee) ?? []
+  const allBlockerResolutions = useTable(tables.blockerResolution) ?? []
   const submitStandup = useReducer(reducers.submitStandup)
+  const deleteStandup = useReducer(reducers.deleteStandup)
+  const resolveBlocker = useReducer(reducers.resolveBlocker)
+  const unresolveBlocker = useReducer(reducers.unresolveBlocker)
 
   // Org-scoped entries with date conversion
   const entries = useMemo(() => {
@@ -124,7 +129,16 @@ export default function StandupsPage() {
   const [formToday, setFormToday] = useState('')
   const [formBlockers, setFormBlockers] = useState('')
   const [formMood, setFormMood] = useState<MoodKey>('Good')
-  const [resolvedBlockers, setResolvedBlockers] = useState<Set<bigint>>(new Set())
+
+  // DB-backed resolved blockers
+  const resolvedBlockerIds = useMemo(() => {
+    if (currentOrgId === null) return new Set<string>()
+    return new Set(
+      allBlockerResolutions
+        .filter(r => r.orgId === BigInt(currentOrgId))
+        .map(r => r.standupId.toString())
+    )
+  }, [allBlockerResolutions, currentOrgId])
 
   const today = useMemo(() => new Date(), [])
   const isToday = useMemo(() => isSameDay(selectedDate, today), [selectedDate, today])
@@ -144,8 +158,12 @@ export default function StandupsPage() {
   )
 
   const activeBlockers = useMemo(() => {
-    return entries.filter(e => e.blockers.trim() && !resolvedBlockers.has(e.id)).sort((a, b) => b.date.getTime() - a.date.getTime())
-  }, [entries, resolvedBlockers])
+    return entries.filter(e => e.blockers.trim() && !resolvedBlockerIds.has(e.id.toString())).sort((a, b) => b.date.getTime() - a.date.getTime())
+  }, [entries, resolvedBlockerIds])
+
+  const resolvedBlockerEntries = useMemo(() => {
+    return entries.filter(e => e.blockers.trim() && resolvedBlockerIds.has(e.id.toString())).sort((a, b) => b.date.getTime() - a.date.getTime())
+  }, [entries, resolvedBlockerIds])
 
   // Stats
   const entriesToday = useMemo(() => entries.filter(e => isSameDay(e.date, today)).length, [entries, today])
@@ -202,14 +220,19 @@ export default function StandupsPage() {
 
   const goToToday = useCallback(() => setSelectedDate(new Date()), [])
 
-  const toggleBlockerResolved = useCallback((id: bigint) => {
-    setResolvedBlockers(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+  const handleResolveBlocker = useCallback((standupId: bigint) => {
+    resolveBlocker({ standupId })
+  }, [resolveBlocker])
+
+  const handleUnresolveBlocker = useCallback((standupId: bigint) => {
+    unresolveBlocker({ standupId })
+  }, [unresolveBlocker])
+
+  const handleDeleteStandup = useCallback((standupId: bigint) => {
+    if (confirm('Delete this standup entry?')) {
+      deleteStandup({ standupId })
+    }
+  }, [deleteStandup])
 
   return (
     <div className="flex flex-col h-full">
@@ -370,7 +393,7 @@ export default function StandupsPage() {
                   const authorName = getAuthorName(entry.author)
                   const moodCfg = MOOD_CONFIG[entry.moodKey]
                   return (
-                    <div key={entry.id.toString()} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5 transition-shadow hover:shadow-md hover:shadow-neutral-200/50 dark:hover:shadow-neutral-900/50">
+                    <div key={entry.id.toString()} className="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5 transition-shadow hover:shadow-md hover:shadow-neutral-200/50 dark:hover:shadow-neutral-900/50">
                       <div className="flex items-center gap-3 mb-4">
                         <div className={`size-9 rounded-full bg-gradient-to-br ${avatarColor(authorName)} flex items-center justify-center shrink-0`}>
                           <span className="text-xs font-bold text-white">{getInitials(authorName)}</span>
@@ -384,6 +407,13 @@ export default function StandupsPage() {
                           </div>
                           <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="size-3" />{formatTime(entry.date)}</span>
                         </div>
+                        <button
+                          onClick={() => handleDeleteStandup(entry.id)}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity size-7 flex items-center justify-center rounded-lg text-red-500/60 hover:text-red-500 hover:bg-red-500/10"
+                          title="Delete standup"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
                       </div>
                       <div className="flex flex-col gap-3 ml-12">
                         {entry.yesterday && (
@@ -461,7 +491,7 @@ export default function StandupsPage() {
                           <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
                         </div>
                         <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed mb-2">{entry.blockers}</p>
-                        <button onClick={() => toggleBlockerResolved(entry.id)} className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
+                        <button onClick={() => handleResolveBlocker(entry.id)} className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
                           <CheckCircle2 className="size-3" />Mark Resolved
                         </button>
                       </div>
@@ -470,6 +500,32 @@ export default function StandupsPage() {
                 )}
               </div>
             </div>
+
+            {resolvedBlockerEntries.length > 0 && (
+              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 overflow-hidden">
+                <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-green-500" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resolved</h3>
+                  <span className="ml-auto inline-flex items-center justify-center size-5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">{resolvedBlockerEntries.length}</span>
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-col gap-3">
+                    {resolvedBlockerEntries.map(entry => (
+                      <div key={entry.id.toString()} className="rounded-lg bg-green-500/5 border border-green-500/10 p-3 opacity-70">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">{getAuthorName(entry.author)}</span>
+                          <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
+                        </div>
+                        <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed mb-2 line-through">{entry.blockers}</p>
+                        <button onClick={() => handleUnresolveBlocker(entry.id)} className="flex items-center gap-1 text-[11px] font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
+                          <Undo2 className="size-3" />Unresolve
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

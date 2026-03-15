@@ -158,6 +158,7 @@ import RemoveReactionReducer from "./remove_reaction_reducer";
 import RemoveTaskParentReducer from "./remove_task_parent_reducer";
 import RenameDriveItemReducer from "./rename_drive_item_reducer";
 import RequestCallReducer from "./request_call_reducer";
+import ResolveBlockerReducer from "./resolve_blocker_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
 import SaveDocumentVersionReducer from "./save_document_version_reducer";
@@ -190,6 +191,7 @@ import ToggleReportFavoriteReducer from "./toggle_report_favorite_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
 import UnfavoriteDocumentReducer from "./unfavorite_document_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
+import UnresolveBlockerReducer from "./unresolve_blocker_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateAgentConfigReducer from "./update_agent_config_reducer";
@@ -241,6 +243,7 @@ import AiAgentDeploymentRow from "./ai_agent_deployment_table";
 import ApprovalCommentRow from "./approval_comment_table";
 import ApprovalRequestRow from "./approval_request_table";
 import AudioFrameEventRow from "./audio_frame_event_table";
+import BlockerResolutionRow from "./blocker_resolution_table";
 import BugRow from "./bug_table";
 import CalEventRow from "./cal_event_table";
 import CallSessionRow from "./call_session_table";
@@ -381,6 +384,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, AudioFrameEventRow),
+  blocker_resolution: __table({
+    name: 'blocker_resolution',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'blocker_resolution_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, BlockerResolutionRow),
   bug: __table({
     name: 'bug',
     indexes: [
@@ -1210,6 +1224,7 @@ const reducersSchema = __reducers(
   __reducerSchema("remove_task_parent", RemoveTaskParentReducer),
   __reducerSchema("rename_drive_item", RenameDriveItemReducer),
   __reducerSchema("request_call", RequestCallReducer),
+  __reducerSchema("resolve_blocker", ResolveBlockerReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
   __reducerSchema("save_document_version", SaveDocumentVersionReducer),
@@ -1242,6 +1257,7 @@ const reducersSchema = __reducers(
   __reducerSchema("trash_email", TrashEmailReducer),
   __reducerSchema("unfavorite_document", UnfavoriteDocumentReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),
+  __reducerSchema("unresolve_blocker", UnresolveBlockerReducer),
   __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_agent_config", UpdateAgentConfigReducer),

@@ -153,7 +153,7 @@ export default function ContactsPage() {
 
   // SpacetimeDB
   const allContacts = useTable(tables.contact)
-  const allInteractions = useTable(tables.contactInteraction)
+  const allInteractions = useTable(tables.contact_interaction)
   const createContact = useReducer(reducers.createContact)
   const updateContact = useReducer(reducers.updateContact)
   const toggleContactStar = useReducer(reducers.toggleContactStar)

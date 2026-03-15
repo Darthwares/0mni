@@ -452,7 +452,7 @@ function BoardEditor({ boardId, title, initialElements, onBack, onSave }: {
 
 export default function WhiteboardPage() {
   const { currentOrgId } = useOrg()
-  const allBoards = useTable(tables.whiteboardBoard)
+  const allBoards = useTable(tables.whiteboard_board)
   const createWhiteboardBoard = useReducer(reducers.createWhiteboardBoard)
   const updateWhiteboardBoard = useReducer(reducers.updateWhiteboardBoard)
   const deleteWhiteboardBoard = useReducer(reducers.deleteWhiteboardBoard)

@@ -104,8 +104,8 @@ export default function GoalsPage() {
   const { currentOrgId } = useOrg()
 
   const [allObjectives] = useTable(tables.objective)
-  const [allKeyResults] = useTable(tables.keyResult)
-  const [allCheckIns] = useTable(tables.krCheckIn)
+  const [allKeyResults] = useTable(tables.key_result)
+  const [allCheckIns] = useTable(tables.kr_check_in)
   const [employees] = useTable(tables.employee)
 
   const createObjective = useReducer(reducers.createObjective)

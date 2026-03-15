@@ -792,7 +792,7 @@ export default function TicketsPage() {
 
           <div className="flex rounded-lg border overflow-hidden">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <button
                   onClick={() => setViewMode('board')}
                   className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -803,7 +803,7 @@ export default function TicketsPage() {
               <TooltipContent side="bottom" className="text-xs">Board</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <button
                   onClick={() => setViewMode('list')}
                   className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -814,7 +814,7 @@ export default function TicketsPage() {
               <TooltipContent side="bottom" className="text-xs">List</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <button
                   onClick={() => setViewMode('sprints')}
                   className={`p-1.5 transition-colors ${viewMode === 'sprints' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -834,7 +834,7 @@ export default function TicketsPage() {
               Ticket
             </Button>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button size="sm" variant="outline" onClick={() => setShowCreateSprint(true)} className="h-8 w-8 p-0">
                   <Target className="size-3.5" />
                 </Button>
@@ -842,7 +842,7 @@ export default function TicketsPage() {
               <TooltipContent side="bottom" className="text-xs">New Sprint</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button size="sm" variant="outline" onClick={() => setShowCreateEpic(true)} className="h-8 w-8 p-0">
                   <Layers className="size-3.5" />
                 </Button>
@@ -850,7 +850,7 @@ export default function TicketsPage() {
               <TooltipContent side="bottom" className="text-xs">New Epic</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button size="sm" variant="outline" onClick={() => setShowManageLabels(true)} className="h-8 w-8 p-0">
                   <Tag className="size-3.5" />
                 </Button>
@@ -1330,7 +1330,7 @@ export default function TicketsPage() {
                         const isInProgress = task.status.tag === 'InProgress' || task.status.tag === 'SelfChecking'
                         return (
                           <Tooltip key={task.id.toString()}>
-                            <TooltipTrigger asChild>
+                            <TooltipTrigger>
                               <div
                                 className={`flex-1 rounded-t transition-all duration-300 cursor-pointer hover:opacity-80 ${
                                   isCompleted ? 'bg-emerald-500/60' :

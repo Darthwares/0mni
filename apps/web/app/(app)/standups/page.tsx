@@ -80,9 +80,9 @@ export default function StandupsPage() {
   const { currentOrgId } = useOrg()
   const { identity } = useSpacetimeDB()
 
-  const allStandups = useTable(tables.standupEntry) ?? []
+  const allStandups = useTable(tables.standup_entry) ?? []
   const allEmployees = useTable(tables.employee) ?? []
-  const allBlockerResolutions = useTable(tables.blockerResolution) ?? []
+  const allBlockerResolutions = useTable(tables.blocker_resolution) ?? []
   const submitStandup = useReducer(reducers.submitStandup)
   const deleteStandup = useReducer(reducers.deleteStandup)
   const resolveBlocker = useReducer(reducers.resolveBlocker)

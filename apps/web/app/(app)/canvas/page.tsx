@@ -371,8 +371,8 @@ export default function CanvasPage() {
   const [allMessages] = useTable(tables.message)
   const [allDocVersions] = useTable(tables.documentVersion)
   const [allFavorites] = useTable(tables.document_favorite)
-  const allDocTags = useTable(tables.documentTag) ?? []
-  const allDocPins = useTable(tables.documentPin) ?? []
+  const allDocTags = useTable(tables.document_tag) ?? []
+  const allDocPins = useTable(tables.document_pin) ?? []
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)

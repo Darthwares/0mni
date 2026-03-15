@@ -615,6 +615,19 @@ export const Document = __t.object("Document", {
 });
 export type Document = __Infer<typeof Document>;
 
+export const DocumentComment = __t.object("DocumentComment", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  documentId: __t.u64(),
+  parentId: __t.u64(),
+  author: __t.identity(),
+  content: __t.string(),
+  resolved: __t.bool(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type DocumentComment = __Infer<typeof DocumentComment>;
+
 export const DocumentFavorite = __t.object("DocumentFavorite", {
   id: __t.u64(),
   userId: __t.identity(),

@@ -37,6 +37,7 @@ import {
 import AcceptCallReducer from "./accept_call_reducer";
 import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddContactInteractionReducer from "./add_contact_interaction_reducer";
+import AddDocumentCommentReducer from "./add_document_comment_reducer";
 import AddDocumentTagReducer from "./add_document_tag_reducer";
 import AddEventAttendeeReducer from "./add_event_attendee_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
@@ -103,6 +104,7 @@ import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteContactInteractionReducer from "./delete_contact_interaction_reducer";
 import DeleteDealReducer from "./delete_deal_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
+import DeleteDocumentCommentReducer from "./delete_document_comment_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
@@ -132,6 +134,7 @@ import DismissNotificationReducer from "./dismiss_notification_reducer";
 import DuplicateDocumentReducer from "./duplicate_document_reducer";
 import DuplicateFormReducer from "./duplicate_form_reducer";
 import DuplicateWorkflowReducer from "./duplicate_workflow_reducer";
+import EditDocumentCommentReducer from "./edit_document_comment_reducer";
 import EditMessageReducer from "./edit_message_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
@@ -167,6 +170,7 @@ import RemoveTaskParentReducer from "./remove_task_parent_reducer";
 import RenameDriveItemReducer from "./rename_drive_item_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import ResolveBlockerReducer from "./resolve_blocker_reducer";
+import ResolveDocumentCommentReducer from "./resolve_document_comment_reducer";
 import RespondToEventReducer from "./respond_to_event_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
@@ -272,6 +276,7 @@ import ContactInteractionRow from "./contact_interaction_table";
 import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
+import DocumentCommentRow from "./document_comment_table";
 import DocumentFavoriteRow from "./document_favorite_table";
 import DocumentPinRow from "./document_pin_table";
 import DocumentTagRow from "./document_tag_table";
@@ -557,6 +562,17 @@ const tablesSchema = __schema({
       { name: 'document_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentRow),
+  document_comment: __table({
+    name: 'document_comment',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_comment_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DocumentCommentRow),
   document_favorite: __table({
     name: 'document_favorite',
     indexes: [
@@ -1166,6 +1182,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
   __reducerSchema("add_contact_interaction", AddContactInteractionReducer),
+  __reducerSchema("add_document_comment", AddDocumentCommentReducer),
   __reducerSchema("add_document_tag", AddDocumentTagReducer),
   __reducerSchema("add_event_attendee", AddEventAttendeeReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
@@ -1232,6 +1249,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_contact_interaction", DeleteContactInteractionReducer),
   __reducerSchema("delete_deal", DeleteDealReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
+  __reducerSchema("delete_document_comment", DeleteDocumentCommentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
@@ -1261,6 +1279,7 @@ const reducersSchema = __reducers(
   __reducerSchema("duplicate_document", DuplicateDocumentReducer),
   __reducerSchema("duplicate_form", DuplicateFormReducer),
   __reducerSchema("duplicate_workflow", DuplicateWorkflowReducer),
+  __reducerSchema("edit_document_comment", EditDocumentCommentReducer),
   __reducerSchema("edit_message", EditMessageReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
@@ -1296,6 +1315,7 @@ const reducersSchema = __reducers(
   __reducerSchema("rename_drive_item", RenameDriveItemReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("resolve_blocker", ResolveBlockerReducer),
+  __reducerSchema("resolve_document_comment", ResolveDocumentCommentReducer),
   __reducerSchema("respond_to_event", RespondToEventReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),

@@ -5160,6 +5160,104 @@ pub fn unpin_document(
     Ok(())
 }
 
+// === DOCUMENT COMMENTS =======================================================
+
+#[spacetimedb::table(accessor = document_comment, public)]
+#[derive(Clone)]
+pub struct DocumentComment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub document_id: u64,
+    pub parent_id: u64,       // 0 = top-level comment, >0 = reply to parent
+    pub author: Identity,
+    pub content: String,
+    pub resolved: bool,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_document_comment(
+    ctx: &ReducerContext,
+    org_id: u64,
+    document_id: u64,
+    parent_id: u64,
+    content: String,
+) -> Result<(), String> {
+    if content.trim().is_empty() {
+        return Err("Comment cannot be empty".to_string());
+    }
+    // Verify doc exists
+    let _doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    // If replying, verify parent exists
+    if parent_id > 0 {
+        let _parent = ctx.db.document_comment().id().find(&parent_id)
+            .ok_or("Parent comment not found")?;
+    }
+    ctx.db.document_comment().insert(DocumentComment {
+        id: 0,
+        org_id,
+        document_id,
+        parent_id,
+        author: ctx.sender(),
+        content,
+        resolved: false,
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn edit_document_comment(
+    ctx: &ReducerContext,
+    comment_id: u64,
+    content: String,
+) -> Result<(), String> {
+    if content.trim().is_empty() {
+        return Err("Comment cannot be empty".to_string());
+    }
+    let comment = ctx.db.document_comment().id().find(&comment_id)
+        .ok_or("Comment not found")?;
+    if comment.author != ctx.sender() {
+        return Err("Only the author can edit this comment".to_string());
+    }
+    ctx.db.document_comment().id().update(DocumentComment {
+        content,
+        updated_at: ctx.timestamp,
+        ..comment
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_document_comment(ctx: &ReducerContext, comment_id: u64) -> Result<(), String> {
+    // Delete all replies first
+    let replies: Vec<_> = ctx.db.document_comment().iter()
+        .filter(|c| c.parent_id == comment_id)
+        .collect();
+    for reply in replies {
+        ctx.db.document_comment().id().delete(&reply.id);
+    }
+    ctx.db.document_comment().id().delete(&comment_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn resolve_document_comment(ctx: &ReducerContext, comment_id: u64) -> Result<(), String> {
+    let comment = ctx.db.document_comment().id().find(&comment_id)
+        .ok_or("Comment not found")?;
+    ctx.db.document_comment().id().update(DocumentComment {
+        resolved: !comment.resolved,
+        updated_at: ctx.timestamp,
+        ..comment
+    });
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - EMAIL METADATA
 // ============================================================================

@@ -118,7 +118,7 @@ function formatDate(date: Date): string {
 // ── Component ──────────────────────────────────
 export default function DrivePage() {
   const { currentOrgId } = useOrg()
-  const allItems = useTable(tables.driveItem)
+  const allItems = useTable(tables.drive_item)
   const createDriveItem = useReducer(reducers.createDriveItem)
   const renameDriveItem = useReducer(reducers.renameDriveItem)
   const toggleDriveStar = useReducer(reducers.toggleDriveStar)

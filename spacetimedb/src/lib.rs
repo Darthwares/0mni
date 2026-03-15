@@ -4372,6 +4372,39 @@ pub fn restore_document_version(
 }
 
 // ============================================================================
+// REDUCERS - DOCUMENT MOVE
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn move_document(ctx: &ReducerContext, document_id: u64, parent_id: Option<u64>) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+
+    // Verify target folder exists and is a folder if not None
+    if let Some(pid) = parent_id {
+        let target = ctx.db.document().id().find(&pid)
+            .ok_or("Target folder not found")?;
+        if target.doc_type != DocumentType::Folder {
+            return Err("Target is not a folder".to_string());
+        }
+        if target.org_id != doc.org_id {
+            return Err("Cannot move across orgs".to_string());
+        }
+        if pid == document_id {
+            return Err("Cannot move a folder into itself".to_string());
+        }
+    }
+
+    ctx.db.document().id().update(Document {
+        parent_id,
+        updated_at: ctx.timestamp,
+        ..doc
+    });
+    Ok(())
+}
+
+// ============================================================================
 // REDUCERS - DOCUMENT FAVORITES
 // ============================================================================
 

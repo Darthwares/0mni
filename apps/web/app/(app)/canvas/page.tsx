@@ -364,6 +364,7 @@ export default function CanvasPage() {
   const [employees] = useTable(tables.employee)
   const [allMessages] = useTable(tables.message)
   const [allDocVersions] = useTable(tables.documentVersion)
+  const [allFavorites] = useTable(tables.document_favorite)
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -374,6 +375,9 @@ export default function CanvasPage() {
   const sendMessage = useReducer(reducers.sendMessage)
   const saveDocumentVersion = useReducer(reducers.saveDocumentVersion)
   const restoreDocumentVersion = useReducer(reducers.restoreDocumentVersion)
+  const favoriteDocument = useReducer(reducers.favoriteDocument)
+  const unfavoriteDocument = useReducer(reducers.unfavoriteDocument)
+  const moveDocumentReducer = useReducer(reducers.moveDocument)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -395,7 +399,6 @@ export default function CanvasPage() {
   const [titleDraft, setTitleDraft] = useState('')
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareDocId, setShareDocId] = useState<bigint | null>(null)
-  const [starredIds, setStarredIds] = useState<Set<bigint>>(new Set())
   const [listFilter, setListFilter] = useState<'all' | 'documents' | 'whiteboards' | 'starred'>('all')
   const [showToc, setShowToc] = useState(false)
   const [headings, setHeadings] = useState<HeadingItem[]>([])
@@ -404,14 +407,26 @@ export default function CanvasPage() {
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const myHex = identity?.toHexString() ?? ''
+
+  // Persistent favorites from DB
+  const starredIds = useMemo(() => {
+    const set = new Set<bigint>()
+    for (const fav of allFavorites) {
+      if (fav.userId.toHexString() === myHex) {
+        set.add(fav.documentId)
+      }
+    }
+    return set
+  }, [allFavorites, myHex])
+
   const toggleStar = useCallback((id: bigint) => {
-    setStarredIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+    if (starredIds.has(id)) {
+      unfavoriteDocument({ documentId: id })
+    } else {
+      favoriteDocument({ documentId: id })
+    }
+  }, [starredIds, favoriteDocument, unfavoriteDocument])
 
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
@@ -606,17 +621,11 @@ export default function CanvasPage() {
 
   const handleMoveToFolder = async (targetFolderId: bigint | null) => {
     if (moveDocId === null) return
-    const doc = canvasDocuments.find((d) => d.id === moveDocId)
-    if (!doc) return
     try {
-      await updateDocument({
+      await moveDocumentReducer({
         documentId: moveDocId,
-        title: doc.title,
-        content: doc.content,
+        parentId: targetFolderId,
       })
-      // NOTE: The updateDocument reducer only takes documentId, title, content.
-      // Moving to a folder would require a separate reducer or extending updateDocument.
-      // For now we close the dialog. If parentId update is needed, a backend change is required.
       setShowMoveDialog(false)
       setMoveDocId(null)
     } catch (e) {

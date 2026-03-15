@@ -784,6 +784,44 @@ export const InterviewType = __t.enum("InterviewType", {
 });
 export type InterviewType = __Infer<typeof InterviewType>;
 
+export const Invoice = __t.object("Invoice", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  invoiceNumber: __t.string(),
+  clientName: __t.string(),
+  clientEmail: __t.string(),
+  get status() {
+    return InvoiceStatus;
+  },
+  taxRate: __t.string(),
+  notes: __t.string(),
+  creator: __t.identity(),
+  issuedAt: __t.timestamp(),
+  dueDate: __t.timestamp(),
+  paidAt: __t.timestamp(),
+});
+export type Invoice = __Infer<typeof Invoice>;
+
+export const InvoiceLineItem = __t.object("InvoiceLineItem", {
+  id: __t.u64(),
+  invoiceId: __t.u64(),
+  description: __t.string(),
+  quantity: __t.u32(),
+  unitPriceCents: __t.u64(),
+  sortOrder: __t.u32(),
+});
+export type InvoiceLineItem = __Infer<typeof InvoiceLineItem>;
+
+// The tagged union or sum type for the algebraic type `InvoiceStatus`.
+export const InvoiceStatus = __t.enum("InvoiceStatus", {
+  Draft: __t.unit(),
+  Sent: __t.unit(),
+  Paid: __t.unit(),
+  Overdue: __t.unit(),
+  Cancelled: __t.unit(),
+});
+export type InvoiceStatus = __Infer<typeof InvoiceStatus>;
+
 export const JobPosting = __t.object("JobPosting", {
   id: __t.u64(),
   orgId: __t.u64(),

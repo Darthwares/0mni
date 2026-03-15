@@ -7,11 +7,14 @@ import { useOrg } from '@/components/org-context'
 import {
   Coffee, ChevronLeft, ChevronRight, Send, AlertTriangle,
   CheckCircle2, XCircle, Users, Flame, BarChart3, Clock,
-  Trash2, Undo2,
+  Trash2, Undo2, Search, Download, CalendarDays, Calendar,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -124,7 +127,10 @@ export default function StandupsPage() {
     return allEmployees.filter(e => e.orgId === BigInt(currentOrgId))
   }, [allEmployees, currentOrgId])
 
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [formYesterday, setFormYesterday] = useState('')
   const [formToday, setFormToday] = useState('')
   const [formBlockers, setFormBlockers] = useState('')
@@ -198,6 +204,58 @@ export default function StandupsPage() {
     })
   }, [orgEmployees, todayAuthors])
 
+  // Weekly grouped entries (last 7 days from selected date)
+  const weekEntries = useMemo(() => {
+    const days: { date: Date; dateKey: string; label: string; entries: typeof entries }[] = []
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(selectedDate, -i)
+      const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      const dayItems = entries
+        .filter(e => isSameDay(e.date, d))
+        .filter(e => !searchQuery || getAuthorName(e.author).toLowerCase().includes(searchQuery.toLowerCase()) || e.yesterday.toLowerCase().includes(searchQuery.toLowerCase()) || e.today.toLowerCase().includes(searchQuery.toLowerCase()) || e.blockers.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+      days.push({
+        date: d,
+        dateKey,
+        label: isSameDay(d, today) ? 'Today' : isSameDay(d, addDays(today, -1)) ? 'Yesterday' : formatDate(d),
+        entries: dayItems,
+      })
+    }
+    return days
+  }, [entries, selectedDate, today, searchQuery])
+
+  // Mood distribution over the week
+  const weekMoodDistribution = useMemo(() => {
+    const counts: Record<MoodKey, number> = { Great: 0, Good: 0, Okay: 0, Struggling: 0 }
+    const weekStart = addDays(selectedDate, -6)
+    entries.forEach(e => {
+      if (e.date >= weekStart && e.date <= selectedDate) {
+        counts[e.moodKey]++
+      }
+    })
+    return counts
+  }, [entries, selectedDate])
+
+  const totalWeekEntries = useMemo(() => {
+    return Object.values(weekMoodDistribution).reduce((a, b) => a + b, 0)
+  }, [weekMoodDistribution])
+
+  // Filtered day entries (when in day mode with search)
+  const filteredDayEntries = useMemo(() => {
+    if (!searchQuery) return dayEntries
+    const q = searchQuery.toLowerCase()
+    return dayEntries.filter(e => getAuthorName(e.author).toLowerCase().includes(q) || e.yesterday.toLowerCase().includes(q) || e.today.toLowerCase().includes(q) || e.blockers.toLowerCase().includes(q))
+  }, [dayEntries, searchQuery])
+
+  const toggleDayCollapse = useCallback((dateKey: string) => {
+    setCollapsedDays(prev => {
+      const next = new Set(prev)
+      if (next.has(dateKey)) next.delete(dateKey)
+      else next.add(dateKey)
+      return next
+    })
+  }, [])
+
   // Handlers
   const handleSubmit = useCallback(() => {
     if ((!formYesterday.trim() && !formToday.trim()) || currentOrgId === null) return
@@ -265,6 +323,53 @@ export default function StandupsPage() {
           </div>
         </div>
 
+        {/* Controls bar */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search by person, topic, or blocker..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+          <div className="flex rounded-lg border overflow-hidden">
+            <button
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${viewMode === 'day' ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Calendar className="size-3.5" />Day
+            </button>
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium transition-colors ${viewMode === 'week' ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <CalendarDays className="size-3.5" />Week
+            </button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => {
+              const allEntries = viewMode === 'week'
+                ? weekEntries.flatMap(d => d.entries)
+                : filteredDayEntries
+              exportCSV('standups.csv', [
+                { header: 'Author', accessor: (e: any) => getAuthorName(e.author) },
+                { header: 'Date', accessor: (e: any) => formatDate(e.date) },
+                { header: 'Mood', accessor: (e: any) => e.moodKey },
+                { header: 'Yesterday', accessor: (e: any) => e.yesterday },
+                { header: 'Today', accessor: (e: any) => e.today },
+                { header: 'Blockers', accessor: (e: any) => e.blockers },
+              ], allEntries)
+            }}
+          >
+            <Download className="size-3.5" />Export
+          </Button>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(139, 92, 246, 0.12)">
@@ -298,6 +403,40 @@ export default function StandupsPage() {
             <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400"><CountUp to={activeBlockers.length} from={0} duration={1.5} /></p>
           </SpotlightCard>
         </div>
+
+        {/* Week Mood Trend (visible in week view) */}
+        {viewMode === 'week' && totalWeekEntries > 0 && (
+          <div className="rounded-xl border bg-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Team Mood This Week</span>
+              <span className="text-[10px] text-muted-foreground">{totalWeekEntries} entries over 7 days</span>
+            </div>
+            <div className="h-3 rounded-full bg-muted overflow-hidden flex">
+              {(['Great', 'Good', 'Okay', 'Struggling'] as MoodKey[]).map(mood => {
+                const count = weekMoodDistribution[mood]
+                if (count === 0) return null
+                const colorMap: Record<MoodKey, string> = { Great: 'bg-green-500', Good: 'bg-blue-500', Okay: 'bg-amber-500', Struggling: 'bg-red-500' }
+                return (
+                  <div
+                    key={mood}
+                    className={`h-full ${colorMap[mood]} transition-all duration-700`}
+                    style={{ width: `${(count / totalWeekEntries) * 100}%` }}
+                    title={`${MOOD_CONFIG[mood].label}: ${count}`}
+                  />
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              {(['Great', 'Good', 'Okay', 'Struggling'] as MoodKey[]).map(mood => (
+                <div key={mood} className="flex items-center gap-1.5">
+                  <span className="text-sm">{MOOD_CONFIG[mood].emoji}</span>
+                  <span className="text-[10px] text-muted-foreground">{MOOD_CONFIG[mood].label}</span>
+                  <span className="text-[10px] font-bold tabular-nums">{weekMoodDistribution[mood]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Main content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -366,30 +505,107 @@ export default function StandupsPage() {
             {/* Date Navigation */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <button onClick={() => navigateDay(-1)} className="size-8 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-muted-foreground hover:text-foreground hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                <button onClick={() => navigateDay(viewMode === 'week' ? -7 : -1)} className="size-8 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-muted-foreground hover:text-foreground hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                   <ChevronLeft className="size-4" />
                 </button>
-                <h2 className="text-sm font-semibold min-w-[160px] text-center">{isToday ? 'Today' : formatDate(selectedDate)}</h2>
-                <button onClick={() => navigateDay(1)} disabled={isToday} className="size-8 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-muted-foreground hover:text-foreground hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                <h2 className="text-sm font-semibold min-w-[160px] text-center">
+                  {viewMode === 'week'
+                    ? `${formatDate(addDays(selectedDate, -6))} – ${isToday ? 'Today' : formatDate(selectedDate)}`
+                    : isToday ? 'Today' : formatDate(selectedDate)}
+                </h2>
+                <button onClick={() => navigateDay(viewMode === 'week' ? 7 : 1)} disabled={isToday} className="size-8 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-muted-foreground hover:text-foreground hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                   <ChevronRight className="size-4" />
                 </button>
                 {!isToday && (
                   <button onClick={goToToday} className="ml-2 px-3 py-1 rounded-full text-xs font-medium border bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/20 transition-colors">Today</button>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground">{dayEntries.length} {dayEntries.length === 1 ? 'entry' : 'entries'}</span>
+              <span className="text-xs text-muted-foreground">
+                {viewMode === 'week' ? `${weekEntries.reduce((s, d) => s + d.entries.length, 0)} entries this week` : `${filteredDayEntries.length} ${filteredDayEntries.length === 1 ? 'entry' : 'entries'}`}
+              </span>
             </div>
 
-            {/* Feed */}
-            {dayEntries.length === 0 ? (
+            {/* Feed — Week View */}
+            {viewMode === 'week' ? (
+              <div className="flex flex-col gap-2">
+                {weekEntries.map(day => {
+                  const isCollapsed = collapsedDays.has(day.dateKey)
+                  return (
+                    <div key={day.dateKey}>
+                      <button
+                        onClick={() => toggleDayCollapse(day.dateKey)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronLeft className="size-3.5 text-muted-foreground rotate-[-90deg]" />}
+                        <span className="text-xs font-semibold">{day.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{day.entries.length} {day.entries.length === 1 ? 'entry' : 'entries'}</span>
+                        {day.entries.length > 0 && (
+                          <div className="ml-auto flex items-center gap-1">
+                            {day.entries.map(e => (
+                              <span key={e.id.toString()} className="text-xs" title={`${getAuthorName(e.author)}: ${MOOD_CONFIG[e.moodKey].label}`}>
+                                {MOOD_CONFIG[e.moodKey].emoji}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                      {!isCollapsed && day.entries.length > 0 && (
+                        <div className="flex flex-col gap-2 mt-2 ml-2 pl-4 border-l-2 border-violet-500/20">
+                          {day.entries.map(entry => {
+                            const authorName = getAuthorName(entry.author)
+                            const moodCfg = MOOD_CONFIG[entry.moodKey]
+                            return (
+                              <div key={entry.id.toString()} className="group rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-4 transition-shadow hover:shadow-sm">
+                                <div className="flex items-center gap-2.5 mb-2.5">
+                                  <div className={`size-7 rounded-full bg-gradient-to-br ${avatarColor(authorName)} flex items-center justify-center shrink-0`}>
+                                    <span className="text-[10px] font-bold text-white">{getInitials(authorName)}</span>
+                                  </div>
+                                  <span className="text-xs font-semibold truncate">{authorName}</span>
+                                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${moodCfg.bg} ${moodCfg.color} ${moodCfg.border}`}>
+                                    {moodCfg.emoji} {moodCfg.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-0.5"><Clock className="size-2.5" />{formatTime(entry.date)}</span>
+                                  <button
+                                    onClick={() => handleDeleteStandup(entry.id)}
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 size-5 flex items-center justify-center rounded text-red-500/60 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                  >
+                                    <Trash2 className="size-3" />
+                                  </button>
+                                </div>
+                                <div className="flex flex-col gap-1.5 ml-9">
+                                  {entry.yesterday && (
+                                    <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground/70">Yesterday:</span> {entry.yesterday}</p>
+                                  )}
+                                  {entry.today && (
+                                    <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground/70">Today:</span> {entry.today}</p>
+                                  )}
+                                  {entry.blockers && (
+                                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertTriangle className="size-2.5 shrink-0" />{entry.blockers}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {!isCollapsed && day.entries.length === 0 && (
+                        <div className="ml-2 pl-4 border-l-2 border-muted py-3">
+                          <p className="text-xs text-muted-foreground italic">No entries</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : filteredDayEntries.length === 0 ? (
               <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4"><Coffee className="size-6 opacity-40" /></div>
-                <p className="font-medium">No standups for this day</p>
-                <p className="text-sm mt-1">Check back later or navigate to another date.</p>
+                <p className="font-medium">{searchQuery ? 'No matching standups' : 'No standups for this day'}</p>
+                <p className="text-sm mt-1">{searchQuery ? 'Try a different search term.' : 'Check back later or navigate to another date.'}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {dayEntries.map(entry => {
+                {filteredDayEntries.map(entry => {
                   const authorName = getAuthorName(entry.author)
                   const moodCfg = MOOD_CONFIG[entry.moodKey]
                   return (

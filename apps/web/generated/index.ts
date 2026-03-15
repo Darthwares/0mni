@@ -43,6 +43,7 @@ import ApproveMembershipReducer from "./approve_membership_reducer";
 import ApproveRequestReducer from "./approve_request_reducer";
 import ArchiveEmailReducer from "./archive_email_reducer";
 import AssignLabelToTaskReducer from "./assign_label_to_task_reducer";
+import AssignTicketReducer from "./assign_ticket_reducer";
 import CancelRequestReducer from "./cancel_request_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
@@ -186,6 +187,9 @@ import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
 import UpdateTaskLabelReducer from "./update_task_label_reducer";
 import UpdateTaskStatusReducer from "./update_task_status_reducer";
+import UpdateTicketCategoryReducer from "./update_ticket_category_reducer";
+import UpdateTicketPriorityReducer from "./update_ticket_priority_reducer";
+import UpdateTicketStatusReducer from "./update_ticket_status_reducer";
 import UpdateWhiteboardBoardReducer from "./update_whiteboard_board_reducer";
 import UpdateWorkflowReducer from "./update_workflow_reducer";
 import UpdateWorkflowStatusReducer from "./update_workflow_status_reducer";
@@ -995,6 +999,7 @@ const reducersSchema = __reducers(
   __reducerSchema("approve_request", ApproveRequestReducer),
   __reducerSchema("archive_email", ArchiveEmailReducer),
   __reducerSchema("assign_label_to_task", AssignLabelToTaskReducer),
+  __reducerSchema("assign_ticket", AssignTicketReducer),
   __reducerSchema("cancel_request", CancelRequestReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
@@ -1138,6 +1143,9 @@ const reducersSchema = __reducers(
   __reducerSchema("update_task", UpdateTaskReducer),
   __reducerSchema("update_task_label", UpdateTaskLabelReducer),
   __reducerSchema("update_task_status", UpdateTaskStatusReducer),
+  __reducerSchema("update_ticket_category", UpdateTicketCategoryReducer),
+  __reducerSchema("update_ticket_priority", UpdateTicketPriorityReducer),
+  __reducerSchema("update_ticket_status", UpdateTicketStatusReducer),
   __reducerSchema("update_whiteboard_board", UpdateWhiteboardBoardReducer),
   __reducerSchema("update_workflow", UpdateWorkflowReducer),
   __reducerSchema("update_workflow_status", UpdateWorkflowStatusReducer),

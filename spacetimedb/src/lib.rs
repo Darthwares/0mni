@@ -5524,3 +5524,207 @@ pub fn delete_standup(ctx: &ReducerContext, standup_id: u64) -> Result<(), Strin
     ctx.db.standup_entry().id().delete(&standup_id);
     Ok(())
 }
+
+// ── Approvals ────────────────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ApprovalType {
+    Expense,
+    TimeOff,
+    Document,
+    Purchase,
+    Access,
+    Other,
+}
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ApprovalStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Cancelled,
+}
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ApprovalPriority {
+    Low,
+    Medium,
+    High,
+    Urgent,
+}
+
+#[spacetimedb::table(accessor = approval_request, public)]
+#[derive(Clone)]
+pub struct ApprovalRequest {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub description: String,
+    pub approval_type: ApprovalType,
+    pub status: ApprovalStatus,
+    pub requester: Identity,
+    pub approver: Identity,
+    pub amount_cents: u64,
+    pub priority: ApprovalPriority,
+    pub decision_note: String,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = approval_comment, public)]
+#[derive(Clone)]
+pub struct ApprovalComment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub request_id: u64,
+    pub author: Identity,
+    pub text: String,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_approval_request(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    description: String,
+    type_tag: String,
+    priority_tag: String,
+    approver_hex: String,
+    amount_cents: u64,
+) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Title is required".to_string());
+    }
+    let approval_type = match type_tag.as_str() {
+        "Expense" => ApprovalType::Expense,
+        "TimeOff" => ApprovalType::TimeOff,
+        "Document" => ApprovalType::Document,
+        "Purchase" => ApprovalType::Purchase,
+        "Access" => ApprovalType::Access,
+        "Other" => ApprovalType::Other,
+        _ => return Err("Invalid approval type".to_string()),
+    };
+    let priority = match priority_tag.as_str() {
+        "Low" => ApprovalPriority::Low,
+        "Medium" => ApprovalPriority::Medium,
+        "High" => ApprovalPriority::High,
+        "Urgent" => ApprovalPriority::Urgent,
+        _ => return Err("Invalid priority".to_string()),
+    };
+    // Parse approver identity from hex string — if empty, use sender as placeholder
+    let approver = if approver_hex.is_empty() {
+        ctx.sender()
+    } else {
+        Identity::from_hex(&approver_hex).map_err(|e| format!("Invalid approver identity: {}", e))?
+    };
+    ctx.db.approval_request().insert(ApprovalRequest {
+        id: 0,
+        org_id,
+        title,
+        description,
+        approval_type,
+        status: ApprovalStatus::Pending,
+        requester: ctx.sender(),
+        approver,
+        amount_cents,
+        priority,
+        decision_note: String::new(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn approve_request(
+    ctx: &ReducerContext,
+    request_id: u64,
+    note: String,
+) -> Result<(), String> {
+    let req = ctx.db.approval_request().id().find(request_id)
+        .ok_or("Request not found")?;
+    ctx.db.approval_request().id().update(ApprovalRequest {
+        status: ApprovalStatus::Approved,
+        decision_note: note,
+        updated_at: ctx.timestamp,
+        ..req
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn reject_request(
+    ctx: &ReducerContext,
+    request_id: u64,
+    note: String,
+) -> Result<(), String> {
+    let req = ctx.db.approval_request().id().find(request_id)
+        .ok_or("Request not found")?;
+    ctx.db.approval_request().id().update(ApprovalRequest {
+        status: ApprovalStatus::Rejected,
+        decision_note: note,
+        updated_at: ctx.timestamp,
+        ..req
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn cancel_request(
+    ctx: &ReducerContext,
+    request_id: u64,
+) -> Result<(), String> {
+    let req = ctx.db.approval_request().id().find(request_id)
+        .ok_or("Request not found")?;
+    if req.requester != ctx.sender() {
+        return Err("Only the requester can cancel".to_string());
+    }
+    ctx.db.approval_request().id().update(ApprovalRequest {
+        status: ApprovalStatus::Cancelled,
+        updated_at: ctx.timestamp,
+        ..req
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_approval_request(
+    ctx: &ReducerContext,
+    request_id: u64,
+) -> Result<(), String> {
+    // Delete comments first
+    let comments: Vec<_> = ctx.db.approval_comment().iter()
+        .filter(|c| c.request_id == request_id)
+        .collect();
+    for c in comments {
+        ctx.db.approval_comment().id().delete(&c.id);
+    }
+    ctx.db.approval_request().id().delete(&request_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn add_approval_comment(
+    ctx: &ReducerContext,
+    request_id: u64,
+    text: String,
+) -> Result<(), String> {
+    if text.trim().is_empty() {
+        return Err("Comment cannot be empty".to_string());
+    }
+    // Verify the request exists
+    ctx.db.approval_request().id().find(request_id)
+        .ok_or("Request not found")?;
+    ctx.db.approval_comment().insert(ApprovalComment {
+        id: 0,
+        request_id,
+        author: ctx.sender(),
+        text,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}

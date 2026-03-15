@@ -136,6 +136,67 @@ export const AiParticipant = __t.object("AiParticipant", {
 });
 export type AiParticipant = __Infer<typeof AiParticipant>;
 
+export const ApprovalComment = __t.object("ApprovalComment", {
+  id: __t.u64(),
+  requestId: __t.u64(),
+  author: __t.identity(),
+  text: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type ApprovalComment = __Infer<typeof ApprovalComment>;
+
+// The tagged union or sum type for the algebraic type `ApprovalPriority`.
+export const ApprovalPriority = __t.enum("ApprovalPriority", {
+  Low: __t.unit(),
+  Medium: __t.unit(),
+  High: __t.unit(),
+  Urgent: __t.unit(),
+});
+export type ApprovalPriority = __Infer<typeof ApprovalPriority>;
+
+export const ApprovalRequest = __t.object("ApprovalRequest", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  description: __t.string(),
+  get approvalType() {
+    return ApprovalType;
+  },
+  get status() {
+    return ApprovalStatus;
+  },
+  requester: __t.identity(),
+  approver: __t.identity(),
+  amountCents: __t.u64(),
+  get priority() {
+    return ApprovalPriority;
+  },
+  decisionNote: __t.string(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type ApprovalRequest = __Infer<typeof ApprovalRequest>;
+
+// The tagged union or sum type for the algebraic type `ApprovalStatus`.
+export const ApprovalStatus = __t.enum("ApprovalStatus", {
+  Pending: __t.unit(),
+  Approved: __t.unit(),
+  Rejected: __t.unit(),
+  Cancelled: __t.unit(),
+});
+export type ApprovalStatus = __Infer<typeof ApprovalStatus>;
+
+// The tagged union or sum type for the algebraic type `ApprovalType`.
+export const ApprovalType = __t.enum("ApprovalType", {
+  Expense: __t.unit(),
+  TimeOff: __t.unit(),
+  Document: __t.unit(),
+  Purchase: __t.unit(),
+  Access: __t.unit(),
+  Other: __t.unit(),
+});
+export type ApprovalType = __Infer<typeof ApprovalType>;
+
 // The tagged union or sum type for the algebraic type `ArticleCategory`.
 export const ArticleCategory = __t.enum("ArticleCategory", {
   Engineering: __t.unit(),

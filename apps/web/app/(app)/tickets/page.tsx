@@ -101,6 +101,7 @@ import {
   GitBranch,
   Check,
   GanttChart,
+  ArrowLeft,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
@@ -120,6 +121,87 @@ const EPIC_COLORS = [
 ]
 
 const STORY_POINT_OPTIONS = [1, 2, 3, 5, 8, 13, 21]
+
+interface TicketTemplate {
+  id: string
+  name: string
+  icon: string
+  color: string
+  title: string
+  description: string
+  priority: string
+  type: string
+  storyPoints: string
+}
+
+const TICKET_TEMPLATES: TicketTemplate[] = [
+  {
+    id: 'bug',
+    name: 'Bug Report',
+    icon: '🐛',
+    color: 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10',
+    title: '[Bug] ',
+    description: '## Steps to Reproduce\n1. \n2. \n3. \n\n## Expected Behavior\n\n\n## Actual Behavior\n\n\n## Environment\n- Browser: \n- OS: \n- Version: ',
+    priority: 'High',
+    type: 'BugReport',
+    storyPoints: '3',
+  },
+  {
+    id: 'feature',
+    name: 'Feature Request',
+    icon: '✨',
+    color: 'border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10',
+    title: '[Feature] ',
+    description: '## Problem Statement\nDescribe the problem this feature solves.\n\n## Proposed Solution\nDescribe your proposed approach.\n\n## Acceptance Criteria\n- [ ] \n- [ ] \n- [ ] \n\n## Alternatives Considered\n',
+    priority: 'Medium',
+    type: 'FeatureRequest',
+    storyPoints: '5',
+  },
+  {
+    id: 'improvement',
+    name: 'Improvement',
+    icon: '🔧',
+    color: 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10',
+    title: '[Improvement] ',
+    description: '## Current State\nDescribe how it works now.\n\n## Desired State\nDescribe the improvement.\n\n## Impact\n- Performance: \n- UX: \n- Maintenance: ',
+    priority: 'Medium',
+    type: 'FeatureRequest',
+    storyPoints: '3',
+  },
+  {
+    id: 'techdebt',
+    name: 'Tech Debt',
+    icon: '🏗️',
+    color: 'border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10',
+    title: '[Tech Debt] ',
+    description: '## What needs cleanup\n\n\n## Why now\n\n\n## Risk of not doing it\n\n\n## Approach\n',
+    priority: 'Low',
+    type: 'CodeReview',
+    storyPoints: '2',
+  },
+  {
+    id: 'docs',
+    name: 'Documentation',
+    icon: '📝',
+    color: 'border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10',
+    title: '[Docs] ',
+    description: '## What to document\n\n\n## Target audience\n\n\n## Sections\n- [ ] \n- [ ] ',
+    priority: 'Low',
+    type: 'Documentation',
+    storyPoints: '1',
+  },
+  {
+    id: 'research',
+    name: 'Research Spike',
+    icon: '🔬',
+    color: 'border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10',
+    title: '[Spike] ',
+    description: '## Question to answer\n\n\n## Timeboxed to\n_X hours_\n\n## Success criteria\nWe can make an informed decision about...\n\n## Notes\n',
+    priority: 'Medium',
+    type: 'FeatureRequest',
+    storyPoints: '2',
+  },
+]
 
 interface ColumnDef {
   id: string
@@ -271,6 +353,7 @@ export default function TicketsPage() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
 
   // Create form state
+  const [createStep, setCreateStep] = useState<'template' | 'form'>('template')
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newPriority, setNewPriority] = useState('Medium')
@@ -1820,72 +1903,117 @@ export default function TicketsPage() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) setCreateStep('template') }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Ticket</DialogTitle>
+            <DialogTitle>{createStep === 'template' ? 'Choose a Template' : 'Create Ticket'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-sm">Title *</Label>
-              <Input
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Brief description of the task"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-sm">Description</Label>
-              <Textarea
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Detailed description, steps to reproduce, etc."
-                className="mt-1 min-h-[100px]"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm">Priority</Label>
-                <Select value={newPriority} onValueChange={setNewPriority}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Urgent">Urgent</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="Low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
+
+          {createStep === 'template' ? (
+            <div className="py-2 space-y-3">
+              <p className="text-xs text-muted-foreground">Start from a template or create from scratch.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {TICKET_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => {
+                      setNewTitle(tpl.title)
+                      setNewDesc(tpl.description)
+                      setNewPriority(tpl.priority)
+                      setNewType(tpl.type)
+                      setNewStoryPoints(tpl.storyPoints)
+                      setCreateStep('form')
+                    }}
+                    className={`text-left rounded-lg border p-3 transition-all hover:shadow-md ${tpl.color}`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{tpl.icon}</span>
+                      <span className="text-sm font-semibold">{tpl.name}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">
+                      {tpl.description.split('\n')[0].replace(/^#+\s*/, '')}
+                    </p>
+                  </button>
+                ))}
               </div>
-              <div>
-                <Label className="text-sm">Type</Label>
-                <Select value={newType} onValueChange={setNewType}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FeatureRequest">Feature Request</SelectItem>
-                    <SelectItem value="BugReport">Bug Report</SelectItem>
-                    <SelectItem value="BugTriage">Bug Triage</SelectItem>
-                    <SelectItem value="CodeReview">Code Review</SelectItem>
-                    <SelectItem value="Documentation">Documentation</SelectItem>
-                    <SelectItem value="CustomerSupport">Customer Support</SelectItem>
-                    <SelectItem value="TechnicalSupport">Technical Support</SelectItem>
-                    <SelectItem value="DataEntry">Data Entry</SelectItem>
-                    <SelectItem value="Approval">Approval</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <button
+                onClick={() => setCreateStep('form')}
+                className="w-full rounded-lg border border-dashed border-muted-foreground/20 p-3 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors"
+              >
+                Blank ticket — start from scratch
+              </button>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!newTitle.trim() || isCreating}>
-              {isCreating ? <><Loader2 className="size-4 mr-1 animate-spin" /> Creating...</> : 'Create Ticket'}
-            </Button>
-          </DialogFooter>
+          ) : (
+            <>
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label className="text-sm">Title *</Label>
+                  <Input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Brief description of the task"
+                    className="mt-1"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">Description</Label>
+                  <Textarea
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    placeholder="Detailed description, steps to reproduce, etc."
+                    className="mt-1 min-h-[100px]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Priority</Label>
+                    <Select value={newPriority} onValueChange={setNewPriority}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Urgent">Urgent</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Type</Label>
+                    <Select value={newType} onValueChange={setNewType}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FeatureRequest">Feature Request</SelectItem>
+                        <SelectItem value="BugReport">Bug Report</SelectItem>
+                        <SelectItem value="BugTriage">Bug Triage</SelectItem>
+                        <SelectItem value="CodeReview">Code Review</SelectItem>
+                        <SelectItem value="Documentation">Documentation</SelectItem>
+                        <SelectItem value="CustomerSupport">Customer Support</SelectItem>
+                        <SelectItem value="TechnicalSupport">Technical Support</SelectItem>
+                        <SelectItem value="DataEntry">Data Entry</SelectItem>
+                        <SelectItem value="Approval">Approval</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" size="sm" onClick={() => { setCreateStep('template'); setNewTitle(''); setNewDesc(''); setNewPriority('Medium'); setNewType('FeatureRequest'); setNewStoryPoints('') }}>
+                  <ArrowLeft className="size-3.5 mr-1" />
+                  Templates
+                </Button>
+                <div className="flex-1" />
+                <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={!newTitle.trim() || isCreating}>
+                  {isCreating ? <><Loader2 className="size-4 mr-1 animate-spin" /> Creating...</> : 'Create Ticket'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

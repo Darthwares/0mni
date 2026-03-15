@@ -133,8 +133,8 @@ export default function ApprovalsPage() {
   const { identity } = useSpacetimeDB()
 
   // SpacetimeDB data
-  const allRequests = useTable(tables.approvalRequest)
-  const allComments = useTable(tables.approvalComment)
+  const allRequests = useTable(tables.approval_request)
+  const allComments = useTable(tables.approval_comment)
   const allEmployees = useTable(tables.employee)
 
   // Reducers

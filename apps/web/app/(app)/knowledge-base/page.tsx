@@ -88,7 +88,7 @@ export default function KnowledgeBasePage() {
   const { identity } = useSpacetimeDB()
   const { currentOrgId } = useOrg()
 
-  const [allArticles] = useTable(tables.kbArticle)
+  const [allArticles] = useTable(tables.kb_article)
   const [employees] = useTable(tables.employee)
 
   const createKbArticle = useReducer(reducers.createKbArticle)

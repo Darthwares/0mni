@@ -372,7 +372,7 @@ export default function CanvasPage() {
   const [allDocuments] = useTable(tables.document)
   const [employees] = useTable(tables.employee)
   const [allMessages] = useTable(tables.message)
-  const [allDocVersions] = useTable(tables.documentVersion)
+  const [allDocVersions] = useTable(tables.document_version)
   const [allFavorites] = useTable(tables.document_favorite)
   const allDocTags = useTable(tables.document_tag) ?? []
   const allDocPins = useTable(tables.document_pin) ?? []

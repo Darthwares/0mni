@@ -64,7 +64,7 @@ function SetupContent() {
 
   useEffect(() => {
     if (myActiveMembership) {
-      router.replace('/dashboard')
+      router.replace('/feed')
     }
   }, [myActiveMembership, router])
 

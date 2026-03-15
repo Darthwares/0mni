@@ -22,6 +22,7 @@ import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
 import { useNotificationManager } from "@/hooks/use-notification-manager"
 
 const routeNames: Record<string, string> = {
+  "/feed": "Feed",
   "/dashboard": "Dashboard",
   "/activity": "Activity Feed",
   "/messages": "Messages",
@@ -39,7 +40,7 @@ const routeNames: Record<string, string> = {
   "/profile": "Profile",
 }
 
-const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
+const fullScreenRoutes = ["/messages", "/tickets", "/canvas", "/feed"]
 
 // Outer layout — only uses hooks that don't need SpacetimeDBProvider
 export default function AppLayout({ children }: { children: React.ReactNode }) {

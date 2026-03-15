@@ -459,6 +459,64 @@ export const EmployeeType = __t.enum("EmployeeType", {
 });
 export type EmployeeType = __Infer<typeof EmployeeType>;
 
+export const FeedBookmark = __t.object("FeedBookmark", {
+  id: __t.u64(),
+  postId: __t.u64(),
+  userId: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type FeedBookmark = __Infer<typeof FeedBookmark>;
+
+export const FeedFollow = __t.object("FeedFollow", {
+  id: __t.u64(),
+  followerId: __t.identity(),
+  followingId: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type FeedFollow = __Infer<typeof FeedFollow>;
+
+export const FeedHashtag = __t.object("FeedHashtag", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  tag: __t.string(),
+  postCount: __t.u64(),
+  lastUsedAt: __t.timestamp(),
+});
+export type FeedHashtag = __Infer<typeof FeedHashtag>;
+
+export const FeedLike = __t.object("FeedLike", {
+  id: __t.u64(),
+  postId: __t.u64(),
+  userId: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type FeedLike = __Infer<typeof FeedLike>;
+
+export const FeedPost = __t.object("FeedPost", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  author: __t.identity(),
+  content: __t.string(),
+  get postType() {
+    return PostType;
+  },
+  replyToId: __t.option(__t.u64()),
+  quoteOfId: __t.option(__t.u64()),
+  repostOfId: __t.option(__t.u64()),
+  threadRootId: __t.option(__t.u64()),
+  likesCount: __t.u64(),
+  repostsCount: __t.u64(),
+  repliesCount: __t.u64(),
+  quotesCount: __t.u64(),
+  viewsCount: __t.u64(),
+  isAiGenerated: __t.bool(),
+  mediaUrls: __t.array(__t.string()),
+  createdAt: __t.timestamp(),
+  editedAt: __t.option(__t.timestamp()),
+  deleted: __t.bool(),
+});
+export type FeedPost = __Infer<typeof FeedPost>;
+
 export const Interview = __t.object("Interview", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -722,6 +780,15 @@ export const PinnedMessage = __t.object("PinnedMessage", {
   pinnedAt: __t.timestamp(),
 });
 export type PinnedMessage = __Infer<typeof PinnedMessage>;
+
+// The tagged union or sum type for the algebraic type `PostType`.
+export const PostType = __t.enum("PostType", {
+  Post: __t.unit(),
+  Reply: __t.unit(),
+  Repost: __t.unit(),
+  Quote: __t.unit(),
+});
+export type PostType = __Infer<typeof PostType>;
 
 // The tagged union or sum type for the algebraic type `PrStatus`.
 export const PrStatus = __t.enum("PrStatus", {

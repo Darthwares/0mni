@@ -35,6 +35,7 @@ import {
 } from "lucide-react"
 
 const navigationItems = [
+  { title: "Feed", href: "/feed", icon: LayoutDashboard, keywords: "home feed timeline posts social" },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, keywords: "home overview" },
   { title: "Messages", href: "/messages", icon: MessageSquare, keywords: "chat channels dm" },
   { title: "Tickets", href: "/tickets", icon: KanbanSquare, keywords: "kanban board tasks" },

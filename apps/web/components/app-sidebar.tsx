@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Share2,
   UserPlus,
+  Zap,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -74,8 +75,9 @@ const navSections = [
   {
     label: "Overview",
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "Activity", href: "/activity", icon: Activity },
+      { title: "Feed", href: "/feed", icon: Zap },
+      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, globalHidden: true },
+      { title: "Activity", href: "/activity", icon: Activity, globalHidden: true },
     ],
   },
   {
@@ -96,6 +98,7 @@ const navSections = [
   },
   {
     label: "Workspace",
+    globalHidden: true,
     items: [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
       { title: "Canvas", href: "/canvas", icon: PenTool },

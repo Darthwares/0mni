@@ -1160,6 +1160,103 @@ pub struct TaskWatcher {
 
 
 // ============================================================================
+// SOCIAL FEED
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum PostType {
+    Post,       // Original post
+    Reply,      // Reply to another post
+    Repost,     // Repost (like retweet with no extra text)
+    Quote,      // Quote-post (repost with comment)
+}
+
+#[spacetimedb::table(accessor = feed_post, public)]
+#[derive(Clone)]
+pub struct FeedPost {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    #[index(btree)]
+    pub org_id: u64,
+    pub author: Identity,
+    pub content: String,            // Post text (supports @mentions, #hashtags)
+    pub post_type: PostType,
+
+    // Threading
+    pub reply_to_id: Option<u64>,   // Parent post if Reply
+    pub quote_of_id: Option<u64>,   // Quoted post if Quote
+    pub repost_of_id: Option<u64>,  // Original post if Repost
+    pub thread_root_id: Option<u64>,// Root of the thread
+
+    // Denormalized counts for fast display
+    pub likes_count: u64,
+    pub reposts_count: u64,
+    pub replies_count: u64,
+    pub quotes_count: u64,
+    pub views_count: u64,
+
+    // AI-generated posts have this set
+    pub is_ai_generated: bool,
+
+    // Media (URLs or references)
+    pub media_urls: Vec<String>,
+
+    pub created_at: Timestamp,
+    pub edited_at: Option<Timestamp>,
+    pub deleted: bool,
+}
+
+#[spacetimedb::table(accessor = feed_like, public)]
+#[derive(Clone)]
+pub struct FeedLike {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[index(btree)]
+    pub post_id: u64,
+    pub user_id: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = feed_bookmark, public)]
+#[derive(Clone)]
+pub struct FeedBookmark {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[index(btree)]
+    pub post_id: u64,
+    pub user_id: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = feed_follow, public)]
+#[derive(Clone)]
+pub struct FeedFollow {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[index(btree)]
+    pub follower_id: Identity,
+    pub following_id: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = feed_hashtag, public)]
+#[derive(Clone)]
+pub struct FeedHashtag {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub tag: String,
+    pub post_count: u64,
+    pub last_used_at: Timestamp,
+}
+
+// ============================================================================
 // REDUCERS - CORE SYSTEM
 // ============================================================================
 
@@ -3673,6 +3770,524 @@ pub fn create_candidate(
         recruiter: None,
         status: CandidateStatus::Sourced,
         created_at: now,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - SOCIAL FEED
+// ============================================================================
+
+fn extract_hashtags(content: &str) -> Vec<String> {
+    let mut tags = Vec::new();
+    for word in content.split_whitespace() {
+        if word.starts_with('#') && word.len() > 1 {
+            let tag = word[1..].trim_matches(|c: char| !c.is_alphanumeric() && c != '_')
+                .to_lowercase();
+            if !tag.is_empty() && !tags.contains(&tag) {
+                tags.push(tag);
+            }
+        }
+    }
+    tags
+}
+
+fn update_hashtag_counts(ctx: &ReducerContext, org_id: u64, tags: &[String]) {
+    let now = ctx.timestamp;
+    for tag in tags {
+        let existing = ctx.db.feed_hashtag().iter()
+            .find(|h| h.org_id == org_id && h.tag == *tag);
+        if let Some(h) = existing {
+            ctx.db.feed_hashtag().id().update(FeedHashtag {
+                post_count: h.post_count + 1,
+                last_used_at: now,
+                ..h
+            });
+        } else {
+            ctx.db.feed_hashtag().insert(FeedHashtag {
+                id: 0,
+                org_id,
+                tag: tag.clone(),
+                post_count: 1,
+                last_used_at: now,
+            });
+        }
+    }
+}
+
+#[spacetimedb::reducer]
+pub fn create_feed_post(
+    ctx: &ReducerContext,
+    org_id: u64,
+    content: String,
+    media_urls: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+
+    if content.trim().is_empty() && media_urls.is_empty() {
+        return Err("Post cannot be empty".to_string());
+    }
+    if content.len() > 2000 {
+        return Err("Post exceeds 2000 character limit".to_string());
+    }
+
+    let tags = extract_hashtags(&content);
+    let now = ctx.timestamp;
+
+    ctx.db.feed_post().insert(FeedPost {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        content,
+        post_type: PostType::Post,
+        reply_to_id: None,
+        quote_of_id: None,
+        repost_of_id: None,
+        thread_root_id: None,
+        likes_count: 0,
+        reposts_count: 0,
+        replies_count: 0,
+        quotes_count: 0,
+        views_count: 0,
+        is_ai_generated: false,
+        media_urls,
+        created_at: now,
+        edited_at: None,
+        deleted: false,
+    });
+
+    update_hashtag_counts(ctx, org_id, &tags);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn reply_to_feed_post(
+    ctx: &ReducerContext,
+    org_id: u64,
+    parent_post_id: u64,
+    content: String,
+    media_urls: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+
+    if content.trim().is_empty() && media_urls.is_empty() {
+        return Err("Reply cannot be empty".to_string());
+    }
+
+    let parent = ctx.db.feed_post().id().find(&parent_post_id)
+        .ok_or("Parent post not found")?;
+    if parent.deleted {
+        return Err("Cannot reply to a deleted post".to_string());
+    }
+
+    let thread_root = parent.thread_root_id.unwrap_or(parent_post_id);
+    let tags = extract_hashtags(&content);
+    let now = ctx.timestamp;
+
+    ctx.db.feed_post().insert(FeedPost {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        content,
+        post_type: PostType::Reply,
+        reply_to_id: Some(parent_post_id),
+        quote_of_id: None,
+        repost_of_id: None,
+        thread_root_id: Some(thread_root),
+        likes_count: 0,
+        reposts_count: 0,
+        replies_count: 0,
+        quotes_count: 0,
+        views_count: 0,
+        is_ai_generated: false,
+        media_urls,
+        created_at: now,
+        edited_at: None,
+        deleted: false,
+    });
+
+    // Increment parent reply count
+    ctx.db.feed_post().id().update(FeedPost {
+        replies_count: parent.replies_count + 1,
+        ..parent
+    });
+
+    update_hashtag_counts(ctx, org_id, &tags);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn quote_feed_post(
+    ctx: &ReducerContext,
+    org_id: u64,
+    quoted_post_id: u64,
+    content: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+
+    let quoted = ctx.db.feed_post().id().find(&quoted_post_id)
+        .ok_or("Quoted post not found")?;
+    if quoted.deleted {
+        return Err("Cannot quote a deleted post".to_string());
+    }
+
+    let tags = extract_hashtags(&content);
+    let now = ctx.timestamp;
+
+    ctx.db.feed_post().insert(FeedPost {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        content,
+        post_type: PostType::Quote,
+        reply_to_id: None,
+        quote_of_id: Some(quoted_post_id),
+        repost_of_id: None,
+        thread_root_id: None,
+        likes_count: 0,
+        reposts_count: 0,
+        replies_count: 0,
+        quotes_count: 0,
+        views_count: 0,
+        is_ai_generated: false,
+        media_urls: vec![],
+        created_at: now,
+        edited_at: None,
+        deleted: false,
+    });
+
+    // Increment quoted post's quotes count
+    ctx.db.feed_post().id().update(FeedPost {
+        quotes_count: quoted.quotes_count + 1,
+        ..quoted
+    });
+
+    update_hashtag_counts(ctx, org_id, &tags);
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn repost_feed_post(
+    ctx: &ReducerContext,
+    org_id: u64,
+    original_post_id: u64,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+
+    let original = ctx.db.feed_post().id().find(&original_post_id)
+        .ok_or("Post not found")?;
+    if original.deleted {
+        return Err("Cannot repost a deleted post".to_string());
+    }
+
+    // Check if already reposted
+    let already = ctx.db.feed_post().iter()
+        .any(|p| p.author == ctx.sender() && p.repost_of_id == Some(original_post_id) && !p.deleted);
+    if already {
+        return Err("Already reposted".to_string());
+    }
+
+    let now = ctx.timestamp;
+
+    ctx.db.feed_post().insert(FeedPost {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        content: String::new(),
+        post_type: PostType::Repost,
+        reply_to_id: None,
+        quote_of_id: None,
+        repost_of_id: Some(original_post_id),
+        thread_root_id: None,
+        likes_count: 0,
+        reposts_count: 0,
+        replies_count: 0,
+        quotes_count: 0,
+        views_count: 0,
+        is_ai_generated: false,
+        media_urls: vec![],
+        created_at: now,
+        edited_at: None,
+        deleted: false,
+    });
+
+    // Increment repost count
+    ctx.db.feed_post().id().update(FeedPost {
+        reposts_count: original.reposts_count + 1,
+        ..original
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unrepost_feed_post(
+    ctx: &ReducerContext,
+    original_post_id: u64,
+) -> Result<(), String> {
+    let repost = ctx.db.feed_post().iter()
+        .find(|p| p.author == ctx.sender() && p.repost_of_id == Some(original_post_id) && !p.deleted);
+
+    if let Some(rp) = repost {
+        ctx.db.feed_post().id().update(FeedPost { deleted: true, ..rp });
+
+        if let Some(original) = ctx.db.feed_post().id().find(&original_post_id) {
+            ctx.db.feed_post().id().update(FeedPost {
+                reposts_count: original.reposts_count.saturating_sub(1),
+                ..original
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn like_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    let post = ctx.db.feed_post().id().find(&post_id)
+        .ok_or("Post not found")?;
+    if post.deleted {
+        return Err("Cannot like a deleted post".to_string());
+    }
+
+    // Check if already liked
+    let already = ctx.db.feed_like().iter()
+        .any(|l| l.post_id == post_id && l.user_id == ctx.sender());
+    if already {
+        return Err("Already liked".to_string());
+    }
+
+    ctx.db.feed_like().insert(FeedLike {
+        id: 0,
+        post_id,
+        user_id: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    ctx.db.feed_post().id().update(FeedPost {
+        likes_count: post.likes_count + 1,
+        ..post
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unlike_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    let like = ctx.db.feed_like().iter()
+        .find(|l| l.post_id == post_id && l.user_id == ctx.sender());
+
+    if let Some(l) = like {
+        ctx.db.feed_like().id().delete(&l.id);
+
+        if let Some(post) = ctx.db.feed_post().id().find(&post_id) {
+            ctx.db.feed_post().id().update(FeedPost {
+                likes_count: post.likes_count.saturating_sub(1),
+                ..post
+            });
+        }
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn bookmark_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    let _post = ctx.db.feed_post().id().find(&post_id)
+        .ok_or("Post not found")?;
+
+    let already = ctx.db.feed_bookmark().iter()
+        .any(|b| b.post_id == post_id && b.user_id == ctx.sender());
+    if already {
+        return Err("Already bookmarked".to_string());
+    }
+
+    ctx.db.feed_bookmark().insert(FeedBookmark {
+        id: 0,
+        post_id,
+        user_id: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unbookmark_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    let bookmark = ctx.db.feed_bookmark().iter()
+        .find(|b| b.post_id == post_id && b.user_id == ctx.sender());
+
+    if let Some(b) = bookmark {
+        ctx.db.feed_bookmark().id().delete(&b.id);
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn follow_user(
+    ctx: &ReducerContext,
+    following_id: Identity,
+) -> Result<(), String> {
+    if following_id == ctx.sender() {
+        return Err("Cannot follow yourself".to_string());
+    }
+
+    let already = ctx.db.feed_follow().iter()
+        .any(|f| f.follower_id == ctx.sender() && f.following_id == following_id);
+    if already {
+        return Err("Already following".to_string());
+    }
+
+    ctx.db.feed_follow().insert(FeedFollow {
+        id: 0,
+        follower_id: ctx.sender(),
+        following_id,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unfollow_user(
+    ctx: &ReducerContext,
+    following_id: Identity,
+) -> Result<(), String> {
+    let follow = ctx.db.feed_follow().iter()
+        .find(|f| f.follower_id == ctx.sender() && f.following_id == following_id);
+
+    if let Some(f) = follow {
+        ctx.db.feed_follow().id().delete(&f.id);
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    let post = ctx.db.feed_post().id().find(&post_id)
+        .ok_or("Post not found")?;
+
+    if post.author != ctx.sender() {
+        return Err("Can only delete your own posts".to_string());
+    }
+
+    ctx.db.feed_post().id().update(FeedPost {
+        deleted: true,
+        ..post
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn edit_feed_post(
+    ctx: &ReducerContext,
+    post_id: u64,
+    new_content: String,
+) -> Result<(), String> {
+    let post = ctx.db.feed_post().id().find(&post_id)
+        .ok_or("Post not found")?;
+
+    if post.author != ctx.sender() {
+        return Err("Can only edit your own posts".to_string());
+    }
+    if post.deleted {
+        return Err("Cannot edit a deleted post".to_string());
+    }
+    if new_content.trim().is_empty() {
+        return Err("Post cannot be empty".to_string());
+    }
+    if new_content.len() > 2000 {
+        return Err("Post exceeds 2000 character limit".to_string());
+    }
+
+    ctx.db.feed_post().id().update(FeedPost {
+        content: new_content,
+        edited_at: Some(ctx.timestamp),
+        ..post
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn increment_post_views(
+    ctx: &ReducerContext,
+    post_id: u64,
+) -> Result<(), String> {
+    if let Some(post) = ctx.db.feed_post().id().find(&post_id) {
+        ctx.db.feed_post().id().update(FeedPost {
+            views_count: post.views_count + 1,
+            ..post
+        });
+    }
+    Ok(())
+}
+
+// AI @omni post — creates a post as the AI entity
+#[spacetimedb::reducer]
+pub fn create_omni_ai_post(
+    ctx: &ReducerContext,
+    org_id: u64,
+    content: String,
+    reply_to_id: Option<u64>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+
+    let now = ctx.timestamp;
+    let (post_type, thread_root) = if let Some(parent_id) = reply_to_id {
+        let parent = ctx.db.feed_post().id().find(&parent_id)
+            .ok_or("Parent post not found")?;
+        let root = parent.thread_root_id.unwrap_or(parent_id);
+
+        // Increment parent reply count
+        ctx.db.feed_post().id().update(FeedPost {
+            replies_count: parent.replies_count + 1,
+            ..parent
+        });
+
+        (PostType::Reply, Some(root))
+    } else {
+        (PostType::Post, None)
+    };
+
+    ctx.db.feed_post().insert(FeedPost {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        content,
+        post_type,
+        reply_to_id,
+        quote_of_id: None,
+        repost_of_id: None,
+        thread_root_id: thread_root,
+        likes_count: 0,
+        reposts_count: 0,
+        replies_count: 0,
+        quotes_count: 0,
+        views_count: 0,
+        is_ai_generated: true,
+        media_urls: vec![],
+        created_at: now,
+        edited_at: None,
+        deleted: false,
     });
 
     Ok(())

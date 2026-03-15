@@ -64,7 +64,7 @@ function InviteContent() {
 
   useEffect(() => {
     if (isAlreadyMember) {
-      router.replace('/dashboard')
+      router.replace('/feed')
     }
   }, [isAlreadyMember, router])
 

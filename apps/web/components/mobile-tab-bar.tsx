@@ -2,12 +2,12 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { MessageSquare, LayoutDashboard, KanbanSquare, PenTool, Menu } from 'lucide-react'
+import { MessageSquare, LayoutDashboard, KanbanSquare, PenTool, Menu, Zap } from 'lucide-react'
 import { useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Home' },
+  { href: '/feed', icon: Zap, label: 'Feed' },
   { href: '/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/tickets', icon: KanbanSquare, label: 'Tickets' },
   { href: '/canvas', icon: PenTool, label: 'Canvas' },

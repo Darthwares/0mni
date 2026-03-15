@@ -37,6 +37,7 @@ import {
 import AcceptCallReducer from "./accept_call_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
+import BookmarkFeedPostReducer from "./bookmark_feed_post_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
@@ -45,24 +46,34 @@ import CreateChannelReducer from "./create_channel_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
+import CreateFeedPostReducer from "./create_feed_post_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
+import CreateOmniAiPostReducer from "./create_omni_ai_post_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
+import DeleteFeedPostReducer from "./delete_feed_post_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
+import EditFeedPostReducer from "./edit_feed_post_reducer";
 import EditMessageReducer from "./edit_message_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
+import FollowUserReducer from "./follow_user_reducer";
 import GenerateInviteLinkReducer from "./generate_invite_link_reducer";
+import IncrementPostViewsReducer from "./increment_post_views_reducer";
 import InviteByEmailReducer from "./invite_by_email_reducer";
 import JoinChannelReducer from "./join_channel_reducer";
 import JoinOrgWithEmailReducer from "./join_org_with_email_reducer";
 import JoinOrgWithInviteCodeReducer from "./join_org_with_invite_code_reducer";
 import LeaveChannelReducer from "./leave_channel_reducer";
+import LikeFeedPostReducer from "./like_feed_post_reducer";
 import PinMessageReducer from "./pin_message_reducer";
+import QuoteFeedPostReducer from "./quote_feed_post_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
+import ReplyToFeedPostReducer from "./reply_to_feed_post_reducer";
+import RepostFeedPostReducer from "./repost_feed_post_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
 import SelectOrgReducer from "./select_org_reducer";
@@ -76,7 +87,11 @@ import SetTypingStatusReducer from "./set_typing_status_reducer";
 import SetUserLocationReducer from "./set_user_location_reducer";
 import ShareDocumentReducer from "./share_document_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
+import UnbookmarkFeedPostReducer from "./unbookmark_feed_post_reducer";
+import UnfollowUserReducer from "./unfollow_user_reducer";
+import UnlikeFeedPostReducer from "./unlike_feed_post_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
+import UnrepostFeedPostReducer from "./unrepost_feed_post_reducer";
 import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
@@ -104,6 +119,11 @@ import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
 import EmployeeRow from "./employee_table";
+import FeedBookmarkRow from "./feed_bookmark_table";
+import FeedFollowRow from "./feed_follow_table";
+import FeedHashtagRow from "./feed_hashtag_table";
+import FeedLikeRow from "./feed_like_table";
+import FeedPostRow from "./feed_post_table";
 import InterviewRow from "./interview_table";
 import JobPostingRow from "./job_posting_table";
 import LeadRow from "./lead_table";
@@ -254,6 +274,73 @@ const tablesSchema = __schema({
       { name: 'employee_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EmployeeRow),
+  feed_bookmark: __table({
+    name: 'feed_bookmark',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'post_id', algorithm: 'btree', columns: [
+        'postId',
+      ] },
+    ],
+    constraints: [
+      { name: 'feed_bookmark_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FeedBookmarkRow),
+  feed_follow: __table({
+    name: 'feed_follow',
+    indexes: [
+      { name: 'follower_id', algorithm: 'btree', columns: [
+        'followerId',
+      ] },
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'feed_follow_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FeedFollowRow),
+  feed_hashtag: __table({
+    name: 'feed_hashtag',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'feed_hashtag_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FeedHashtagRow),
+  feed_like: __table({
+    name: 'feed_like',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'post_id', algorithm: 'btree', columns: [
+        'postId',
+      ] },
+    ],
+    constraints: [
+      { name: 'feed_like_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FeedLikeRow),
+  feed_post: __table({
+    name: 'feed_post',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'org_id', algorithm: 'btree', columns: [
+        'orgId',
+      ] },
+    ],
+    constraints: [
+      { name: 'feed_post_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FeedPostRow),
   interview: __table({
     name: 'interview',
     indexes: [
@@ -467,6 +554,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
+  __reducerSchema("bookmark_feed_post", BookmarkFeedPostReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
@@ -475,24 +563,34 @@ const reducersSchema = __reducers(
   __reducerSchema("create_customer", CreateCustomerReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
+  __reducerSchema("create_feed_post", CreateFeedPostReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
+  __reducerSchema("create_omni_ai_post", CreateOmniAiPostReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
+  __reducerSchema("delete_feed_post", DeleteFeedPostReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
+  __reducerSchema("edit_feed_post", EditFeedPostReducer),
   __reducerSchema("edit_message", EditMessageReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
+  __reducerSchema("follow_user", FollowUserReducer),
   __reducerSchema("generate_invite_link", GenerateInviteLinkReducer),
+  __reducerSchema("increment_post_views", IncrementPostViewsReducer),
   __reducerSchema("invite_by_email", InviteByEmailReducer),
   __reducerSchema("join_channel", JoinChannelReducer),
   __reducerSchema("join_org_with_email", JoinOrgWithEmailReducer),
   __reducerSchema("join_org_with_invite_code", JoinOrgWithInviteCodeReducer),
   __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("like_feed_post", LikeFeedPostReducer),
   __reducerSchema("pin_message", PinMessageReducer),
+  __reducerSchema("quote_feed_post", QuoteFeedPostReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
+  __reducerSchema("reply_to_feed_post", ReplyToFeedPostReducer),
+  __reducerSchema("repost_feed_post", RepostFeedPostReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
   __reducerSchema("select_org", SelectOrgReducer),
@@ -506,7 +604,11 @@ const reducersSchema = __reducers(
   __reducerSchema("set_user_location", SetUserLocationReducer),
   __reducerSchema("share_document", ShareDocumentReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
+  __reducerSchema("unbookmark_feed_post", UnbookmarkFeedPostReducer),
+  __reducerSchema("unfollow_user", UnfollowUserReducer),
+  __reducerSchema("unlike_feed_post", UnlikeFeedPostReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),
+  __reducerSchema("unrepost_feed_post", UnrepostFeedPostReducer),
   __reducerSchema("unshare_document", UnshareDocumentReducer),
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),

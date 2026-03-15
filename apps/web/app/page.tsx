@@ -52,7 +52,7 @@ export default function LandingPage() {
   const [showWebcam, setShowWebcam] = useState(false)
 
   const handleSignIn = () => auth.signinRedirect()
-  const goToDashboard = () => router.push('/dashboard')
+  const goToDashboard = () => router.push('/feed')
 
   // Show location prompt after a short delay
   useEffect(() => {

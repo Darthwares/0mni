@@ -6530,3 +6530,250 @@ pub fn delete_agent_config(
     ctx.db.agent_config().id().delete(&agent_id);
     Ok(())
 }
+
+// ============================================================================
+// TASK LABELS
+// ============================================================================
+
+#[spacetimedb::table(accessor = task_label, public)]
+#[derive(Clone)]
+pub struct TaskLabel {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub color: String,   // Hex color e.g. "#ef4444"
+    pub created_at: Timestamp,
+}
+
+/// Many-to-many: assigns labels to tasks
+#[spacetimedb::table(accessor = task_label_assignment, public)]
+#[derive(Clone)]
+pub struct TaskLabelAssignment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub task_id: u64,
+    pub label_id: u64,
+}
+
+#[spacetimedb::reducer]
+pub fn create_task_label(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    color: String,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Label name cannot be empty".to_string());
+    }
+    ctx.db.task_label().insert(TaskLabel {
+        id: 0,
+        org_id,
+        name: name.trim().to_string(),
+        color,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_task_label(
+    ctx: &ReducerContext,
+    label_id: u64,
+    name: String,
+    color: String,
+) -> Result<(), String> {
+    let existing = ctx.db.task_label().id().find(label_id)
+        .ok_or("Label not found")?;
+    ctx.db.task_label().id().update(TaskLabel {
+        name: name.trim().to_string(),
+        color,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_task_label(
+    ctx: &ReducerContext,
+    label_id: u64,
+) -> Result<(), String> {
+    // Remove all assignments first
+    let assignments: Vec<_> = ctx.db.task_label_assignment().iter()
+        .filter(|a| a.label_id == label_id)
+        .collect();
+    for a in assignments {
+        ctx.db.task_label_assignment().id().delete(&a.id);
+    }
+    ctx.db.task_label().id().delete(&label_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn assign_label_to_task(
+    ctx: &ReducerContext,
+    task_id: u64,
+    label_id: u64,
+) -> Result<(), String> {
+    // Check not already assigned
+    let exists = ctx.db.task_label_assignment().iter()
+        .any(|a| a.task_id == task_id && a.label_id == label_id);
+    if exists {
+        return Ok(()); // Idempotent
+    }
+    ctx.db.task_label_assignment().insert(TaskLabelAssignment {
+        id: 0,
+        task_id,
+        label_id,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_label_from_task(
+    ctx: &ReducerContext,
+    task_id: u64,
+    label_id: u64,
+) -> Result<(), String> {
+    let assignment = ctx.db.task_label_assignment().iter()
+        .find(|a| a.task_id == task_id && a.label_id == label_id);
+    if let Some(a) = assignment {
+        ctx.db.task_label_assignment().id().delete(&a.id);
+    }
+    Ok(())
+}
+
+// ============================================================================
+// SUBTASKS (Parent-Child Task Relationships)
+// ============================================================================
+
+/// Links a child task to its parent. One parent can have many children.
+#[spacetimedb::table(accessor = task_parent, public)]
+#[derive(Clone)]
+pub struct TaskParent {
+    #[primary_key]
+    pub child_task_id: u64,
+    pub parent_task_id: u64,
+}
+
+#[spacetimedb::reducer]
+pub fn set_task_parent(
+    ctx: &ReducerContext,
+    child_task_id: u64,
+    parent_task_id: u64,
+) -> Result<(), String> {
+    if child_task_id == parent_task_id {
+        return Err("A task cannot be its own parent".to_string());
+    }
+    // Check both tasks exist
+    ctx.db.task().id().find(child_task_id)
+        .ok_or("Child task not found")?;
+    ctx.db.task().id().find(parent_task_id)
+        .ok_or("Parent task not found")?;
+    // Prevent cycles: parent cannot already be a descendant of child
+    let mut current = parent_task_id;
+    loop {
+        if let Some(p) = ctx.db.task_parent().child_task_id().find(current) {
+            if p.parent_task_id == child_task_id {
+                return Err("Cannot create circular parent relationship".to_string());
+            }
+            current = p.parent_task_id;
+        } else {
+            break;
+        }
+    }
+    // Upsert
+    if ctx.db.task_parent().child_task_id().find(child_task_id).is_some() {
+        ctx.db.task_parent().child_task_id().update(TaskParent {
+            child_task_id,
+            parent_task_id,
+        });
+    } else {
+        ctx.db.task_parent().insert(TaskParent {
+            child_task_id,
+            parent_task_id,
+        });
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_task_parent(
+    ctx: &ReducerContext,
+    child_task_id: u64,
+) -> Result<(), String> {
+    ctx.db.task_parent().child_task_id().delete(&child_task_id);
+    Ok(())
+}
+
+// ============================================================================
+// TASK LINKS (Blocks, Duplicates, Relates To)
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum TaskLinkType {
+    Blocks,
+    BlockedBy,
+    Duplicates,
+    DuplicatedBy,
+    RelatesTo,
+}
+
+#[spacetimedb::table(accessor = task_link, public)]
+#[derive(Clone)]
+pub struct TaskLink {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub source_task_id: u64,
+    pub target_task_id: u64,
+    pub link_type: TaskLinkType,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_task_link(
+    ctx: &ReducerContext,
+    source_task_id: u64,
+    target_task_id: u64,
+    link_type_tag: String,
+) -> Result<(), String> {
+    if source_task_id == target_task_id {
+        return Err("Cannot link a task to itself".to_string());
+    }
+    let link_type = match link_type_tag.as_str() {
+        "Blocks" => TaskLinkType::Blocks,
+        "BlockedBy" => TaskLinkType::BlockedBy,
+        "Duplicates" => TaskLinkType::Duplicates,
+        "DuplicatedBy" => TaskLinkType::DuplicatedBy,
+        "RelatesTo" => TaskLinkType::RelatesTo,
+        _ => return Err(format!("Invalid link type: {}", link_type_tag)),
+    };
+    // Check no duplicate link
+    let exists = ctx.db.task_link().iter()
+        .any(|l| l.source_task_id == source_task_id && l.target_task_id == target_task_id && l.link_type == link_type);
+    if exists {
+        return Ok(());
+    }
+    ctx.db.task_link().insert(TaskLink {
+        id: 0,
+        source_task_id,
+        target_task_id,
+        link_type,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_task_link(
+    ctx: &ReducerContext,
+    link_id: u64,
+) -> Result<(), String> {
+    ctx.db.task_link().id().delete(&link_id);
+    Ok(())
+}

@@ -14,6 +14,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import { exportCSV } from '@/lib/csv-export'
+import { Button } from '@/components/ui/button'
 import {
   Users,
   Search,
@@ -38,6 +40,7 @@ import {
   DollarSign,
   Scale,
   Crown,
+  Download,
 } from 'lucide-react'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -549,6 +552,32 @@ export default function OrgChartPage() {
   const aiCount = orgEmployees.filter((e) => e.employeeType.tag === 'AiAgent').length
   const uniqueDepts = new Set(orgEmployees.map((e) => e.department.tag)).size
 
+  const [deptFilter, setDeptFilter] = useState<string>('all')
+
+  const deptNames = useMemo(
+    () => departments.map((d) => d.dept).sort(),
+    [departments]
+  )
+
+  const filteredDepartments = useMemo(
+    () => deptFilter === 'all' ? departments : departments.filter((d) => d.dept === deptFilter),
+    [departments, deptFilter]
+  )
+
+  const handleExportOrgChart = useCallback(() => {
+    const headers = ['Name', 'Role', 'Department', 'Status', 'Type', 'Email', 'Skills']
+    const rows = orgEmployees.map((e) => [
+      e.name,
+      e.role,
+      e.department.tag,
+      e.status.tag,
+      e.employeeType.tag,
+      e.email ?? '',
+      e.skills?.join(', ') ?? '',
+    ])
+    exportCSV('org-chart', headers, rows)
+  }, [orgEmployees])
+
   const orgName = displayOrgName(currentOrg?.name)
 
   return (
@@ -676,6 +705,10 @@ export default function OrgChartPage() {
             )}
           </div>
 
+          <Button variant="outline" size="sm" onClick={handleExportOrgChart} className="gap-1.5 shrink-0">
+            <Download className="size-3.5" /> Export CSV
+          </Button>
+
           <div className="flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0.5 shrink-0">
             <button
               onClick={() => setViewMode('chart')}
@@ -702,6 +735,40 @@ export default function OrgChartPage() {
           </div>
         </div>
 
+        {/* Department Filter */}
+        {deptNames.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setDeptFilter('all')}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                deptFilter === 'all'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
+            >
+              All ({totalCount})
+            </button>
+            {deptNames.map((dept) => {
+              const count = departments.find((d) => d.dept === dept)?.members.length ?? 0
+              const DeptIcon = DEPARTMENT_ICONS[dept]
+              return (
+                <button
+                  key={dept}
+                  onClick={() => setDeptFilter(deptFilter === dept ? 'all' : dept)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    deptFilter === dept
+                      ? (DEPARTMENT_COLORS[dept]?.replace('border-', 'ring-1 ring-') ?? 'bg-neutral-200 text-neutral-700')
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                  }`}
+                >
+                  {DeptIcon && <DeptIcon className="size-3" />}
+                  {dept} ({count})
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Content */}
         {orgEmployees.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -718,13 +785,13 @@ export default function OrgChartPage() {
         ) : viewMode === 'chart' ? (
           <ChartView
             orgName={orgName}
-            departments={departments}
+            departments={filteredDepartments}
             totalMembers={totalCount}
             highlightedIds={highlightedIds}
           />
         ) : (
           <div className="space-y-3">
-            {departments.map(({ dept, members }) => (
+            {filteredDepartments.map(({ dept, members }) => (
               <DepartmentSection
                 key={dept}
                 dept={dept}

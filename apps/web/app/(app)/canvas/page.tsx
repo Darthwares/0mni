@@ -160,6 +160,141 @@ const TEMPLATES: { name: string; description: string; content: any }[] = [
       { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
     ],
   },
+  {
+    name: 'Sprint Retrospective',
+    description: 'What went well, what to improve',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Sprint Retrospective' }], props: { level: 1 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Sprint: ___ | Date: ___' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'What Went Well' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'What Could Be Improved' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Team Sentiment' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Overall: ___/5' }] },
+    ],
+  },
+  {
+    name: 'Product Requirements',
+    description: 'PRD with user stories',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Product Requirements Document' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Overview' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'What are we building and why?' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Background & Context' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'User Stories' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'As a [user], I want [feature] so that [benefit]' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Functional Requirements' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Non-Functional Requirements' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Performance: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Security: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Scalability: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Out of Scope' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Success Criteria' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Open Questions' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'Decision Log',
+    description: 'Track key decisions and rationale',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Decision Log' }], props: { level: 1 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Track important decisions, their context, and outcomes.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Decision #1' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Date: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Decision: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Context: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Alternatives Considered: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Decided By: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Status: Accepted / Revisit' }] },
+    ],
+  },
+  {
+    name: '1:1 Notes',
+    description: 'Manager/report 1:1 template',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: '1:1 Notes' }], props: { level: 1 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Participants: ___ & ___ | Date: ___' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Wins & Progress' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Challenges & Blockers' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Goals for Next Period' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Career & Growth' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+    ],
+  },
+  {
+    name: 'OKRs',
+    description: 'Objectives and Key Results',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'OKRs — Q_ 20__' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Objective 1: ' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR1: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR2: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR3: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Objective 2: ' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR1: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR2: ' }] },
+      { type: 'numberedListItem', content: [{ type: 'text', text: 'KR3: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Review Notes' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+    ],
+  },
+  {
+    name: 'Runbook',
+    description: 'Operational procedures',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Runbook: ___' }], props: { level: 1 } },
+      { type: 'heading', content: [{ type: 'text', text: 'Overview' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'When to use this runbook and what it covers.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Prerequisites' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Access to ___' }], props: { checked: false } },
+      { type: 'checkListItem', content: [{ type: 'text', text: 'Permissions for ___' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Steps' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Rollback Procedure' }], props: { level: 2 } },
+      { type: 'numberedListItem', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Troubleshooting' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'If ___: Try ___' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Contacts' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Owner: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'On-call: ' }] },
+    ],
+  },
+  {
+    name: 'Incident Report',
+    description: 'Post-mortem analysis',
+    content: [
+      { type: 'heading', content: [{ type: 'text', text: 'Incident Report' }], props: { level: 1 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Severity: ___ | Date: ___ | Duration: ___' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Summary' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'What happened in one paragraph.' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Impact' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Users affected: ' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'Revenue impact: ' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Timeline' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'HH:MM — Event detected' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'HH:MM — Mitigation started' }] },
+      { type: 'bulletListItem', content: [{ type: 'text', text: 'HH:MM — Resolved' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Root Cause' }], props: { level: 2 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '' }] },
+      { type: 'heading', content: [{ type: 'text', text: 'Action Items' }], props: { level: 2 } },
+      { type: 'checkListItem', content: [{ type: 'text', text: '' }], props: { checked: false } },
+      { type: 'heading', content: [{ type: 'text', text: 'Lessons Learned' }], props: { level: 2 } },
+      { type: 'bulletListItem', content: [{ type: 'text', text: '' }] },
+    ],
+  },
 ]
 
 // ---- Helpers ----------------------------------------------------------------
@@ -762,29 +897,28 @@ export default function CanvasPage() {
             {/* Templates (only for documents) */}
             {newType === 'Canvas' && (
               <div>
-                <Label className="text-sm mb-2 block">Template</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {TEMPLATES.map((tmpl, idx) => (
-                    <button
-                      key={tmpl.name}
-                      onClick={() => setSelectedTemplate(idx)}
-                      className={`rounded-lg border p-3 text-left transition-all ${
-                        selectedTemplate === idx
-                          ? 'border-violet-500 bg-violet-500/5'
-                          : 'border-border hover:border-muted-foreground/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-0.5">
-                        {idx === 0 && <FileText className="size-3.5 text-muted-foreground" />}
-                        {idx === 1 && <Clock className="size-3.5 text-muted-foreground" />}
-                        {idx === 2 && <Sparkles className="size-3.5 text-muted-foreground" />}
-                        {idx === 3 && <FileText className="size-3.5 text-muted-foreground" />}
-                        <p className="text-xs font-medium">{tmpl.name}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>
-                    </button>
-                  ))}
-                </div>
+                <Label className="text-sm mb-2 block">Template ({TEMPLATES.length} available)</Label>
+                <ScrollArea className="max-h-[280px]">
+                  <div className="grid grid-cols-2 gap-2 pr-3">
+                    {TEMPLATES.map((tmpl, idx) => (
+                      <button
+                        key={tmpl.name}
+                        onClick={() => setSelectedTemplate(idx)}
+                        className={`rounded-lg border p-3 text-left transition-all ${
+                          selectedTemplate === idx
+                            ? 'border-violet-500 bg-violet-500/5 ring-1 ring-violet-500/30'
+                            : 'border-border hover:border-muted-foreground/30 hover:bg-accent/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                          <p className="text-xs font-medium truncate">{tmpl.name}</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">{tmpl.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>

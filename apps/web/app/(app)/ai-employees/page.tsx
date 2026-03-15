@@ -29,6 +29,9 @@ import {
   Plus,
   CircleDot,
 } from 'lucide-react'
+import { GradientText } from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -123,22 +126,28 @@ function StatCard({
   label,
   value,
   accent,
+  spotlightColor,
 }: {
   icon: React.ReactNode
   label: string
   value: string | number
   accent?: string
+  spotlightColor?: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent ?? 'bg-neutral-100 dark:bg-neutral-800'}`}>
-        {icon}
+    <SpotlightCard spotlightColor={spotlightColor ?? 'rgba(139, 92, 246, 0.12)'} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent ?? 'bg-neutral-100 dark:bg-neutral-800'}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-none mb-1 uppercase tracking-wider font-medium">{label}</p>
+          <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100 leading-none">
+            {typeof value === 'number' ? <CountUp to={value} duration={1200} /> : value}
+          </p>
+        </div>
       </div>
-      <div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-none mb-0.5">{label}</p>
-        <p className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 leading-none">{value}</p>
-      </div>
-    </div>
+    </SpotlightCard>
   )
 }
 
@@ -479,7 +488,11 @@ export default function AIEmployeesPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600">
                 <Bot className="w-4 h-4 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">AI Employees</h1>
+              <h1 className="text-xl font-bold">
+                <GradientText colors={['#8b5cf6', '#d946ef', '#a855f7', '#7c3aed']} animationSpeed={6}>
+                  AI Employees
+                </GradientText>
+              </h1>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Manage and monitor your AI workforce across all departments
@@ -498,24 +511,28 @@ export default function AIEmployeesPage() {
             label="Total AI Agents"
             value={stats.total}
             accent="bg-violet-50 dark:bg-violet-950/30"
+            spotlightColor="rgba(139, 92, 246, 0.15)"
           />
           <StatCard
             icon={<Activity className="w-5 h-5 text-emerald-600" />}
             label="Online"
             value={stats.online}
             accent="bg-emerald-50 dark:bg-emerald-950/30"
+            spotlightColor="rgba(16, 185, 129, 0.15)"
           />
           <StatCard
             icon={<Zap className="w-5 h-5 text-amber-500" />}
             label="Busy / In Call"
             value={stats.busy}
             accent="bg-amber-50 dark:bg-amber-950/30"
+            spotlightColor="rgba(245, 158, 11, 0.15)"
           />
           <StatCard
             icon={<CheckCircle2 className="w-5 h-5 text-sky-600" />}
             label="Tasks Completed"
             value={stats.tasksCompleted}
             accent="bg-sky-50 dark:bg-sky-950/30"
+            spotlightColor="rgba(14, 165, 233, 0.15)"
           />
         </div>
 

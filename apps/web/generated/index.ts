@@ -62,6 +62,7 @@ import CreateChannelReducer from "./create_channel_reducer";
 import CreateCodeRepositoryReducer from "./create_code_repository_reducer";
 import CreateContactReducer from "./create_contact_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
+import CreateDealReducer from "./create_deal_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateDriveItemReducer from "./create_drive_item_reducer";
@@ -97,6 +98,7 @@ import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
 import DeleteCodeRepositoryReducer from "./delete_code_repository_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteContactInteractionReducer from "./delete_contact_interaction_reducer";
+import DeleteDealReducer from "./delete_deal_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
@@ -107,6 +109,7 @@ import DeleteInvoiceReducer from "./delete_invoice_reducer";
 import DeleteJobPostingReducer from "./delete_job_posting_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
+import DeleteLeadReducer from "./delete_lead_reducer";
 import DeleteMeetingReducer from "./delete_meeting_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
@@ -196,6 +199,7 @@ import UpdateCandidateReducer from "./update_candidate_reducer";
 import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
+import UpdateDealStageReducer from "./update_deal_stage_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
@@ -208,6 +212,7 @@ import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateJobPostingStatusReducer from "./update_job_posting_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
+import UpdateLeadStatusReducer from "./update_lead_status_reducer";
 import UpdateMeetingStatusReducer from "./update_meeting_status_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
@@ -1109,6 +1114,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_code_repository", CreateCodeRepositoryReducer),
   __reducerSchema("create_contact", CreateContactReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
+  __reducerSchema("create_deal", CreateDealReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_drive_item", CreateDriveItemReducer),
@@ -1144,6 +1150,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_code_repository", DeleteCodeRepositoryReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_contact_interaction", DeleteContactInteractionReducer),
+  __reducerSchema("delete_deal", DeleteDealReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
@@ -1154,6 +1161,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_job_posting", DeleteJobPostingReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
+  __reducerSchema("delete_lead", DeleteLeadReducer),
   __reducerSchema("delete_meeting", DeleteMeetingReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
@@ -1243,6 +1251,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_candidate_status", UpdateCandidateStatusReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),
+  __reducerSchema("update_deal_stage", UpdateDealStageReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
@@ -1255,6 +1264,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_job_posting_status", UpdateJobPostingStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
+  __reducerSchema("update_lead_status", UpdateLeadStatusReducer),
   __reducerSchema("update_meeting_status", UpdateMeetingStatusReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
   __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),

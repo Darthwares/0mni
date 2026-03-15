@@ -4255,6 +4255,130 @@ pub fn create_lead(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_lead_status(
+    ctx: &ReducerContext,
+    lead_id: u64,
+    new_status: LeadStatus,
+) -> Result<(), String> {
+    let existing = ctx.db.lead().id().find(lead_id)
+        .ok_or("Lead not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.lead().id().update(Lead {
+        status: new_status,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_lead(
+    ctx: &ReducerContext,
+    lead_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.lead().id().find(lead_id)
+        .ok_or("Lead not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.lead().id().delete(&lead_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_deal(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    value: f32,
+    stage_tag: String,
+    lead_id: Option<u64>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    let stage = match stage_tag.as_str() {
+        "Discovery" => DealStage::Discovery,
+        "Demo" => DealStage::Demo,
+        "Proposal" => DealStage::Proposal,
+        "Negotiation" => DealStage::Negotiation,
+        "ClosedWon" => DealStage::ClosedWon,
+        "ClosedLost" => DealStage::ClosedLost,
+        _ => DealStage::Discovery,
+    };
+    let probability = match &stage {
+        DealStage::Discovery => 10.0,
+        DealStage::Demo => 30.0,
+        DealStage::Proposal => 50.0,
+        DealStage::Negotiation => 70.0,
+        DealStage::ClosedWon => 100.0,
+        DealStage::ClosedLost => 0.0,
+    };
+    ctx.db.deal().insert(Deal {
+        id: 0,
+        org_id,
+        name,
+        lead_id,
+        value,
+        stage,
+        probability,
+        owner: ctx.sender(),
+        next_best_action: None,
+        risk_factors: vec![],
+        expected_close: None,
+        closed_at: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_deal_stage(
+    ctx: &ReducerContext,
+    deal_id: u64,
+    new_stage_tag: String,
+) -> Result<(), String> {
+    let existing = ctx.db.deal().id().find(deal_id)
+        .ok_or("Deal not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    let stage = match new_stage_tag.as_str() {
+        "Discovery" => DealStage::Discovery,
+        "Demo" => DealStage::Demo,
+        "Proposal" => DealStage::Proposal,
+        "Negotiation" => DealStage::Negotiation,
+        "ClosedWon" => DealStage::ClosedWon,
+        "ClosedLost" => DealStage::ClosedLost,
+        _ => return Err("Invalid stage".to_string()),
+    };
+    let probability = match &stage {
+        DealStage::Discovery => 10.0,
+        DealStage::Demo => 30.0,
+        DealStage::Proposal => 50.0,
+        DealStage::Negotiation => 70.0,
+        DealStage::ClosedWon => 100.0,
+        DealStage::ClosedLost => 0.0,
+    };
+    let closed_at = if stage == DealStage::ClosedWon || stage == DealStage::ClosedLost {
+        Some(ctx.timestamp)
+    } else {
+        None
+    };
+    ctx.db.deal().id().update(Deal {
+        stage,
+        probability,
+        closed_at,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_deal(
+    ctx: &ReducerContext,
+    deal_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.deal().id().find(deal_id)
+        .ok_or("Deal not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.deal().id().delete(&deal_id);
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - RECRUITMENT MODULE
 // ============================================================================

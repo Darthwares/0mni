@@ -100,12 +100,13 @@ import {
   Link2,
   GitBranch,
   Check,
+  GanttChart,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
 // ---- Types ------------------------------------------------------------------
 
-type ViewMode = 'board' | 'list' | 'sprints'
+type ViewMode = 'board' | 'list' | 'sprints' | 'timeline'
 
 const EPIC_COLORS = [
   { value: '#8B5CF6', label: 'Violet', class: 'bg-violet-500' },
@@ -823,6 +824,17 @@ export default function TicketsPage() {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Sprints</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={`p-1.5 transition-colors ${viewMode === 'timeline' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <GanttChart className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Timeline</TooltipContent>
             </Tooltip>
           </div>
 
@@ -1559,6 +1571,190 @@ export default function TicketsPage() {
           </div>
         </ScrollArea>
         )}
+
+        {viewMode === 'timeline' && (() => {
+          const DAY_MS = 86400000
+          const COL_W = 40 // px per day
+
+          // Determine date range — 4 weeks centered around today
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const rangeStart = new Date(today.getTime() - 7 * DAY_MS)
+          const rangeEnd = new Date(today.getTime() + 21 * DAY_MS)
+          const totalDays = Math.round((rangeEnd.getTime() - rangeStart.getTime()) / DAY_MS)
+
+          // Build day columns
+          const days: { date: Date; label: string; isToday: boolean; isWeekend: boolean; weekLabel: string | null }[] = []
+          for (let i = 0; i < totalDays; i++) {
+            const d = new Date(rangeStart.getTime() + i * DAY_MS)
+            const isToday = d.toDateString() === today.toDateString()
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6
+            const weekLabel = d.getDay() === 1 ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null
+            days.push({ date: d, label: d.getDate().toString(), isToday, isWeekend, weekLabel })
+          }
+
+          // Group tasks by assignee
+          const grouped = new Map<string, { name: string; tasks: typeof filteredTasks }>()
+          const unassigned: typeof filteredTasks = []
+          for (const task of filteredTasks) {
+            if (task.assignee) {
+              const hex = task.assignee.toHexString()
+              const emp = employeeMap.get(hex)
+              const name = emp?.name ?? `user-${hex.slice(0, 8)}`
+              if (!grouped.has(hex)) grouped.set(hex, { name, tasks: [] })
+              grouped.get(hex)!.tasks.push(task)
+            } else {
+              unassigned.push(task)
+            }
+          }
+          if (unassigned.length > 0) grouped.set('__unassigned', { name: 'Unassigned', tasks: unassigned })
+
+          const getTaskStart = (t: any): number => {
+            try { return t.createdAt.toDate().getTime() } catch { return today.getTime() }
+          }
+          const getTaskEnd = (t: any): number => {
+            try {
+              if (t.dueAt) return t.dueAt.toDate().getTime()
+            } catch {}
+            return getTaskStart(t) + 3 * DAY_MS // default 3-day bar
+          }
+
+          const statusColor = (tag: string) => {
+            switch (tag) {
+              case 'Completed': return 'bg-emerald-500'
+              case 'InProgress': case 'SelfChecking': return 'bg-amber-500'
+              case 'NeedsReview': case 'Escalated': return 'bg-violet-500'
+              case 'Claimed': return 'bg-blue-500'
+              case 'Blocked': return 'bg-red-500'
+              default: return 'bg-neutral-400'
+            }
+          }
+
+          const todayOffset = Math.round((today.getTime() - rangeStart.getTime()) / DAY_MS)
+
+          return (
+            <div className="h-full flex flex-col">
+              {/* Fixed header */}
+              <div className="flex border-b bg-background sticky top-0 z-10">
+                <div className="w-44 shrink-0 border-r px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Assignee
+                </div>
+                <div className="flex-1 overflow-x-auto">
+                  <div style={{ width: totalDays * COL_W }} className="flex flex-col">
+                    {/* Week labels */}
+                    <div className="flex h-5">
+                      {days.map((d, i) => (
+                        d.weekLabel ? (
+                          <div key={`wk-${i}`} className="text-[10px] font-semibold text-muted-foreground px-1 whitespace-nowrap" style={{ width: COL_W, position: 'absolute', left: 176 + i * COL_W }}>
+                            {d.weekLabel}
+                          </div>
+                        ) : null
+                      ))}
+                    </div>
+                    {/* Day labels */}
+                    <div className="flex">
+                      {days.map((d, i) => (
+                        <div
+                          key={i}
+                          className={`text-center text-[10px] tabular-nums border-r py-1 ${
+                            d.isToday ? 'bg-violet-500/10 font-bold text-violet-600 dark:text-violet-400' :
+                            d.isWeekend ? 'bg-muted/30 text-muted-foreground/50' : 'text-muted-foreground'
+                          }`}
+                          style={{ width: COL_W }}
+                        >
+                          {d.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable body */}
+              <ScrollArea className="flex-1">
+                <div className="flex">
+                  {/* Assignee column */}
+                  <div className="w-44 shrink-0 border-r">
+                    {[...grouped.entries()].map(([key, { name }]) => (
+                      <div key={key} className="h-12 flex items-center gap-2 px-3 border-b">
+                        <Avatar className="size-6">
+                          <AvatarFallback className={`text-[9px] text-white ${nameToColor(name)}`}>
+                            {getInitials(name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium truncate">{name}</span>
+                      </div>
+                    ))}
+                    {grouped.size === 0 && (
+                      <div className="py-16 text-center text-muted-foreground text-xs">No tasks</div>
+                    )}
+                  </div>
+
+                  {/* Timeline grid */}
+                  <div className="flex-1 overflow-x-auto">
+                    <div style={{ width: totalDays * COL_W }} className="relative">
+                      {/* Today indicator line */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-violet-500/60 z-10"
+                        style={{ left: todayOffset * COL_W + COL_W / 2 }}
+                      />
+
+                      {[...grouped.entries()].map(([key, { tasks: rowTasks }]) => (
+                        <div key={key} className="h-12 border-b relative flex items-center">
+                          {/* Background stripes */}
+                          {days.map((d, i) => (
+                            <div
+                              key={i}
+                              className={`absolute top-0 bottom-0 border-r ${
+                                d.isToday ? 'bg-violet-500/5' :
+                                d.isWeekend ? 'bg-muted/20' : ''
+                              }`}
+                              style={{ left: i * COL_W, width: COL_W }}
+                            />
+                          ))}
+
+                          {/* Task bars */}
+                          {rowTasks.map((task) => {
+                            const start = getTaskStart(task)
+                            const end = getTaskEnd(task)
+                            const startDay = (start - rangeStart.getTime()) / DAY_MS
+                            const endDay = (end - rangeStart.getTime()) / DAY_MS
+                            const left = Math.max(0, startDay) * COL_W
+                            const right = Math.min(totalDays, endDay) * COL_W
+                            const width = Math.max(COL_W * 0.5, right - left)
+
+                            if (endDay < 0 || startDay > totalDays) return null
+
+                            return (
+                              <Tooltip key={task.id.toString()}>
+                                <TooltipTrigger>
+                                  <div
+                                    onClick={() => setSelectedTask(task)}
+                                    className={`absolute h-7 rounded-md ${statusColor(task.status.tag)} cursor-pointer hover:opacity-80 transition-opacity flex items-center px-2 shadow-sm z-[5]`}
+                                    style={{ left, width, top: '50%', transform: 'translateY(-50%)' }}
+                                  >
+                                    <span className="text-[10px] font-medium text-white truncate">
+                                      {task.title}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                  <p className="font-medium truncate">{task.title}</p>
+                                  <p className="text-muted-foreground">{task.status.tag} &middot; {task.priority.tag}</p>
+                                  {task.dueAt && <p className="text-muted-foreground">Due: {formatDate(task.dueAt)}</p>}
+                                </TooltipContent>
+                              </Tooltip>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Task Detail Slide-over */}

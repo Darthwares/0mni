@@ -581,6 +581,37 @@ export const DocumentVisibility = __t.enum("DocumentVisibility", {
 });
 export type DocumentVisibility = __Infer<typeof DocumentVisibility>;
 
+export const DriveItem = __t.object("DriveItem", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  get itemType() {
+    return DriveItemType;
+  },
+  sizeBytes: __t.u64(),
+  parentId: __t.u64(),
+  starred: __t.bool(),
+  shared: __t.bool(),
+  creator: __t.identity(),
+  modifiedAt: __t.timestamp(),
+  createdAt: __t.timestamp(),
+});
+export type DriveItem = __Infer<typeof DriveItem>;
+
+// The tagged union or sum type for the algebraic type `DriveItemType`.
+export const DriveItemType = __t.enum("DriveItemType", {
+  Folder: __t.unit(),
+  Document: __t.unit(),
+  Image: __t.unit(),
+  Spreadsheet: __t.unit(),
+  Code: __t.unit(),
+  Video: __t.unit(),
+  Audio: __t.unit(),
+  Archive: __t.unit(),
+  Other: __t.unit(),
+});
+export type DriveItemType = __Infer<typeof DriveItemType>;
+
 export const EmailLabel = __t.object("EmailLabel", {
   id: __t.u64(),
   orgId: __t.u64(),

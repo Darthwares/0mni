@@ -6184,3 +6184,158 @@ pub fn duplicate_workflow(
     });
     Ok(())
 }
+
+// ─── Drive ────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum DriveItemType {
+    Folder,
+    Document,
+    Image,
+    Spreadsheet,
+    Code,
+    Video,
+    Audio,
+    Archive,
+    Other,
+}
+
+#[spacetimedb::table(accessor = drive_item, public)]
+pub struct DriveItem {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub item_type: DriveItemType,
+    pub size_bytes: u64,
+    pub parent_id: u64,       // 0 = root
+    pub starred: bool,
+    pub shared: bool,
+    pub creator: Identity,
+    pub modified_at: Timestamp,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_drive_item(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    type_tag: String,
+    size_bytes: u64,
+    parent_id: u64,
+) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Name is required".to_string());
+    }
+    let item_type = match type_tag.as_str() {
+        "Folder" => DriveItemType::Folder,
+        "Document" => DriveItemType::Document,
+        "Image" => DriveItemType::Image,
+        "Spreadsheet" => DriveItemType::Spreadsheet,
+        "Code" => DriveItemType::Code,
+        "Video" => DriveItemType::Video,
+        "Audio" => DriveItemType::Audio,
+        "Archive" => DriveItemType::Archive,
+        _ => DriveItemType::Other,
+    };
+    ctx.db.drive_item().insert(DriveItem {
+        id: 0,
+        org_id,
+        name,
+        item_type,
+        size_bytes,
+        parent_id,
+        starred: false,
+        shared: false,
+        creator: ctx.sender(),
+        modified_at: ctx.timestamp,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn rename_drive_item(
+    ctx: &ReducerContext,
+    item_id: u64,
+    name: String,
+) -> Result<(), String> {
+    let existing = ctx.db.drive_item().id().find(item_id)
+        .ok_or("Item not found")?;
+    ctx.db.drive_item().id().update(DriveItem {
+        name,
+        modified_at: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn move_drive_item(
+    ctx: &ReducerContext,
+    item_id: u64,
+    new_parent_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.drive_item().id().find(item_id)
+        .ok_or("Item not found")?;
+    ctx.db.drive_item().id().update(DriveItem {
+        parent_id: new_parent_id,
+        modified_at: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_drive_star(
+    ctx: &ReducerContext,
+    item_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.drive_item().id().find(item_id)
+        .ok_or("Item not found")?;
+    ctx.db.drive_item().id().update(DriveItem {
+        starred: !existing.starred,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_drive_shared(
+    ctx: &ReducerContext,
+    item_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.drive_item().id().find(item_id)
+        .ok_or("Item not found")?;
+    ctx.db.drive_item().id().update(DriveItem {
+        shared: !existing.shared,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_drive_item(
+    ctx: &ReducerContext,
+    item_id: u64,
+) -> Result<(), String> {
+    // Cascade: delete children if folder
+    let children: Vec<u64> = ctx.db.drive_item().iter()
+        .filter(|i| i.parent_id == item_id)
+        .map(|i| i.id)
+        .collect();
+    for child_id in children {
+        let grandchildren: Vec<u64> = ctx.db.drive_item().iter()
+            .filter(|i| i.parent_id == child_id)
+            .map(|i| i.id)
+            .collect();
+        for gc_id in grandchildren {
+            ctx.db.drive_item().id().delete(&gc_id);
+        }
+        ctx.db.drive_item().id().delete(&child_id);
+    }
+    ctx.db.drive_item().id().delete(&item_id);
+    Ok(())
+}

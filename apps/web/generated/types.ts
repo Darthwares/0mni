@@ -136,6 +136,19 @@ export const AiParticipant = __t.object("AiParticipant", {
 });
 export type AiParticipant = __Infer<typeof AiParticipant>;
 
+// The tagged union or sum type for the algebraic type `ArticleCategory`.
+export const ArticleCategory = __t.enum("ArticleCategory", {
+  Engineering: __t.unit(),
+  Product: __t.unit(),
+  Design: __t.unit(),
+  Hr: __t.unit(),
+  Operations: __t.unit(),
+  Onboarding: __t.unit(),
+  Security: __t.unit(),
+  General: __t.unit(),
+});
+export type ArticleCategory = __Infer<typeof ArticleCategory>;
+
 export const Attachment = __t.object("Attachment", {
   fileName: __t.string(),
   fileUrl: __t.string(),
@@ -616,6 +629,24 @@ export const JobStatus = __t.enum("JobStatus", {
   Closed: __t.unit(),
 });
 export type JobStatus = __Infer<typeof JobStatus>;
+
+export const KbArticle = __t.object("KbArticle", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  content: __t.string(),
+  get category() {
+    return ArticleCategory;
+  },
+  author: __t.identity(),
+  tags: __t.string(),
+  pinned: __t.bool(),
+  views: __t.u32(),
+  helpful: __t.u32(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type KbArticle = __Infer<typeof KbArticle>;
 
 export const KeyResult = __t.object("KeyResult", {
   id: __t.u64(),

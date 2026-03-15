@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   Calendar,
+  Pencil,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -147,11 +148,23 @@ export default function InvoicingPage() {
   const createInvoice = useReducer(reducers.createInvoice)
   const updateInvoiceStatus = useReducer(reducers.updateInvoiceStatus)
   const deleteInvoice = useReducer(reducers.deleteInvoice)
+  const updateInvoice = useReducer(reducers.updateInvoice)
+  const updateInvoiceLineItem = useReducer(reducers.updateInvoiceLineItem)
+  const addInvoiceLineItem = useReducer(reducers.addInvoiceLineItem)
+  const removeInvoiceLineItem = useReducer(reducers.removeInvoiceLineItem)
 
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+
+  // Edit invoice dialog state
+  const [editInvOpen, setEditInvOpen] = useState(false)
+  const [editInvClient, setEditInvClient] = useState('')
+  const [editInvEmail, setEditInvEmail] = useState('')
+  const [editInvTax, setEditInvTax] = useState('')
+  const [editInvNotes, setEditInvNotes] = useState('')
+  const [editInvDueDate, setEditInvDueDate] = useState('')
 
   // Create form state
   const [newClient, setNewClient] = useState('')
@@ -289,6 +302,33 @@ export default function InvoicingPage() {
   function handleStatusChange(id: number, status: StatusTag) {
     updateInvoiceStatus({ invoiceId: BigInt(id), statusTag: status })
   }
+
+  function openEditInvoice() {
+    if (!selected) return
+    setEditInvClient(selected.clientName)
+    setEditInvEmail(selected.clientEmail)
+    setEditInvTax(selected.taxRate)
+    setEditInvNotes(selected.notes)
+    const due = tsToDate(selected.dueDate)
+    setEditInvDueDate(due.getTime() > 0 ? due.toISOString().split('T')[0] : '')
+    setEditInvOpen(true)
+  }
+
+  const handleEditInvoice = useCallback(() => {
+    if (!selected || !editInvClient.trim()) return
+    const dueDate = editInvDueDate
+      ? dateToTimestamp(new Date(editInvDueDate))
+      : dateToTimestamp(new Date(Date.now() + 30 * 86400000))
+    updateInvoice({
+      invoiceId: selected.id,
+      clientName: editInvClient.trim(),
+      clientEmail: editInvEmail.trim(),
+      taxRate: editInvTax,
+      notes: editInvNotes.trim(),
+      dueDate,
+    })
+    setEditInvOpen(false)
+  }, [selected, editInvClient, editInvEmail, editInvTax, editInvNotes, editInvDueDate, updateInvoice])
 
   // ── Invoice detail view ─────────────────────────────────────────────────
   if (selected) {
@@ -434,6 +474,10 @@ export default function InvoicingPage() {
 
           {/* Action buttons */}
           <div className="max-w-3xl mx-auto w-full flex items-center gap-3">
+            <Button variant="outline" onClick={openEditInvoice}>
+              <Pencil className="size-4 mr-1.5" />
+              Edit Details
+            </Button>
             {statusTag === 'Draft' && (
               <Button
                 onClick={() => handleStatusChange(Number(selected.id), 'Sent')}
@@ -471,6 +515,45 @@ export default function InvoicingPage() {
               Delete
             </Button>
           </div>
+
+          {/* Edit Invoice Dialog */}
+          <Dialog open={editInvOpen} onOpenChange={setEditInvOpen}>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Edit Invoice Details</DialogTitle></DialogHeader>
+              <div className="grid gap-5 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Client Name *</Label>
+                    <Input value={editInvClient} onChange={e => setEditInvClient(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Client Email</Label>
+                    <Input type="email" value={editInvEmail} onChange={e => setEditInvEmail(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Tax Rate (%)</Label>
+                    <Input type="number" min={0} step={0.5} value={editInvTax} onChange={e => setEditInvTax(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Due Date</Label>
+                    <Input type="date" value={editInvDueDate} onChange={e => setEditInvDueDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Notes</Label>
+                  <Textarea value={editInvNotes} onChange={e => setEditInvNotes(e.target.value)} className="min-h-20" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditInvOpen(false)}>Cancel</Button>
+                <Button onClick={handleEditInvoice} disabled={!editInvClient.trim()} className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-0">
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     )

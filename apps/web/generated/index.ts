@@ -208,10 +208,13 @@ import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
 import UpdateEpicReducer from "./update_epic_reducer";
+import UpdateExpenseReducer from "./update_expense_reducer";
 import UpdateExpenseStatusReducer from "./update_expense_status_reducer";
 import UpdateFormReducer from "./update_form_reducer";
 import UpdateFormQuestionReducer from "./update_form_question_reducer";
 import UpdateFormStatusReducer from "./update_form_status_reducer";
+import UpdateInvoiceReducer from "./update_invoice_reducer";
+import UpdateInvoiceLineItemReducer from "./update_invoice_line_item_reducer";
 import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateJobPostingStatusReducer from "./update_job_posting_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
@@ -1277,10 +1280,13 @@ const reducersSchema = __reducers(
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
   __reducerSchema("update_epic", UpdateEpicReducer),
+  __reducerSchema("update_expense", UpdateExpenseReducer),
   __reducerSchema("update_expense_status", UpdateExpenseStatusReducer),
   __reducerSchema("update_form", UpdateFormReducer),
   __reducerSchema("update_form_question", UpdateFormQuestionReducer),
   __reducerSchema("update_form_status", UpdateFormStatusReducer),
+  __reducerSchema("update_invoice", UpdateInvoiceReducer),
+  __reducerSchema("update_invoice_line_item", UpdateInvoiceLineItemReducer),
   __reducerSchema("update_invoice_status", UpdateInvoiceStatusReducer),
   __reducerSchema("update_job_posting_status", UpdateJobPostingStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),

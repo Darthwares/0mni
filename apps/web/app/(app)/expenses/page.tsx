@@ -6,7 +6,7 @@ import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import {
   Plane, Utensils, Monitor, Building2, Wrench, GraduationCap, MoreHorizontal,
-  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown,
+  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown, Pencil, Trash2,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -103,6 +103,7 @@ export default function ExpensesPage() {
   const createExpense = useReducer(reducers.createExpense)
   const updateExpenseStatus = useReducer(reducers.updateExpenseStatus)
   const deleteExpense = useReducer(reducers.deleteExpense)
+  const updateExpense = useReducer(reducers.updateExpense)
 
   // Org-scoped with date conversion
   const expenses = useMemo(() => {
@@ -132,6 +133,15 @@ export default function ExpensesPage() {
   const [newDate, setNewDate] = useState('')
   const [newReceipt, setNewReceipt] = useState(false)
   const [newNotes, setNewNotes] = useState('')
+
+  // Edit form state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editId, setEditId] = useState<bigint | null>(null)
+  const [editDesc, setEditDesc] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editCategory, setEditCategory] = useState<ExpenseCategoryKey>('Other')
+  const [editReceipt, setEditReceipt] = useState(false)
+  const [editNotes, setEditNotes] = useState('')
 
   // Filtered + sorted
   const filtered = useMemo(() => {
@@ -215,6 +225,31 @@ export default function ExpensesPage() {
   function resetForm() {
     setNewDesc(''); setNewAmount(''); setNewCategory('Other'); setNewDate(''); setNewReceipt(false); setNewNotes('')
   }
+
+  function openEdit(expense: typeof expenses[number]) {
+    setEditId(expense.id)
+    setEditDesc(expense.description)
+    setEditAmount(String(expense.dollars))
+    setEditCategory(expense.cat)
+    setEditReceipt(expense.hasReceipt)
+    setEditNotes(expense.notes)
+    setEditOpen(true)
+  }
+
+  const handleEdit = useCallback(() => {
+    if (editId === null || !editDesc.trim() || !editAmount.trim()) return
+    const cents = Math.round(parseFloat(editAmount) * 100)
+    if (cents <= 0) return
+    updateExpense({
+      expenseId: editId,
+      description: editDesc.trim(),
+      amountCents: BigInt(cents),
+      categoryTag: editCategory,
+      hasReceipt: editReceipt,
+      notes: editNotes.trim(),
+    })
+    setEditOpen(false)
+  }, [editId, editDesc, editAmount, editCategory, editReceipt, editNotes, updateExpense])
 
   return (
     <div className="flex flex-col h-full">
@@ -487,7 +522,7 @@ export default function ExpensesPage() {
               return (
                 <div
                   key={expense.id.toString()}
-                  className="flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-4 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+                  className="group flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-4 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
                 >
                   <div className={`flex items-center justify-center size-10 rounded-xl border shrink-0 ${catMeta.color}`}>
                     <CatIcon className="size-4.5" />
@@ -517,11 +552,71 @@ export default function ExpensesPage() {
                   <span className="font-semibold tabular-nums text-sm shrink-0 min-w-20 text-right">
                     {fmtCurrencyDollars(expense.dollars)}
                   </span>
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEdit(expense)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteExpense({ expenseId: expense.id })}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
               )
             })}
           </div>
         )}
+
+        {/* Edit Expense Dialog */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Edit Expense</DialogTitle></DialogHeader>
+            <div className="grid gap-5 py-4">
+              <div className="grid gap-2">
+                <Label>Description *</Label>
+                <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Amount ($) *</Label>
+                  <Input type="number" min={0} step={0.01} value={editAmount} onChange={e => setEditAmount(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Category</Label>
+                  <select
+                    value={editCategory}
+                    onChange={e => setEditCategory(e.target.value as ExpenseCategoryKey)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {ALL_CATEGORIES.map(cat => <option key={cat} value={cat}>{CATEGORY_META[cat].label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label className="mb-1">Receipt</Label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={editReceipt} onChange={e => setEditReceipt(e.target.checked)} className="size-4 rounded border-input" />
+                  <span className="text-sm text-muted-foreground">I have a receipt</span>
+                </label>
+              </div>
+              <div className="grid gap-2">
+                <Label>Notes</Label>
+                <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} className="min-h-20" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={handleEdit} disabled={!editDesc.trim() || !editAmount.trim()} className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white border-0">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

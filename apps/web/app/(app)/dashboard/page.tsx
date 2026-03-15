@@ -31,6 +31,7 @@ import {
   Star,
   Clock,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
   ssr: false,
@@ -253,13 +254,8 @@ export default function DashboardPage() {
             {isGlobalOrg ? 'Global workspace activity' : 'Latest activity in your workspace'}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="size-2 rounded-full bg-emerald-500" />
-            {onlineCount} online
-          </div>
-          <span>&middot;</span>
-          <span>{orgMembers.length} members</span>
+        <div className="hidden sm:block">
+          <PagePresence glowColor="rgba(16, 185, 129, 0.15)" shineColor="#34d399" />
         </div>
       </div>
 

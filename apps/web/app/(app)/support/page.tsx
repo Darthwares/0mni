@@ -46,6 +46,7 @@ import {
   CircleDot,
   Plus,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -337,7 +338,8 @@ export default function SupportPage() {
           </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <PagePresence glowColor="rgba(59, 130, 246, 0.15)" shineColor="#60a5fa" className="hidden xl:flex" maxShow={4} />
           {/* New Customer Dialog */}
           <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
             <DialogTrigger asChild>

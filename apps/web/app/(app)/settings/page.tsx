@@ -40,6 +40,7 @@ import {
   Mail,
   Send,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 import { useAuth } from 'react-oidc-context'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
@@ -243,9 +244,12 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
+        </div>
+        <PagePresence glowColor="rgba(139, 92, 246, 0.15)" shineColor="#a78bfa" />
       </div>
 
       <Tabs defaultValue="profile">

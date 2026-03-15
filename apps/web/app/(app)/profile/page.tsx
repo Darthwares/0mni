@@ -34,6 +34,7 @@ import {
   Linkedin,
   MapPin,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 const TIMEZONES = [
   'UTC',
@@ -193,6 +194,10 @@ export default function ProfilePage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
+      {/* Online colleagues */}
+      <div className="flex justify-end">
+        <PagePresence glowColor="rgba(139, 92, 246, 0.15)" shineColor="#a78bfa" />
+      </div>
       {/* Header */}
       <Card>
         <CardContent className="pt-6">

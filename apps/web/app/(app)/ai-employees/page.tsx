@@ -29,6 +29,7 @@ import {
   Plus,
   CircleDot,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -485,10 +486,13 @@ export default function AIEmployeesPage() {
               Manage and monitor your AI workforce across all departments
             </p>
           </div>
-          <Button className="shrink-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Create AI Employee
-          </Button>
+          <div className="flex items-center gap-4">
+            <PagePresence glowColor="rgba(139, 92, 246, 0.15)" shineColor="#c084fc" className="hidden lg:flex" />
+            <Button className="shrink-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Create AI Employee
+            </Button>
+          </div>
         </div>
 
         {/* ── Stats ── */}

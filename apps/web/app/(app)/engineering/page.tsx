@@ -26,6 +26,7 @@ import {
   Database,
   Code2,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -224,11 +225,14 @@ export default function EngineeringPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Engineering</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          AI-powered code reviews, automated bug triage, and repository insights
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Engineering</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            AI-powered code reviews, automated bug triage, and repository insights
+          </p>
+        </div>
+        <PagePresence glowColor="rgba(249, 115, 22, 0.15)" shineColor="#fb923c" />
       </div>
 
       <Tabs defaultValue="pull-requests">

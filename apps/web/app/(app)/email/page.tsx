@@ -28,6 +28,7 @@ import {
   Plus,
   Paperclip,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 type EmailView = 'inbox' | 'sent' | 'drafts' | 'starred'
 
@@ -157,6 +158,9 @@ export default function EmailPage() {
             </button>
           ))}
         </nav>
+        <div className="p-3 border-t">
+          <PagePresence glowColor="rgba(244, 63, 94, 0.15)" shineColor="#fb7185" maxShow={3} />
+        </div>
       </div>
 
       {/* Email list */}

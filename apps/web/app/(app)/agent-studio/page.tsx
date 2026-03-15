@@ -33,6 +33,7 @@ import {
   Pause,
   RotateCcw,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 const agentTemplates = [
   {
@@ -105,11 +106,14 @@ export default function AgentStudioPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Studio</h1>
-        <p className="text-muted-foreground text-sm">
-          Design, configure, and deploy AI employees for your organization
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Agent Studio</h1>
+          <p className="text-muted-foreground text-sm">
+            Design, configure, and deploy AI employees for your organization
+          </p>
+        </div>
+        <PagePresence glowColor="rgba(236, 72, 153, 0.15)" shineColor="#f472b6" />
       </div>
 
       <Tabs defaultValue="templates">

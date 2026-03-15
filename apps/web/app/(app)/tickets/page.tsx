@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
+import { PagePresence } from '@/components/page-presence'
 import {
   KanbanBoardProvider,
   KanbanBoard,
@@ -432,7 +433,7 @@ export default function TicketsPage() {
             </button>
           </div>
 
-          <PresenceBar />
+          <PagePresence glowColor="rgba(139, 92, 246, 0.15)" shineColor="#a78bfa" maxShow={4} className="hidden xl:flex" />
 
           <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
             <Plus className="size-3.5" />

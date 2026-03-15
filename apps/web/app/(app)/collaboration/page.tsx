@@ -40,6 +40,7 @@ import {
   Wrench,
   ListChecks,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ---- Helpers ----
 
@@ -596,6 +597,7 @@ export default function CollaborationPage() {
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <PagePresence glowColor="rgba(6, 182, 212, 0.15)" shineColor="#22d3ee" className="hidden lg:flex" />
             <span className="flex items-center gap-1.5">
               <Hash className="size-4" />
               <span className="font-medium text-foreground">{channelCount}</span> channels

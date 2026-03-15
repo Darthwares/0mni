@@ -57,6 +57,7 @@ import {
   User,
   Plus,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -304,6 +305,7 @@ export default function SalesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <PagePresence glowColor="rgba(16, 185, 129, 0.15)" shineColor="#34d399" className="hidden lg:flex" />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-xs font-medium text-neutral-700 dark:text-neutral-300">
             <DollarSign className="size-3.5 text-emerald-500" />
             Pipeline: {fmtCurrency(pipelineValue)}

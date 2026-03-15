@@ -19,6 +19,7 @@ import {
   Phone,
   Mail,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 const actionIcons: Record<string, typeof Activity> = {
   Created: Plus,
@@ -101,9 +102,12 @@ export default function ActivityPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Activity Feed</h1>
-        <p className="text-muted-foreground text-sm">Real-time audit trail across all modules</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Activity Feed</h1>
+          <p className="text-muted-foreground text-sm">Real-time audit trail across all modules</p>
+        </div>
+        <PagePresence glowColor="rgba(6, 182, 212, 0.15)" shineColor="#22d3ee" />
       </div>
 
       {/* Summary cards */}

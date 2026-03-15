@@ -44,6 +44,7 @@ import {
   Star,
   Plus,
 } from 'lucide-react'
+import { PagePresence } from '@/components/page-presence'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -305,6 +306,8 @@ export default function RecruitmentPage() {
             Candidate pipeline, job postings, and interview scheduling
           </p>
         </div>
+        <div className="flex items-center gap-4">
+          <PagePresence glowColor="rgba(139, 92, 246, 0.15)" shineColor="#a78bfa" className="hidden md:flex" />
         <Dialog open={candidateDialogOpen} onOpenChange={setCandidateDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="size-4" />
@@ -354,6 +357,7 @@ export default function RecruitmentPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs defaultValue="candidates">

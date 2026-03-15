@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
+import { PagePresence } from '@/components/page-presence'
 import {
   Dialog,
   DialogContent,
@@ -593,7 +594,7 @@ export default function CanvasPage() {
             </button>
           </div>
 
-          <PresenceBar />
+          <PagePresence glowColor="rgba(99, 102, 241, 0.15)" shineColor="#818cf8" maxShow={4} className="hidden xl:flex" />
 
           <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)} className="h-8 gap-1.5">
             <FolderPlus className="size-3.5" />

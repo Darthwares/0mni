@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useTable } from 'spacetimedb/react'
 import { tables } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -170,12 +171,52 @@ const ACTION_FILTERS = [
   { label: 'Commented', value: 'Commented', dot: 'bg-sky-500' },
 ]
 
+// ─── Entity routing ─────────────────────────────────────────────────────────
+
+const ENTITY_ROUTES: Record<string, string> = {
+  ticket: '/tickets',
+  task: '/tickets',
+  document: '/canvas',
+  canvas: '/canvas',
+  lead: '/sales',
+  deal: '/sales',
+  message: '/messages',
+  channel: '/messages',
+  contact: '/contacts',
+  invoice: '/invoicing',
+  candidate: '/recruitment',
+  expense: '/expenses',
+  kb_article: '/knowledge-base',
+  form: '/forms',
+  approval: '/approvals',
+  workflow: '/workflows',
+  calendar: '/calendar',
+  event: '/calendar',
+  employee: '/people',
+  agent: '/agent-studio',
+}
+
+function entityRoute(entityType: string): string | null {
+  return ENTITY_ROUTES[entityType.toLowerCase()] ?? null
+}
+
+const ENTITY_TYPE_FILTERS = [
+  { label: 'All Types', value: 'all' },
+  { label: 'Tasks', value: 'task' },
+  { label: 'Documents', value: 'document' },
+  { label: 'Messages', value: 'message' },
+  { label: 'Tickets', value: 'ticket' },
+  { label: 'Deals', value: 'deal' },
+  { label: 'Contacts', value: 'contact' },
+]
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function ActivityPage() {
   const [allActivity] = useTable(tables.activity_log)
   const [allEmployees] = useTable(tables.employee)
   const [actionFilter, setActionFilter] = useState('all')
+  const [entityTypeFilter, setEntityTypeFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const employeeMap = useMemo(
@@ -193,6 +234,9 @@ export default function ActivityPage() {
     if (actionFilter !== 'all') {
       list = list.filter((a) => a.action.tag === actionFilter)
     }
+    if (entityTypeFilter !== 'all') {
+      list = list.filter((a) => a.entityType.toLowerCase() === entityTypeFilter)
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       list = list.filter((a) => {
@@ -206,7 +250,7 @@ export default function ActivityPage() {
       })
     }
     return list
-  }, [activities, actionFilter, searchQuery, employeeMap])
+  }, [activities, actionFilter, entityTypeFilter, searchQuery, employeeMap])
 
   // Group by date
   const groupedActivities = useMemo(() => {
@@ -349,6 +393,23 @@ export default function ActivityPage() {
           ))}
         </div>
 
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {ENTITY_TYPE_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setEntityTypeFilter(f.value)}
+              className={[
+                'px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border',
+                entityTypeFilter === f.value
+                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30'
+                  : 'bg-transparent text-muted-foreground border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800',
+              ].join(' ')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         <div className="relative w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -433,12 +494,27 @@ export default function ActivityPage() {
                               <span className="text-muted-foreground">
                                 {' '}{actionVerb(activity.action.tag)}{' '}
                               </span>
-                              <span className="font-medium text-foreground/80">
-                                {activity.entityType}
-                              </span>
-                              <span className="text-muted-foreground font-mono text-xs ml-1">
-                                #{String(activity.entityId)}
-                              </span>
+                              {(() => {
+                                const route = entityRoute(activity.entityType)
+                                const label = (
+                                  <>
+                                    <span className="font-medium">{activity.entityType}</span>
+                                    <span className="font-mono text-xs ml-1">#{String(activity.entityId)}</span>
+                                  </>
+                                )
+                                return route ? (
+                                  <Link
+                                    href={route}
+                                    className="inline-flex items-center gap-0.5 text-foreground/80 hover:text-violet-600 dark:hover:text-violet-400 transition-colors underline-offset-2 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {label}
+                                    <ArrowUpRight className="size-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                  </Link>
+                                ) : (
+                                  <span className="text-foreground/80">{label}</span>
+                                )
+                              })()}
                             </p>
                             {activity.metadata && (
                               <p className="text-xs text-muted-foreground mt-1 truncate max-w-md leading-relaxed">

@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Share2,
   UserPlus,
+  Calendar,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -98,6 +99,7 @@ const navSections = [
     label: "Workspace",
     items: [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
+      { title: "Calendar", href: "/calendar", icon: Calendar },
       { title: "Canvas", href: "/canvas", icon: PenTool },
     ],
   },

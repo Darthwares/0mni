@@ -36,9 +36,9 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react'
-import { GradientText } from '@/components/reactbits/GradientText'
-import { SpotlightCard } from '@/components/reactbits/SpotlightCard'
-import { CountUp } from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 const TIMEZONES = [
   'UTC',

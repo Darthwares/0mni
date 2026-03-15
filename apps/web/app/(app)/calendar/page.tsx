@@ -37,9 +37,9 @@ import {
   Edit3,
   type LucideIcon,
 } from 'lucide-react'
-import { GradientText } from '@/components/reactbits/GradientText'
-import { SpotlightCard } from '@/components/reactbits/SpotlightCard'
-import { CountUp } from '@/components/reactbits/CountUp'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ── Types ──────────────────────────────────────
 interface CalendarEvent {

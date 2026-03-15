@@ -45,7 +45,10 @@ import {
   MailOpen,
   CircleDot,
   Plus,
+  Headphones,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import CountUp from '@/components/reactbits/CountUp'
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -80,12 +83,12 @@ function statusVariant(tag: string): 'default' | 'secondary' | 'destructive' | '
 
 function statusColor(tag: string): string {
   switch (tag) {
-    case 'New': return 'bg-blue-100 text-blue-700 border-blue-200'
-    case 'Open': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    case 'Pending': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Resolved': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    case 'Closed': return 'bg-neutral-200 text-neutral-500 border-neutral-300'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'New': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+    case 'Open': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'Pending': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Resolved': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    case 'Closed': return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -112,11 +115,11 @@ function priorityColor(tag: string): string {
 
 function priorityBg(tag: string): string {
   switch (tag) {
-    case 'Urgent': return 'bg-red-100 text-red-700 border-red-200'
-    case 'High': return 'bg-orange-100 text-orange-700 border-orange-200'
-    case 'Medium': return 'bg-amber-100 text-amber-700 border-amber-200'
-    case 'Low': return 'bg-neutral-100 text-neutral-600 border-neutral-200'
-    default: return 'bg-neutral-100 text-neutral-600 border-neutral-200'
+    case 'Urgent': return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+    case 'High': return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
+    case 'Medium': return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    case 'Low': return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
+    default: return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
   }
 }
 
@@ -309,31 +312,40 @@ export default function SupportPage() {
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       {/* ---- Top stats bar ---- */}
       <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/20">
+            <Headphones className="size-4 text-white" />
+          </div>
+          <GradientText colors={['#8b5cf6', '#a855f7', '#7c3aed', '#8b5cf6']} animationSpeed={6} className="text-lg font-bold">
+            Support
+          </GradientText>
+        </div>
+        <Separator orientation="vertical" className="h-6" />
         <div className="flex items-center gap-2">
           <Inbox className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {openCount} Open
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
+            <CountUp to={openCount} /> Open
           </span>
         </div>
         <Separator orientation="vertical" className="h-4" />
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {pendingCount} Pending
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
+            <CountUp to={pendingCount} /> Pending
           </span>
         </div>
         <Separator orientation="vertical" className="h-4" />
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {resolvedCount} Resolved
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
+            <CountUp to={resolvedCount} /> Resolved
           </span>
         </div>
         <Separator orientation="vertical" className="h-4" />
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-violet-500" />
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {aiResolvedCount} AI Auto-Resolved
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
+            <CountUp to={aiResolvedCount} /> AI Auto-Resolved
           </span>
         </div>
 
@@ -567,13 +579,13 @@ export default function SupportPage() {
                           {ticket.priority.tag}
                         </span>
                         {ticket.aiAutoResolved && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700 border border-violet-200">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
                             <Bot className="h-2.5 w-2.5" />
                             AI
                           </span>
                         )}
                         {ticket.escalationCount > 0 && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                             Escalated {ticket.escalationCount}x
                           </span>
                         )}
@@ -673,10 +685,10 @@ export default function SupportPage() {
                             <AvatarFallback
                               className={`text-xs ${
                                 isAI
-                                  ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300'
+                                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                                   : isAgent
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                  : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400'
                               }`}
                             >
                               {isAI ? <Bot className="h-4 w-4" /> : isAgent ? 'AG' : 'CX'}

@@ -66,6 +66,10 @@ import {
   EyeOff,
   Users,
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import GradientText from '@/components/reactbits/GradientText'
+import BlurText from '@/components/reactbits/BlurText'
+import CountUp from '@/components/reactbits/CountUp'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -81,10 +85,14 @@ const ExcalidrawEditor = dynamic(() => import('@/components/excalidraw-editor'),
 function EditorSkeleton() {
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="text-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center"
+      >
         <div className="w-10 h-10 rounded-lg bg-muted animate-pulse mx-auto mb-3" />
         <p className="text-sm text-muted-foreground animate-pulse">Loading editor...</p>
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -373,9 +381,6 @@ export default function CanvasPage() {
         title: doc.title,
         content: doc.content,
       })
-      // NOTE: The updateDocument reducer only takes documentId, title, content.
-      // Moving to a folder would require a separate reducer or extending updateDocument.
-      // For now we close the dialog. If parentId update is needed, a backend change is required.
       setShowMoveDialog(false)
       setMoveDocId(null)
     } catch (e) {
@@ -453,10 +458,15 @@ export default function CanvasPage() {
     const parsedContent = parseContent(activeDoc.content)
 
     return (
-      <div className="flex h-full flex-col">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="flex h-full flex-col"
+      >
         {/* Editor header */}
-        <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1">
+        <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0 bg-background/80 backdrop-blur-sm">
+          <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1 cursor-pointer">
             <ArrowLeft className="size-4" />
             Back
           </Button>
@@ -501,7 +511,7 @@ export default function CanvasPage() {
               variant="outline"
               size="sm"
               onClick={() => { setShareDocId(activeDoc.id); setShowShareDialog(true) }}
-              className="h-7 gap-1.5 text-xs"
+              className="h-7 gap-1.5 text-xs cursor-pointer"
             >
               <Share2 className="size-3.5" />
               Share
@@ -516,10 +526,14 @@ export default function CanvasPage() {
                 </>
               )}
               {saveStatus === 'saved' && (
-                <>
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-1"
+                >
                   <Check className="size-3 text-green-400" />
                   Saved
-                </>
+                </motion.span>
               )}
               {saveStatus === 'idle' && (
                 <>Saved {formatTimeAgo(timestampToDate(activeDoc.updatedAt))}</>
@@ -548,7 +562,21 @@ export default function CanvasPage() {
             />
           )}
         </div>
-      </div>
+
+        {/* Share Dialog (accessible from editor) */}
+        <ShareDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          shareDocId={shareDocId}
+          canvasDocuments={canvasDocuments}
+          employees={employees}
+          employeeMap={employeeMap}
+          identity={identity}
+          shareDocument={shareDocument}
+          unshareDocument={unshareDocument}
+          setDocVisibility={setDocVisibility}
+        />
+      </motion.div>
     )
   }
 
@@ -556,14 +584,22 @@ export default function CanvasPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0">
+      <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0 bg-background/80 backdrop-blur-sm">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
-          <PenTool className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Canvas</h1>
-          <Badge variant="secondary" className="text-xs">
-            {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
+          <div className="size-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            <PenTool className="size-4 text-white" />
+          </div>
+          <GradientText
+            className="text-lg font-bold"
+            colors={['#3B82F6', '#6366F1', '#8B5CF6', '#6366F1', '#3B82F6']}
+            animationSpeed={6}
+          >
+            Canvas
+          </GradientText>
+          <Badge variant="secondary" className="text-xs tabular-nums">
+            <CountUp to={canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length} duration={0.8} />
           </Badge>
         </div>
 
@@ -578,29 +614,40 @@ export default function CanvasPage() {
             />
           </div>
 
-          <div className="flex rounded-lg border overflow-hidden">
+          {/* View mode toggle with animated indicator */}
+          <div className="relative flex rounded-lg border overflow-hidden bg-muted/30">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className="relative z-10 p-1.5 transition-colors cursor-pointer"
             >
-              <Grid3X3 className="size-4" />
+              <Grid3X3 className={`size-4 transition-colors ${viewMode === 'grid' ? 'text-foreground' : 'text-muted-foreground'}`} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className="relative z-10 p-1.5 transition-colors cursor-pointer"
             >
-              <LayoutList className="size-4" />
+              <LayoutList className={`size-4 transition-colors ${viewMode === 'list' ? 'text-foreground' : 'text-muted-foreground'}`} />
             </button>
+            <motion.div
+              layoutId="canvasViewModeIndicator"
+              className="absolute top-0 bottom-0 w-1/2 bg-background rounded-md shadow-sm border"
+              style={{ left: viewMode === 'grid' ? 0 : '50%' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
           </div>
 
           <PresenceBar />
 
-          <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)} className="h-8 gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(true)} className="h-8 gap-1.5 cursor-pointer">
             <FolderPlus className="size-3.5" />
             Folder
           </Button>
 
-          <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
+          <Button
+            size="sm"
+            onClick={() => setShowCreate(true)}
+            className="h-8 gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
             <Plus className="size-3.5" />
             New Canvas
           </Button>
@@ -608,45 +655,52 @@ export default function CanvasPage() {
       </div>
 
       {/* Breadcrumb navigation */}
-      {folderPath.length > 0 && (
-        <div className="border-b px-4 py-2">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  render={
-                    <button onClick={() => setCurrentFolderId(null)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm">
-                      Canvas
-                    </button>
-                  }
-                />
-              </BreadcrumbItem>
-              {folderPath.map((folder, idx) => (
-                <span key={folder.id.toString()} className="contents">
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    {idx === folderPath.length - 1 ? (
-                      <BreadcrumbPage className="flex items-center gap-1.5 text-sm">
-                        <FolderOpen className="size-3.5" />
-                        {folder.title}
-                      </BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink
-                        render={
-                          <button onClick={() => setCurrentFolderId(folder.id)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm flex items-center gap-1.5">
-                            <Folder className="size-3.5" />
-                            {folder.title}
-                          </button>
-                        }
-                      />
-                    )}
-                  </BreadcrumbItem>
-                </span>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      )}
+      <AnimatePresence>
+        {folderPath.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b px-4 py-2 overflow-hidden"
+          >
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    render={
+                      <button onClick={() => setCurrentFolderId(null)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm">
+                        Canvas
+                      </button>
+                    }
+                  />
+                </BreadcrumbItem>
+                {folderPath.map((folder, idx) => (
+                  <span key={folder.id.toString()} className="contents">
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      {idx === folderPath.length - 1 ? (
+                        <BreadcrumbPage className="flex items-center gap-1.5 text-sm">
+                          <FolderOpen className="size-3.5" />
+                          {folder.title}
+                        </BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink
+                          render={
+                            <button onClick={() => setCurrentFolderId(folder.id)} className="cursor-pointer transition-colors hover:text-foreground text-muted-foreground text-sm flex items-center gap-1.5">
+                              <Folder className="size-3.5" />
+                              {folder.title}
+                            </button>
+                          }
+                        />
+                      )}
+                    </BreadcrumbItem>
+                  </span>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Document List */}
       <ScrollArea className="flex-1">
@@ -656,58 +710,78 @@ export default function CanvasPage() {
               inFolder={currentFolderId !== null}
               onCreateClick={() => setShowCreate(true)}
             />
-          ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredDocuments.map((doc) => (
-                <CanvasCard
-                  key={doc.id.toString()}
-                  doc={doc}
-                  employeeMap={employeeMap}
-                  onOpen={() => {
-                    if (doc.docType.tag === 'Folder') {
-                      setCurrentFolderId(doc.id)
-                    } else {
-                      setActiveDocId(doc.id)
-                    }
-                  }}
-                  onDelete={() => handleDelete(doc.id)}
-                  onMove={() => {
-                    setMoveDocId(doc.id)
-                    setShowMoveDialog(true)
-                  }}
-                  onShare={() => {
-                    setShareDocId(doc.id)
-                    setShowShareDialog(true)
-                  }}
-                />
-              ))}
-            </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-2">
-              {filteredDocuments.map((doc) => (
-                <CanvasListItem
-                  key={doc.id.toString()}
-                  doc={doc}
-                  employeeMap={employeeMap}
-                  onOpen={() => {
-                    if (doc.docType.tag === 'Folder') {
-                      setCurrentFolderId(doc.id)
-                    } else {
-                      setActiveDocId(doc.id)
-                    }
-                  }}
-                  onDelete={() => handleDelete(doc.id)}
-                  onMove={() => {
-                    setMoveDocId(doc.id)
-                    setShowMoveDialog(true)
-                  }}
-                  onShare={() => {
-                    setShareDocId(doc.id)
-                    setShowShareDialog(true)
-                  }}
-                />
-              ))}
-            </div>
+            <AnimatePresence mode="wait">
+              {viewMode === 'grid' ? (
+                <motion.div
+                  key="grid"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                >
+                  {filteredDocuments.map((doc, index) => (
+                    <CanvasCard
+                      key={doc.id.toString()}
+                      doc={doc}
+                      index={index}
+                      employeeMap={employeeMap}
+                      onOpen={() => {
+                        if (doc.docType.tag === 'Folder') {
+                          setCurrentFolderId(doc.id)
+                        } else {
+                          setActiveDocId(doc.id)
+                        }
+                      }}
+                      onDelete={() => handleDelete(doc.id)}
+                      onMove={() => {
+                        setMoveDocId(doc.id)
+                        setShowMoveDialog(true)
+                      }}
+                      onShare={() => {
+                        setShareDocId(doc.id)
+                        setShowShareDialog(true)
+                      }}
+                    />
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="max-w-3xl mx-auto space-y-2"
+                >
+                  {filteredDocuments.map((doc, index) => (
+                    <CanvasListItem
+                      key={doc.id.toString()}
+                      doc={doc}
+                      index={index}
+                      employeeMap={employeeMap}
+                      onOpen={() => {
+                        if (doc.docType.tag === 'Folder') {
+                          setCurrentFolderId(doc.id)
+                        } else {
+                          setActiveDocId(doc.id)
+                        }
+                      }}
+                      onDelete={() => handleDelete(doc.id)}
+                      onMove={() => {
+                        setMoveDocId(doc.id)
+                        setShowMoveDialog(true)
+                      }}
+                      onShare={() => {
+                        setShareDocId(doc.id)
+                        setShowShareDialog(true)
+                      }}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
       </ScrollArea>
@@ -716,7 +790,12 @@ export default function CanvasPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Canvas</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="size-6 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Plus className="size-3.5 text-white" />
+              </div>
+              New Canvas
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -733,64 +812,82 @@ export default function CanvasPage() {
             <div>
               <Label className="text-sm mb-2 block">Type</Label>
               <div className="grid grid-cols-2 gap-3">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setNewType('Canvas')}
-                  className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`relative rounded-xl border-2 p-4 text-left transition-all cursor-pointer ${
                     newType === 'Canvas'
-                      ? 'border-blue-500 bg-blue-500/5'
+                      ? 'border-blue-500 bg-blue-500/5 shadow-md shadow-blue-500/10'
                       : 'border-border hover:border-muted-foreground/30'
                   }`}
                 >
                   <FileText className={`size-8 mb-2 ${newType === 'Canvas' ? 'text-blue-400' : 'text-muted-foreground'}`} />
                   <p className="text-sm font-semibold">Document</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Rich text, like Notion</p>
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setNewType('Whiteboard')}
-                  className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`relative rounded-xl border-2 p-4 text-left transition-all cursor-pointer ${
                     newType === 'Whiteboard'
-                      ? 'border-emerald-500 bg-emerald-500/5'
+                      ? 'border-emerald-500 bg-emerald-500/5 shadow-md shadow-emerald-500/10'
                       : 'border-border hover:border-muted-foreground/30'
                   }`}
                 >
                   <Pencil className={`size-8 mb-2 ${newType === 'Whiteboard' ? 'text-emerald-400' : 'text-muted-foreground'}`} />
                   <p className="text-sm font-semibold">Whiteboard</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Draw with Excalidraw</p>
-                </button>
+                </motion.button>
               </div>
             </div>
             {/* Templates (only for documents) */}
-            {newType === 'Canvas' && (
-              <div>
-                <Label className="text-sm mb-2 block">Template</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {TEMPLATES.map((tmpl, idx) => (
-                    <button
-                      key={tmpl.name}
-                      onClick={() => setSelectedTemplate(idx)}
-                      className={`rounded-lg border p-3 text-left transition-all ${
-                        selectedTemplate === idx
-                          ? 'border-violet-500 bg-violet-500/5'
-                          : 'border-border hover:border-muted-foreground/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-0.5">
-                        {idx === 0 && <FileText className="size-3.5 text-muted-foreground" />}
-                        {idx === 1 && <Clock className="size-3.5 text-muted-foreground" />}
-                        {idx === 2 && <Sparkles className="size-3.5 text-muted-foreground" />}
-                        {idx === 3 && <FileText className="size-3.5 text-muted-foreground" />}
-                        <p className="text-xs font-medium">{tmpl.name}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <AnimatePresence>
+              {newType === 'Canvas' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <Label className="text-sm mb-2 block">Template</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {TEMPLATES.map((tmpl, idx) => (
+                      <motion.button
+                        key={tmpl.name}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedTemplate(idx)}
+                        className={`rounded-lg border p-3 text-left transition-all cursor-pointer ${
+                          selectedTemplate === idx
+                            ? 'border-violet-500 bg-violet-500/5 shadow-sm'
+                            : 'border-border hover:border-muted-foreground/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {idx === 0 && <FileText className="size-3.5 text-muted-foreground" />}
+                          {idx === 1 && <Clock className="size-3.5 text-muted-foreground" />}
+                          {idx === 2 && <Sparkles className="size-3.5 text-muted-foreground" />}
+                          {idx === 3 && <FileText className="size-3.5 text-muted-foreground" />}
+                          <p className="text-xs font-medium">{tmpl.name}</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{tmpl.description}</p>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create Canvas</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)} className="cursor-pointer">Cancel</Button>
+            <Button
+              onClick={handleCreate}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 cursor-pointer"
+            >
+              Create Canvas
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -799,7 +896,10 @@ export default function CanvasPage() {
       <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>New Folder</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderPlus className="size-4 text-amber-400" />
+              New Folder
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -815,8 +915,8 @@ export default function CanvasPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateFolder(false)}>Cancel</Button>
-            <Button onClick={handleCreateFolder}>
+            <Button variant="outline" onClick={() => setShowCreateFolder(false)} className="cursor-pointer">Cancel</Button>
+            <Button onClick={handleCreateFolder} className="cursor-pointer">
               <FolderPlus className="size-4 mr-1.5" />
               Create Folder
             </Button>
@@ -828,12 +928,15 @@ export default function CanvasPage() {
       <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Move to Folder</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <MoveRight className="size-4" />
+              Move to Folder
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-1 py-2 max-h-64 overflow-y-auto">
             <button
               onClick={() => handleMoveToFolder(null)}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left cursor-pointer"
             >
               <Folder className="size-4 text-muted-foreground" />
               Root (no folder)
@@ -844,7 +947,7 @@ export default function CanvasPage() {
                 <button
                   key={folder.id.toString()}
                   onClick={() => handleMoveToFolder(folder.id)}
-                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-left cursor-pointer"
                 >
                   <Folder className="size-4 text-amber-400" />
                   {folder.title}
@@ -858,113 +961,18 @@ export default function CanvasPage() {
       </Dialog>
 
       {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="size-4" />
-              Share Canvas
-            </DialogTitle>
-          </DialogHeader>
-          {shareDocId && (() => {
-            const shareDoc = canvasDocuments.find((d) => d.id === shareDocId)
-            if (!shareDoc) return null
-            const isPrivate = shareDoc.visibility?.tag === 'Private'
-            return (
-              <div className="space-y-4 py-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Visibility</p>
-                    <p className="text-xs text-muted-foreground">
-                      {isPrivate ? 'Only you and shared people can see this' : 'Everyone in the org can see this'}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await setDocVisibility({
-                          documentId: shareDocId,
-                          visibility: { tag: isPrivate ? 'Public' : 'Private' } as any,
-                        })
-                      } catch (e) { console.error(e) }
-                    }}
-                    className="gap-1.5"
-                  >
-                    {isPrivate ? <><Lock className="size-3.5" /> Private</> : <><Globe className="size-3.5" /> Public</>}
-                  </Button>
-                </div>
-
-                {isPrivate && (
-                  <>
-                    <div>
-                      <p className="text-sm font-medium mb-2">Shared with</p>
-                      {shareDoc.sharedWith.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Not shared with anyone yet.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {shareDoc.sharedWith.map((hex) => {
-                            const emp = employeeMap.get(hex)
-                            return (
-                              <div key={hex} className="flex items-center justify-between rounded-lg px-2 py-1.5 bg-muted">
-                                <span className="text-sm">{emp?.name ?? `user-${hex.slice(0, 8)}`}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      await unshareDocument({ documentId: shareDocId, targetIdentityHex: hex })
-                                    } catch (e) { console.error(e) }
-                                  }}
-                                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium mb-2">Add people</p>
-                      <div className="space-y-1 max-h-40 overflow-y-auto">
-                        {employees
-                          .filter((e) => {
-                            const hex = e.id.toHexString()
-                            return hex !== identity?.toHexString() && !shareDoc.sharedWith.includes(hex)
-                          })
-                          .map((emp) => (
-                            <button
-                              key={emp.id.toHexString()}
-                              onClick={async () => {
-                                try {
-                                  await shareDocument({ documentId: shareDocId, targetIdentityHex: emp.id.toHexString() })
-                                } catch (e) { console.error(e) }
-                              }}
-                              className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left"
-                            >
-                              <div className="size-6 rounded-full bg-violet-600 flex items-center justify-center text-[9px] text-white font-medium">
-                                {emp.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </div>
-                              <span>{emp.name}</span>
-                              <Plus className="size-3.5 ml-auto text-muted-foreground" />
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )
-          })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowShareDialog(false)}>Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ShareDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        shareDocId={shareDocId}
+        canvasDocuments={canvasDocuments}
+        employees={employees}
+        employeeMap={employeeMap}
+        identity={identity}
+        shareDocument={shareDocument}
+        unshareDocument={unshareDocument}
+        setDocVisibility={setDocVisibility}
+      />
     </div>
   )
 }
@@ -973,6 +981,7 @@ export default function CanvasPage() {
 
 function CanvasCard({
   doc,
+  index,
   employeeMap,
   onOpen,
   onDelete,
@@ -980,6 +989,7 @@ function CanvasCard({
   onShare,
 }: {
   doc: SpacetimeDocument
+  index: number
   employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
@@ -991,95 +1001,123 @@ function CanvasCard({
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
   const isPrivate = doc.visibility?.tag === 'Private'
 
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [isHovered, setIsHovered] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }
+
+  const spotlightColor = isFolder
+    ? 'rgba(245,158,11,0.06)'
+    : isWhiteboard
+      ? 'rgba(16,185,129,0.06)'
+      : 'rgba(59,130,246,0.06)'
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
-    <div
-      onClick={onOpen}
-      className="group relative rounded-xl border bg-card cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden"
-    >
-      {/* Preview area */}
-      <div className={`h-32 flex items-center justify-center ${
-        isFolder
-          ? 'bg-gradient-to-br from-amber-500/5 to-amber-500/10'
-          : isWhiteboard
-            ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
-            : 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
-      }`}>
-        {isFolder ? (
-          <FolderOpen className="size-12 text-amber-400/40" />
-        ) : isWhiteboard ? (
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 border-2 border-foreground/10 rounded-lg rotate-12" />
-            <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
-            <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
-          </div>
-        ) : (
-          <div className="space-y-1.5 px-6 w-full">
-            <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
-            <div className="h-2 bg-foreground/10 rounded-full w-full" />
-            <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
-            <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="p-3.5">
-        <div className="flex items-center gap-2 mb-1">
-          {isFolder ? (
-            <Folder className="size-3.5 text-amber-400 shrink-0" />
-          ) : isWhiteboard ? (
-            <PenTool className="size-3.5 text-emerald-400 shrink-0" />
-          ) : (
-            <FileText className="size-3.5 text-blue-400 shrink-0" />
-          )}
-          <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
-          {isPrivate && <Lock className="size-3 text-muted-foreground shrink-0" />}
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <Clock className="size-3" />
-          {formatTimeAgo(timestampToDate(doc.updatedAt))}
-          {lastEditor && (
-            <span className="ml-1">Last edited by {lastEditor.name}</span>
-          )}
-          {(doc.sharedWith?.length ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5 ml-1">
-              <Users className="size-2.5" />
-              {doc.sharedWith.length} shared
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {!isFolder && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onShare() }}
-            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
-            title="Share"
-          >
-            <Share2 className="size-3.5" />
-          </button>
-        )}
-        {!isFolder && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onMove() }}
-            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
-            title="Move to folder"
-          >
-            <MoveRight className="size-3.5" />
-          </button>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="p-1.5 rounded-md bg-background/80 border hover:bg-destructive/10 hover:text-destructive transition-colors"
+        <motion.div
+          ref={cardRef}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.25 }}
+          onMouseMove={handleMouseMove}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={onOpen}
+          className="group relative rounded-xl border bg-card cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden"
+          style={{
+            background: isHovered
+              ? `radial-gradient(250px circle at ${mousePos.x}px ${mousePos.y}px, ${spotlightColor}, transparent 70%)`
+              : undefined,
+          }}
         >
-          <Trash2 className="size-3.5" />
-        </button>
-      </div>
-    </div>
+          {/* Preview area */}
+          <div className={`h-32 flex items-center justify-center ${
+            isFolder
+              ? 'bg-gradient-to-br from-amber-500/5 to-amber-500/10'
+              : isWhiteboard
+                ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
+                : 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
+          }`}>
+            {isFolder ? (
+              <FolderOpen className="size-12 text-amber-400/40" />
+            ) : isWhiteboard ? (
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 border-2 border-foreground/10 rounded-lg rotate-12" />
+                <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
+                <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
+              </div>
+            ) : (
+              <div className="space-y-1.5 px-6 w-full">
+                <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
+                <div className="h-2 bg-foreground/10 rounded-full w-full" />
+                <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
+                <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="p-3.5">
+            <div className="flex items-center gap-2 mb-1">
+              {isFolder ? (
+                <Folder className="size-3.5 text-amber-400 shrink-0" />
+              ) : isWhiteboard ? (
+                <PenTool className="size-3.5 text-emerald-400 shrink-0" />
+              ) : (
+                <FileText className="size-3.5 text-blue-400 shrink-0" />
+              )}
+              <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
+              {isPrivate && <Lock className="size-3 text-muted-foreground shrink-0" />}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <Clock className="size-3" />
+              {formatTimeAgo(timestampToDate(doc.updatedAt))}
+              {lastEditor && (
+                <span className="ml-1">Last edited by {lastEditor.name}</span>
+              )}
+              {(doc.sharedWith?.length ?? 0) > 0 && (
+                <span className="flex items-center gap-0.5 ml-1">
+                  <Users className="size-2.5" />
+                  {doc.sharedWith.length} shared
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!isFolder && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onShare() }}
+                className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors cursor-pointer"
+                title="Share"
+              >
+                <Share2 className="size-3.5" />
+              </button>
+            )}
+            {!isFolder && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMove() }}
+                className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors cursor-pointer"
+                title="Move to folder"
+              >
+                <MoveRight className="size-3.5" />
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="p-1.5 rounded-md bg-background/80 border hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        </motion.div>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuLabel>{doc.title}</ContextMenuLabel>
@@ -1112,6 +1150,7 @@ function CanvasCard({
 
 function CanvasListItem({
   doc,
+  index,
   employeeMap,
   onOpen,
   onDelete,
@@ -1119,6 +1158,7 @@ function CanvasListItem({
   onShare,
 }: {
   doc: SpacetimeDocument
+  index: number
   employeeMap: Map<string, any>
   onOpen: () => void
   onDelete: () => void
@@ -1130,7 +1170,10 @@ function CanvasListItem({
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.2 }}
       onClick={onOpen}
       className="group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-sm hover:border-primary/20"
     >
@@ -1165,7 +1208,7 @@ function CanvasListItem({
         {!isFolder && (
           <button
             onClick={(e) => { e.stopPropagation(); onMove() }}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            className="p-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer"
             title="Move to folder"
           >
             <MoveRight className="size-3.5" />
@@ -1173,37 +1216,180 @@ function CanvasListItem({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors"
+          className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
         >
           <Trash2 className="size-3.5" />
         </button>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
 function EmptyState({ inFolder, onCreateClick }: { inFolder: boolean; onCreateClick: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center py-20 text-center"
+    >
+      <div className="size-16 rounded-2xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center mb-4">
         {inFolder ? (
-          <FolderOpen className="size-7 text-muted-foreground" />
+          <FolderOpen className="size-7 text-amber-400/60" />
         ) : (
-          <PenTool className="size-7 text-muted-foreground" />
+          <PenTool className="size-7 text-blue-400/60" />
         )}
       </div>
-      <h3 className="text-lg font-semibold mb-1">
-        {inFolder ? 'This folder is empty' : 'No canvases yet'}
-      </h3>
+      <BlurText
+        text={inFolder ? 'This folder is empty' : 'No canvases yet'}
+        className="text-lg font-semibold mb-1 justify-center"
+        delay={50}
+      />
       <p className="text-sm text-muted-foreground mb-6 max-w-sm">
         {inFolder
           ? 'Create a document or whiteboard in this folder.'
           : 'Create a document for rich text editing or a whiteboard for visual collaboration.'}
       </p>
-      <Button onClick={onCreateClick} className="gap-1.5">
+      <Button
+        onClick={onCreateClick}
+        className="gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 cursor-pointer"
+      >
         <Plus className="size-4" />
         {inFolder ? 'Create canvas' : 'Create your first canvas'}
       </Button>
-    </div>
+    </motion.div>
+  )
+}
+
+function ShareDialog({
+  open,
+  onOpenChange,
+  shareDocId,
+  canvasDocuments,
+  employees,
+  employeeMap,
+  identity,
+  shareDocument,
+  unshareDocument,
+  setDocVisibility,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  shareDocId: bigint | null
+  canvasDocuments: SpacetimeDocument[]
+  employees: readonly any[]
+  employeeMap: Map<string, any>
+  identity: any
+  shareDocument: (args: any) => Promise<any>
+  unshareDocument: (args: any) => Promise<any>
+  setDocVisibility: (args: any) => Promise<any>
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="size-4" />
+            Share Canvas
+          </DialogTitle>
+        </DialogHeader>
+        {shareDocId && (() => {
+          const shareDoc = canvasDocuments.find((d) => d.id === shareDocId)
+          if (!shareDoc) return null
+          const isPrivate = shareDoc.visibility?.tag === 'Private'
+          return (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Visibility</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isPrivate ? 'Only you and shared people can see this' : 'Everyone in the org can see this'}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await setDocVisibility({
+                        documentId: shareDocId,
+                        visibility: { tag: isPrivate ? 'Public' : 'Private' } as any,
+                      })
+                    } catch (e) { console.error(e) }
+                  }}
+                  className="gap-1.5 cursor-pointer"
+                >
+                  {isPrivate ? <><Lock className="size-3.5" /> Private</> : <><Globe className="size-3.5" /> Public</>}
+                </Button>
+              </div>
+
+              {isPrivate && (
+                <>
+                  <div>
+                    <p className="text-sm font-medium mb-2">Shared with</p>
+                    {shareDoc.sharedWith.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Not shared with anyone yet.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {shareDoc.sharedWith.map((hex) => {
+                          const emp = employeeMap.get(hex)
+                          return (
+                            <div key={hex} className="flex items-center justify-between rounded-lg px-2 py-1.5 bg-muted">
+                              <span className="text-sm">{emp?.name ?? `user-${hex.slice(0, 8)}`}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await unshareDocument({ documentId: shareDocId, targetIdentityHex: hex })
+                                  } catch (e) { console.error(e) }
+                                }}
+                                className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">Add people</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {employees
+                        .filter((e) => {
+                          const hex = e.id.toHexString()
+                          return hex !== identity?.toHexString() && !shareDoc.sharedWith.includes(hex)
+                        })
+                        .map((emp) => (
+                          <button
+                            key={emp.id.toHexString()}
+                            onClick={async () => {
+                              try {
+                                await shareDocument({ documentId: shareDocId, targetIdentityHex: emp.id.toHexString() })
+                              } catch (e) { console.error(e) }
+                            }}
+                            className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted transition-colors text-left cursor-pointer"
+                          >
+                            <div className="size-6 rounded-full bg-violet-600 flex items-center justify-center text-[9px] text-white font-medium">
+                              {emp.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </div>
+                            <span>{emp.name}</span>
+                            <Plus className="size-3.5 ml-auto text-muted-foreground" />
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })()}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

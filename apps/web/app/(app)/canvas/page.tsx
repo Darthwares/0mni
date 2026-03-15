@@ -71,6 +71,9 @@ import {
   History,
   RotateCcw,
   Send,
+  CheckCircle2,
+  CornerDownRight,
+  MoreHorizontal,
   Save,
   List,
   Download,
@@ -373,6 +376,7 @@ export default function CanvasPage() {
   const [allFavorites] = useTable(tables.document_favorite)
   const allDocTags = useTable(tables.document_tag) ?? []
   const allDocPins = useTable(tables.document_pin) ?? []
+  const allDocComments = useTable(tables.document_comment) ?? []
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -391,6 +395,10 @@ export default function CanvasPage() {
   const removeDocumentTag = useReducer(reducers.removeDocumentTag)
   const pinDocument = useReducer(reducers.pinDocument)
   const unpinDocument = useReducer(reducers.unpinDocument)
+  const addDocumentComment = useReducer(reducers.addDocumentComment)
+  const editDocumentComment = useReducer(reducers.editDocumentComment)
+  const deleteDocumentComment = useReducer(reducers.deleteDocumentComment)
+  const resolveDocumentComment = useReducer(reducers.resolveDocumentComment)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -408,6 +416,10 @@ export default function CanvasPage() {
   const [showComments, setShowComments] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [replyingTo, setReplyingTo] = useState<bigint | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<bigint | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [showShareDialog, setShowShareDialog] = useState(false)
@@ -597,18 +609,34 @@ export default function CanvasPage() {
     return emp?.name ?? null
   }, [activeDoc, employeeMap])
 
-  // Comments for active document (messages with contextType: Document)
+  // Comments for active document from DocumentComment table
   const docComments = useMemo(() => {
-    if (!activeDocId) return []
-    return allMessages
-      .filter(
-        (m) =>
-          m.contextType.tag === 'Document' &&
-          m.contextId === activeDocId &&
-          m.messageType.tag === 'Comment'
-      )
-      .sort((a, b) => timestampToDate(a.sentAt).getTime() - timestampToDate(b.sentAt).getTime())
-  }, [allMessages, activeDocId])
+    if (!activeDocId || currentOrgId === null) return { threads: [] as any[], count: 0 }
+    const forDoc = allDocComments.filter(
+      (c: any) => c.documentId === activeDocId && Number(c.orgId) === currentOrgId
+    )
+    // Separate top-level and replies
+    const topLevel = forDoc
+      .filter((c: any) => !c.parentId || c.parentId === 0n)
+      .sort((a: any, b: any) => timestampToDate(b.createdAt).getTime() - timestampToDate(a.createdAt).getTime())
+    const replyMap = new Map<string, any[]>()
+    for (const c of forDoc) {
+      if (c.parentId && c.parentId !== 0n) {
+        const key = c.parentId.toString()
+        if (!replyMap.has(key)) replyMap.set(key, [])
+        replyMap.get(key)!.push(c)
+      }
+    }
+    // Sort replies oldest first within each thread
+    for (const replies of replyMap.values()) {
+      replies.sort((a: any, b: any) => timestampToDate(a.createdAt).getTime() - timestampToDate(b.createdAt).getTime())
+    }
+    const threads = topLevel.map((c: any) => ({
+      comment: c,
+      replies: replyMap.get(c.id.toString()) ?? [],
+    }))
+    return { threads, count: forDoc.length }
+  }, [allDocComments, activeDocId, currentOrgId])
 
   // Version history for active document
   const docVersions = useMemo(() => {
@@ -739,20 +767,54 @@ export default function CanvasPage() {
   )
 
   // Add a comment to the active document
-  const handleAddComment = useCallback(async () => {
-    if (!activeDocId || !commentText.trim()) return
+  const handleAddComment = useCallback(async (parentId?: bigint) => {
+    if (!activeDocId || currentOrgId === null) return
+    const text = parentId ? replyText.trim() : commentText.trim()
+    if (!text) return
     try {
-      await sendMessage({
-        contextType: { tag: 'Document' } as any,
-        contextId: activeDocId,
-        content: commentText.trim(),
-        messageType: { tag: 'Comment' } as any,
+      await addDocumentComment({
+        orgId: BigInt(currentOrgId),
+        documentId: activeDocId,
+        parentId: parentId ?? 0n,
+        content: text,
       })
-      setCommentText('')
+      if (parentId) {
+        setReplyText('')
+        setReplyingTo(null)
+      } else {
+        setCommentText('')
+      }
     } catch (e) {
       console.error('Failed to add comment:', e)
     }
-  }, [activeDocId, commentText, sendMessage])
+  }, [activeDocId, currentOrgId, commentText, replyText, addDocumentComment])
+
+  const handleEditComment = useCallback(async () => {
+    if (!editingCommentId || !editCommentText.trim()) return
+    try {
+      await editDocumentComment({ commentId: editingCommentId, content: editCommentText.trim() })
+      setEditingCommentId(null)
+      setEditCommentText('')
+    } catch (e) {
+      console.error('Failed to edit comment:', e)
+    }
+  }, [editingCommentId, editCommentText, editDocumentComment])
+
+  const handleDeleteComment = useCallback(async (commentId: bigint) => {
+    try {
+      await deleteDocumentComment({ commentId })
+    } catch (e) {
+      console.error('Failed to delete comment:', e)
+    }
+  }, [deleteDocumentComment])
+
+  const handleResolveComment = useCallback(async (commentId: bigint) => {
+    try {
+      await resolveDocumentComment({ commentId })
+    } catch (e) {
+      console.error('Failed to resolve comment:', e)
+    }
+  }, [resolveDocumentComment])
 
   // Save a version snapshot of the active document
   const handleSaveVersion = useCallback(async () => {
@@ -867,9 +929,9 @@ export default function CanvasPage() {
               title="Comments"
             >
               <MessageSquare className="size-3.5" />
-              {docComments.length > 0 && (
+              {docComments.count > 0 && (
                 <span className="absolute -top-1 -right-1 size-4 rounded-full bg-violet-500 text-[9px] text-white flex items-center justify-center font-medium">
-                  {docComments.length}
+                  {docComments.count}
                 </span>
               )}
             </Button>
@@ -1021,8 +1083,8 @@ export default function CanvasPage() {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="size-4 text-violet-400" />
                   <h3 className="text-sm font-semibold">Comments</h3>
-                  {docComments.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">{docComments.length}</Badge>
+                  {docComments.count > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{docComments.count}</Badge>
                   )}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setShowComments(false)} className="h-6 w-6 p-0">
@@ -1032,7 +1094,7 @@ export default function CanvasPage() {
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-3 space-y-3">
-                  {docComments.length === 0 ? (
+                  {docComments.threads.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
                       <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
                         <MessageSquare className="size-5 text-muted-foreground" />
@@ -1041,27 +1103,186 @@ export default function CanvasPage() {
                       <p className="text-[10px] text-muted-foreground mt-1">Start the conversation below</p>
                     </div>
                   ) : (
-                    docComments.map((comment) => {
-                      const author = employeeMap.get(comment.sender.toHexString())
+                    docComments.threads.map(({ comment, replies }) => {
+                      const author = employeeMap.get(comment.author.toHexString())
                       const initials = author?.name
                         ? author.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
                         : '??'
+                      const isOwn = comment.author.toHexString() === myHex
+                      const isEditing = editingCommentId === comment.id
                       return (
-                        <div key={comment.id.toString()} className="group rounded-lg border bg-card/50 p-3 transition-colors hover:bg-card">
-                          <div className="flex items-start gap-2.5">
-                            <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] text-white font-medium shrink-0 mt-0.5">
-                              {initials}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-xs font-medium truncate">{author?.name ?? 'Unknown'}</span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">
-                                  {formatTimeAgo(timestampToDate(comment.sentAt))}
-                                </span>
+                        <div key={comment.id.toString()} className={`rounded-lg border transition-colors ${comment.resolved ? 'bg-muted/30 border-muted opacity-70' : 'bg-card/50 hover:bg-card'}`}>
+                          {/* Top-level comment */}
+                          <div className="p-3">
+                            <div className="flex items-start gap-2.5">
+                              <div className="size-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] text-white font-medium shrink-0 mt-0.5">
+                                {initials}
                               </div>
-                              <p className="text-xs text-foreground/80 whitespace-pre-wrap break-words">{comment.content}</p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-xs font-medium truncate">{author?.name ?? 'Unknown'}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    {formatTimeAgo(timestampToDate(comment.createdAt))}
+                                  </span>
+                                  {comment.resolved && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1 text-emerald-500 border-emerald-500/30">
+                                      <CheckCircle2 className="size-2.5 mr-0.5" /> Resolved
+                                    </Badge>
+                                  )}
+                                </div>
+                                {isEditing ? (
+                                  <div className="mt-1 space-y-1.5">
+                                    <Input
+                                      value={editCommentText}
+                                      onChange={(e) => setEditCommentText(e.target.value)}
+                                      className="h-7 text-xs"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') { e.preventDefault(); handleEditComment() }
+                                        if (e.key === 'Escape') { setEditingCommentId(null); setEditCommentText('') }
+                                      }}
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-1">
+                                      <Button size="sm" className="h-5 text-[10px] px-2" onClick={handleEditComment}>Save</Button>
+                                      <Button size="sm" variant="ghost" className="h-5 text-[10px] px-2" onClick={() => { setEditingCommentId(null); setEditCommentText('') }}>Cancel</Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-foreground/80 whitespace-pre-wrap break-words">{comment.content}</p>
+                                )}
+                                {/* Actions row */}
+                                {!isEditing && (
+                                  <div className="flex items-center gap-1 mt-1.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                      onClick={() => { setReplyingTo(replyingTo === comment.id ? null : comment.id); setReplyText('') }}
+                                    >
+                                      <CornerDownRight className="size-2.5 mr-0.5" /> Reply
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className={`h-5 px-1.5 text-[10px] ${comment.resolved ? 'text-emerald-500' : 'text-muted-foreground hover:text-foreground'}`}
+                                      onClick={() => handleResolveComment(comment.id)}
+                                    >
+                                      <CheckCircle2 className="size-2.5 mr-0.5" /> {comment.resolved ? 'Unresolve' : 'Resolve'}
+                                    </Button>
+                                    {isOwn && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                          onClick={() => { setEditingCommentId(comment.id); setEditCommentText(comment.content) }}
+                                        >
+                                          <Pencil className="size-2.5" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
+                                          onClick={() => handleDeleteComment(comment.id)}
+                                        >
+                                          <Trash2 className="size-2.5" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
+
+                          {/* Replies */}
+                          {replies.length > 0 && (
+                            <div className="border-t bg-muted/20">
+                              {replies.map((reply: any) => {
+                                const rAuthor = employeeMap.get(reply.author.toHexString())
+                                const rInitials = rAuthor?.name
+                                  ? rAuthor.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                                  : '??'
+                                const rIsOwn = reply.author.toHexString() === myHex
+                                const rIsEditing = editingCommentId === reply.id
+                                return (
+                                  <div key={reply.id.toString()} className="px-3 py-2 flex items-start gap-2 ml-4 border-t first:border-t-0 border-muted/40">
+                                    <div className="size-5 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-[7px] text-white font-medium shrink-0 mt-0.5">
+                                      {rInitials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span className="text-[10px] font-medium truncate">{rAuthor?.name ?? 'Unknown'}</span>
+                                        <span className="text-[9px] text-muted-foreground">{formatTimeAgo(timestampToDate(reply.createdAt))}</span>
+                                      </div>
+                                      {rIsEditing ? (
+                                        <div className="space-y-1">
+                                          <Input
+                                            value={editCommentText}
+                                            onChange={(e) => setEditCommentText(e.target.value)}
+                                            className="h-6 text-[10px]"
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') { e.preventDefault(); handleEditComment() }
+                                              if (e.key === 'Escape') { setEditingCommentId(null); setEditCommentText('') }
+                                            }}
+                                            autoFocus
+                                          />
+                                          <div className="flex gap-1">
+                                            <Button size="sm" className="h-4 text-[9px] px-1.5" onClick={handleEditComment}>Save</Button>
+                                            <Button size="sm" variant="ghost" className="h-4 text-[9px] px-1.5" onClick={() => { setEditingCommentId(null); setEditCommentText('') }}>Cancel</Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p className="text-[11px] text-foreground/80 whitespace-pre-wrap break-words">{reply.content}</p>
+                                      )}
+                                      {!rIsEditing && rIsOwn && (
+                                        <div className="flex items-center gap-0.5 mt-1">
+                                          <Button variant="ghost" size="sm" className="h-4 px-1 text-[9px] text-muted-foreground hover:text-foreground"
+                                            onClick={() => { setEditingCommentId(reply.id); setEditCommentText(reply.content) }}>
+                                            <Pencil className="size-2" />
+                                          </Button>
+                                          <Button variant="ghost" size="sm" className="h-4 px-1 text-[9px] text-muted-foreground hover:text-destructive"
+                                            onClick={() => handleDeleteComment(reply.id)}>
+                                            <Trash2 className="size-2" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+
+                          {/* Reply input */}
+                          {replyingTo === comment.id && (
+                            <div className="px-3 py-2 border-t bg-muted/10">
+                              <div className="flex gap-1.5 ml-4">
+                                <Input
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  placeholder="Write a reply..."
+                                  className="h-7 text-[11px] flex-1"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault()
+                                      handleAddComment(comment.id)
+                                    }
+                                    if (e.key === 'Escape') { setReplyingTo(null); setReplyText('') }
+                                  }}
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddComment(comment.id)}
+                                  disabled={!replyText.trim()}
+                                  className="h-7 w-7 p-0 shrink-0"
+                                >
+                                  <Send className="size-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })
@@ -1085,7 +1306,7 @@ export default function CanvasPage() {
                   />
                   <Button
                     size="sm"
-                    onClick={handleAddComment}
+                    onClick={() => handleAddComment()}
                     disabled={!commentText.trim()}
                     className="h-8 w-8 p-0 shrink-0"
                   >

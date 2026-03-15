@@ -5904,3 +5904,152 @@ pub fn delete_invoice(
     ctx.db.invoice().id().delete(&invoice_id);
     Ok(())
 }
+
+// ── Contacts ─────────────────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum ContactType {
+    Customer,
+    Vendor,
+    Partner,
+    Lead,
+    Personal,
+}
+
+#[spacetimedb::table(accessor = contact, public)]
+#[derive(Clone)]
+pub struct Contact {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub email: String,
+    pub phone: String,
+    pub company: String,
+    pub contact_type: ContactType,
+    pub title: String,
+    pub tags: String,
+    pub notes: String,
+    pub starred: bool,
+    pub last_contacted: Timestamp,
+    pub created_at: Timestamp,
+    pub creator: Identity,
+}
+
+#[spacetimedb::reducer]
+pub fn create_contact(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    email: String,
+    phone: String,
+    company: String,
+    type_tag: String,
+    title: String,
+    tags: String,
+    notes: String,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Name is required".to_string());
+    }
+    let contact_type = match type_tag.as_str() {
+        "Customer" => ContactType::Customer,
+        "Vendor" => ContactType::Vendor,
+        "Partner" => ContactType::Partner,
+        "Lead" => ContactType::Lead,
+        "Personal" => ContactType::Personal,
+        _ => return Err("Invalid contact type".to_string()),
+    };
+    ctx.db.contact().insert(Contact {
+        id: 0,
+        org_id,
+        name,
+        email,
+        phone,
+        company,
+        contact_type,
+        title,
+        tags,
+        notes,
+        starred: false,
+        last_contacted: Timestamp::UNIX_EPOCH,
+        created_at: ctx.timestamp,
+        creator: ctx.sender(),
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_contact(
+    ctx: &ReducerContext,
+    contact_id: u64,
+    name: String,
+    email: String,
+    phone: String,
+    company: String,
+    type_tag: String,
+    title: String,
+    tags: String,
+    notes: String,
+) -> Result<(), String> {
+    let existing = ctx.db.contact().id().find(contact_id)
+        .ok_or("Contact not found")?;
+    let contact_type = match type_tag.as_str() {
+        "Customer" => ContactType::Customer,
+        "Vendor" => ContactType::Vendor,
+        "Partner" => ContactType::Partner,
+        "Lead" => ContactType::Lead,
+        "Personal" => ContactType::Personal,
+        _ => return Err("Invalid contact type".to_string()),
+    };
+    ctx.db.contact().id().update(Contact {
+        name,
+        email,
+        phone,
+        company,
+        contact_type,
+        title,
+        tags,
+        notes,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn toggle_contact_star(
+    ctx: &ReducerContext,
+    contact_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.contact().id().find(contact_id)
+        .ok_or("Contact not found")?;
+    ctx.db.contact().id().update(Contact {
+        starred: !existing.starred,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn log_contact_interaction(
+    ctx: &ReducerContext,
+    contact_id: u64,
+) -> Result<(), String> {
+    let existing = ctx.db.contact().id().find(contact_id)
+        .ok_or("Contact not found")?;
+    ctx.db.contact().id().update(Contact {
+        last_contacted: ctx.timestamp,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_contact(
+    ctx: &ReducerContext,
+    contact_id: u64,
+) -> Result<(), String> {
+    ctx.db.contact().id().delete(&contact_id);
+    Ok(())
+}

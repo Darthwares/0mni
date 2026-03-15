@@ -51,6 +51,7 @@ import CreateApprovalRequestReducer from "./create_approval_request_reducer";
 import CreateCalEventReducer from "./create_cal_event_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
+import CreateContactReducer from "./create_contact_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
@@ -71,6 +72,7 @@ import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
+import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
@@ -98,6 +100,7 @@ import JoinChannelReducer from "./join_channel_reducer";
 import JoinOrgWithEmailReducer from "./join_org_with_email_reducer";
 import JoinOrgWithInviteCodeReducer from "./join_org_with_invite_code_reducer";
 import LeaveChannelReducer from "./leave_channel_reducer";
+import LogContactInteractionReducer from "./log_contact_interaction_reducer";
 import LogTimeEntryReducer from "./log_time_entry_reducer";
 import MarkAllNotificationsReadReducer from "./mark_all_notifications_read_reducer";
 import MarkEmailReadReducer from "./mark_email_read_reducer";
@@ -131,6 +134,7 @@ import StopTimeEntryReducer from "./stop_time_entry_reducer";
 import SubmitFormResponseReducer from "./submit_form_response_reducer";
 import SubmitStandupReducer from "./submit_standup_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
+import ToggleContactStarReducer from "./toggle_contact_star_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
@@ -140,6 +144,7 @@ import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateCalEventReducer from "./update_cal_event_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
+import UpdateContactReducer from "./update_contact_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
@@ -174,6 +179,7 @@ import CallSessionRow from "./call_session_table";
 import CandidateRow from "./candidate_table";
 import ChannelRow from "./channel_table";
 import CodeRepositoryRow from "./code_repository_table";
+import ContactRow from "./contact_table";
 import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
@@ -350,6 +356,17 @@ const tablesSchema = __schema({
       { name: 'code_repository_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CodeRepositoryRow),
+  contact: __table({
+    name: 'contact',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'contact_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ContactRow),
   customer: __table({
     name: 'customer',
     indexes: [
@@ -863,6 +880,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_cal_event", CreateCalEventReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
+  __reducerSchema("create_contact", CreateContactReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
@@ -883,6 +901,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
+  __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
@@ -910,6 +929,7 @@ const reducersSchema = __reducers(
   __reducerSchema("join_org_with_email", JoinOrgWithEmailReducer),
   __reducerSchema("join_org_with_invite_code", JoinOrgWithInviteCodeReducer),
   __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("log_contact_interaction", LogContactInteractionReducer),
   __reducerSchema("log_time_entry", LogTimeEntryReducer),
   __reducerSchema("mark_all_notifications_read", MarkAllNotificationsReadReducer),
   __reducerSchema("mark_email_read", MarkEmailReadReducer),
@@ -943,6 +963,7 @@ const reducersSchema = __reducers(
   __reducerSchema("submit_form_response", SubmitFormResponseReducer),
   __reducerSchema("submit_standup", SubmitStandupReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
+  __reducerSchema("toggle_contact_star", ToggleContactStarReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("toggle_kb_article_pin", ToggleKbArticlePinReducer),
   __reducerSchema("trash_email", TrashEmailReducer),
@@ -952,6 +973,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_cal_event", UpdateCalEventReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
+  __reducerSchema("update_contact", UpdateContactReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),

@@ -410,6 +410,36 @@ export const CodeRepository = __t.object("CodeRepository", {
 });
 export type CodeRepository = __Infer<typeof CodeRepository>;
 
+export const Contact = __t.object("Contact", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  email: __t.string(),
+  phone: __t.string(),
+  company: __t.string(),
+  get contactType() {
+    return ContactType;
+  },
+  title: __t.string(),
+  tags: __t.string(),
+  notes: __t.string(),
+  starred: __t.bool(),
+  lastContacted: __t.timestamp(),
+  createdAt: __t.timestamp(),
+  creator: __t.identity(),
+});
+export type Contact = __Infer<typeof Contact>;
+
+// The tagged union or sum type for the algebraic type `ContactType`.
+export const ContactType = __t.enum("ContactType", {
+  Customer: __t.unit(),
+  Vendor: __t.unit(),
+  Partner: __t.unit(),
+  Lead: __t.unit(),
+  Personal: __t.unit(),
+});
+export type ContactType = __Infer<typeof ContactType>;
+
 // The tagged union or sum type for the algebraic type `ContextType`.
 export const ContextType = __t.enum("ContextType", {
   Channel: __t.unit(),

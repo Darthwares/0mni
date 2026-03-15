@@ -44,7 +44,9 @@ import {
   ClipboardCheck,
   Send,
   Ban,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -235,6 +237,21 @@ export default function ApprovalsPage() {
     if (currentOrgId === null) return []
     return allEmployees.filter(e => e.orgId === BigInt(currentOrgId))
   }, [allEmployees, currentOrgId])
+
+  const handleExportApprovals = useCallback(() => {
+    const headers = ['Title', 'Type', 'Status', 'Priority', 'Requester', 'Approver', 'Amount', 'Description']
+    const rows = requests.map(r => [
+      r.title,
+      getTag(r.approvalType),
+      getTag(r.status),
+      getTag(r.priority),
+      resolveName(r.requester),
+      resolveName(r.approver),
+      Number(r.amountCents) > 0 ? `$${(Number(r.amountCents) / 100).toFixed(2)}` : '',
+      r.description,
+    ])
+    exportCSV('approvals', headers, rows)
+  }, [requests])
 
   // Actions
   const handleCreate = useCallback(() => {
@@ -446,6 +463,10 @@ export default function ApprovalsPage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input placeholder="Search requests..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
+          <Button variant="outline" size="sm" onClick={handleExportApprovals} className="gap-1.5 shrink-0">
+            <Download className="size-3.5" /> Export
+          </Button>
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{filtered.length} requests</span>
         </div>
 
         {/* Request cards */}

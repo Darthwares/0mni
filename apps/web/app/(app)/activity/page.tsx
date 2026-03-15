@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useTable } from 'spacetimedb/react'
 import { tables } from '@/generated'
@@ -8,6 +8,7 @@ import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,9 @@ import {
   Sparkles,
   Bot,
   ArrowUpRight,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -288,6 +291,19 @@ export default function ActivityPage() {
     return { total, today, aiActions, uniqueActors }
   }, [activities, employeeMap])
 
+  const handleExportActivity = useCallback(() => {
+    const headers = ['Actor', 'Action', 'Entity Type', 'Entity ID', 'Metadata', 'Timestamp']
+    const rows = filteredActivities.map(a => [
+      getActorName(a.actor),
+      a.action.tag,
+      a.entityType,
+      String(a.entityId),
+      a.metadata ?? '',
+      fmtFullTime(a.timestamp),
+    ])
+    exportCSV('activity-log', headers, rows)
+  }, [filteredActivities, employeeMap])
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -419,6 +435,10 @@ export default function ActivityPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+
+        <Button variant="outline" size="sm" onClick={handleExportActivity} className="gap-1.5 shrink-0 h-8">
+          <Download className="size-3.5" /> Export
+        </Button>
 
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
           {filteredActivities.length} of {activities.length} events

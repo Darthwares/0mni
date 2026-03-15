@@ -37,6 +37,7 @@ import {
   Users,
   Video,
   Trash2,
+  Edit3,
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -174,6 +175,19 @@ export default function CalendarPage() {
   const [newLocation, setNewLocation] = useState('')
   const [newIsVirtual, setNewIsVirtual] = useState(false)
 
+  // Edit event dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editId, setEditId] = useState<bigint | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCategory, setEditCategory] = useState<EventCategoryKey>('Meeting')
+  const [editDate, setEditDate] = useState('')
+  const [editStartTime, setEditStartTime] = useState('09:00')
+  const [editEndTime, setEditEndTime] = useState('10:00')
+  const [editAllDay, setEditAllDay] = useState(false)
+  const [editLocation, setEditLocation] = useState('')
+  const [editIsVirtual, setEditIsVirtual] = useState(false)
+
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
@@ -270,6 +284,44 @@ export default function CalendarPage() {
     setNewLocation('')
     setNewIsVirtual(false)
   }
+
+  const openEditDialog = useCallback((event: typeof events[number]) => {
+    setEditId(event.id)
+    setEditTitle(event.title)
+    setEditDescription(event.description ?? '')
+    setEditCategory(event.cat)
+    const d = event.start
+    setEditDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+    setEditStartTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
+    const ed = event.end
+    setEditEndTime(`${String(ed.getHours()).padStart(2, '0')}:${String(ed.getMinutes()).padStart(2, '0')}`)
+    setEditAllDay(event.allDay)
+    setEditLocation(event.location ?? '')
+    setEditIsVirtual(event.isVirtual)
+    setSelectedEventId(null)
+    setEditDialogOpen(true)
+  }, [])
+
+  const handleUpdateEvent = useCallback(() => {
+    if (!editTitle.trim() || !editDate || editId === null) return
+    const [y, m, d] = editDate.split('-').map(Number)
+    const [sh, sm] = editStartTime.split(':').map(Number)
+    const [eh, em] = editEndTime.split(':').map(Number)
+    const startDate = new Date(y, m - 1, d, sh, sm)
+    const endDate = new Date(y, m - 1, d, eh, em)
+    updateCalEvent({
+      eventId: editId,
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      startTime: dateToTimestamp(startDate),
+      endTime: dateToTimestamp(endDate),
+      allDay: editAllDay,
+      categoryTag: editCategory,
+      location: editLocation.trim(),
+      isVirtual: editIsVirtual,
+    })
+    setEditDialogOpen(false)
+  }, [editId, editTitle, editDate, editStartTime, editEndTime, editDescription, editAllDay, editCategory, editLocation, editIsVirtual, updateCalEvent])
 
   const openCreateForDate = (date: Date) => {
     const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -781,6 +833,10 @@ export default function CalendarPage() {
                 )}
               </div>
               <DialogFooter className="gap-2">
+                <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedEvent)}>
+                  <Edit3 className="mr-1.5 size-3.5" />
+                  Edit
+                </Button>
                 <Button variant="destructive" size="sm" onClick={() => handleDeleteEvent(selectedEvent.id)}>
                   <Trash2 className="mr-1.5 size-3.5" />
                   Delete
@@ -900,6 +956,78 @@ export default function CalendarPage() {
             <Button onClick={handleCreateEvent} disabled={!newTitle.trim() || !newDate}>
               Create Event
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Event Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+            <DialogDescription>Update event details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Event title" className="mt-1" autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Category</Label>
+                <Select value={editCategory} onValueChange={v => setEditCategory(v as EventCategoryKey)}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(CATEGORY_CONFIG) as [EventCategoryKey, (typeof CATEGORY_CONFIG)[EventCategoryKey]][]).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-2">
+                          <div className="size-2 rounded-full" style={{ backgroundColor: config.color }} />
+                          {config.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Date</Label>
+                <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={editAllDay} onChange={e => setEditAllDay(e.target.checked)} className="rounded border-input" />
+                All day
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={editIsVirtual} onChange={e => setEditIsVirtual(e.target.checked)} className="rounded border-input" />
+                <Video className="size-3.5" /> Virtual
+              </label>
+            </div>
+            {!editAllDay && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Start Time</Label>
+                  <Input type="time" value={editStartTime} onChange={e => setEditStartTime(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label>End Time</Label>
+                  <Input type="time" value={editEndTime} onChange={e => setEditEndTime(e.target.value)} className="mt-1" />
+                </div>
+              </div>
+            )}
+            <div>
+              <Label>Location</Label>
+              <Input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="Room, address, or link" className="mt-1" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Add details about this event..." className="mt-1 min-h-[80px]" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateEvent} disabled={!editTitle.trim() || !editDate}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

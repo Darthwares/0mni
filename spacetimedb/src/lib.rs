@@ -4492,6 +4492,72 @@ pub fn delete_interview(
 }
 
 // ============================================================================
+// REDUCERS - MEETINGS
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_meeting(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    meeting_type: MeetingType,
+    scheduled_at: Timestamp,
+    duration_minutes: u32,
+    participants: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if title.trim().is_empty() {
+        return Err("Meeting title cannot be empty".to_string());
+    }
+    ctx.db.meeting().insert(Meeting {
+        id: 0,
+        org_id,
+        title,
+        meeting_type,
+        scheduled_at,
+        duration_minutes,
+        participants,
+        ai_notetaker: None,
+        call_session_id: None,
+        recording_url: None,
+        transcript: None,
+        ai_summary: None,
+        action_items: vec![],
+        status: MeetingStatus::Scheduled,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_meeting_status(
+    ctx: &ReducerContext,
+    meeting_id: u64,
+    new_status: MeetingStatus,
+) -> Result<(), String> {
+    let meeting = ctx.db.meeting().id().find(&meeting_id)
+        .ok_or("Meeting not found")?;
+    require_org_access(ctx, meeting.org_id)?;
+    ctx.db.meeting().id().update(Meeting {
+        status: new_status,
+        ..meeting
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_meeting(
+    ctx: &ReducerContext,
+    meeting_id: u64,
+) -> Result<(), String> {
+    let meeting = ctx.db.meeting().id().find(&meeting_id)
+        .ok_or("Meeting not found")?;
+    require_org_access(ctx, meeting.org_id)?;
+    ctx.db.meeting().id().delete(&meeting_id);
+    Ok(())
+}
+
+// ============================================================================
 // REDUCERS - ENGINEERING MODULE
 // ============================================================================
 

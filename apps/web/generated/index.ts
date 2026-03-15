@@ -73,6 +73,7 @@ import CreateJobPostingReducer from "./create_job_posting_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
+import CreateMeetingReducer from "./create_meeting_reducer";
 import CreateNotificationReducer from "./create_notification_reducer";
 import CreateObjectiveReducer from "./create_objective_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
@@ -103,6 +104,7 @@ import DeleteInvoiceReducer from "./delete_invoice_reducer";
 import DeleteJobPostingReducer from "./delete_job_posting_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
+import DeleteMeetingReducer from "./delete_meeting_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeletePullRequestReducer from "./delete_pull_request_reducer";
@@ -201,6 +203,7 @@ import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateJobPostingStatusReducer from "./update_job_posting_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
+import UpdateMeetingStatusReducer from "./update_meeting_status_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
 import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
@@ -1088,6 +1091,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
+  __reducerSchema("create_meeting", CreateMeetingReducer),
   __reducerSchema("create_notification", CreateNotificationReducer),
   __reducerSchema("create_objective", CreateObjectiveReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
@@ -1118,6 +1122,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_job_posting", DeleteJobPostingReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
+  __reducerSchema("delete_meeting", DeleteMeetingReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
   __reducerSchema("delete_pull_request", DeletePullRequestReducer),
@@ -1216,6 +1221,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_job_posting_status", UpdateJobPostingStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
+  __reducerSchema("update_meeting_status", UpdateMeetingStatusReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
   __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),
   __reducerSchema("update_objective_status", UpdateObjectiveStatusReducer),

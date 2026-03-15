@@ -5235,3 +5235,125 @@ pub fn submit_form_response(
     }
     Ok(())
 }
+
+// ============================================================================
+// Calendar Events
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum EventCategory {
+    Meeting,
+    Deadline,
+    Interview,
+    Standup,
+    Review,
+    Personal,
+    Other,
+}
+
+#[spacetimedb::table(accessor = cal_event, public)]
+#[derive(Clone)]
+pub struct CalEvent {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub description: String,
+    pub start_time: Timestamp,
+    pub end_time: Timestamp,
+    pub all_day: bool,
+    pub category: EventCategory,
+    pub location: String,
+    pub is_virtual: bool,
+    pub creator: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_cal_event(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    description: String,
+    start_time: Timestamp,
+    end_time: Timestamp,
+    all_day: bool,
+    category_tag: String,
+    location: String,
+    is_virtual: bool,
+) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Event title cannot be empty".to_string());
+    }
+    let category = match category_tag.as_str() {
+        "Meeting" => EventCategory::Meeting,
+        "Deadline" => EventCategory::Deadline,
+        "Interview" => EventCategory::Interview,
+        "Standup" => EventCategory::Standup,
+        "Review" => EventCategory::Review,
+        "Personal" => EventCategory::Personal,
+        "Other" => EventCategory::Other,
+        _ => return Err("Invalid event category".to_string()),
+    };
+    ctx.db.cal_event().insert(CalEvent {
+        id: 0,
+        org_id,
+        title,
+        description,
+        start_time,
+        end_time,
+        all_day,
+        category,
+        location,
+        is_virtual,
+        creator: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_cal_event(
+    ctx: &ReducerContext,
+    event_id: u64,
+    title: String,
+    description: String,
+    start_time: Timestamp,
+    end_time: Timestamp,
+    all_day: bool,
+    category_tag: String,
+    location: String,
+    is_virtual: bool,
+) -> Result<(), String> {
+    let event = ctx.db.cal_event().id().find(&event_id)
+        .ok_or("Event not found")?;
+    let category = match category_tag.as_str() {
+        "Meeting" => EventCategory::Meeting,
+        "Deadline" => EventCategory::Deadline,
+        "Interview" => EventCategory::Interview,
+        "Standup" => EventCategory::Standup,
+        "Review" => EventCategory::Review,
+        "Personal" => EventCategory::Personal,
+        "Other" => EventCategory::Other,
+        _ => return Err("Invalid event category".to_string()),
+    };
+    ctx.db.cal_event().id().update(CalEvent {
+        title,
+        description,
+        start_time,
+        end_time,
+        all_day,
+        category,
+        location,
+        is_virtual,
+        ..event
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_cal_event(ctx: &ReducerContext, event_id: u64) -> Result<(), String> {
+    ctx.db.cal_event().id().delete(&event_id);
+    Ok(())
+}

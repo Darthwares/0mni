@@ -13,6 +13,7 @@ import {
   Bot,
   Sparkles,
   Activity,
+  Calendar,
   ChevronsUpDown,
   Plus,
   Check,
@@ -99,6 +100,7 @@ const navSections = [
     items: [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
       { title: "Canvas", href: "/canvas", icon: PenTool },
+      { title: "Calendar", href: "/calendar", icon: Calendar },
     ],
   },
   {

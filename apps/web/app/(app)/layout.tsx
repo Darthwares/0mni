@@ -36,6 +36,7 @@ const routeNames: Record<string, string> = {
   "/settings": "Settings",
   "/tickets": "Tickets",
   "/canvas": "Canvas",
+  "/calendar": "Calendar",
   "/profile": "Profile",
 }
 

@@ -1160,6 +1160,31 @@ pub struct TaskWatcher {
 
 
 // ============================================================================
+// TICKET LABELS
+// ============================================================================
+
+#[spacetimedb::table(accessor = ticket_label, public)]
+#[derive(Clone)]
+pub struct TicketLabel {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub color: String, // tailwind color key e.g. "red", "blue", "green"
+}
+
+#[spacetimedb::table(accessor = ticket_label_assignment, public)]
+#[derive(Clone)]
+pub struct TicketLabelAssignment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub task_id: u64,
+    pub label_id: u64,
+}
+
+// ============================================================================
 // REDUCERS - CORE SYSTEM
 // ============================================================================
 
@@ -1749,6 +1774,141 @@ pub fn update_task(
         title,
         description,
         priority,
+        ..task
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - TICKET LABELS & ASSIGNMENT
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_ticket_label(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    color: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if name.trim().is_empty() {
+        return Err("Label name cannot be empty".to_string());
+    }
+    if name.len() > 50 {
+        return Err("Label name exceeds 50 characters".to_string());
+    }
+    // Check for duplicate name in same org
+    for label in ctx.db.ticket_label().iter() {
+        if label.org_id == org_id && label.name.to_lowercase() == name.trim().to_lowercase() {
+            return Err("A label with this name already exists".to_string());
+        }
+    }
+    ctx.db.ticket_label().insert(TicketLabel {
+        id: 0,
+        org_id,
+        name: name.trim().to_string(),
+        color,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_ticket_label(ctx: &ReducerContext, label_id: u64) -> Result<(), String> {
+    let label = ctx.db.ticket_label().id().find(&label_id)
+        .ok_or("Label not found")?;
+    require_org_access(ctx, label.org_id)?;
+
+    // Remove all assignments for this label
+    let to_del: Vec<u64> = ctx.db.ticket_label_assignment().iter()
+        .filter(|a| a.label_id == label_id)
+        .map(|a| a.id)
+        .collect();
+    for id in to_del {
+        ctx.db.ticket_label_assignment().id().delete(&id);
+    }
+
+    ctx.db.ticket_label().id().delete(&label_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn assign_label_to_task(ctx: &ReducerContext, task_id: u64, label_id: u64) -> Result<(), String> {
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
+    let _label = ctx.db.ticket_label().id().find(&label_id)
+        .ok_or("Label not found")?;
+
+    // Check if already assigned
+    for a in ctx.db.ticket_label_assignment().iter() {
+        if a.task_id == task_id && a.label_id == label_id {
+            return Ok(()); // Already assigned, idempotent
+        }
+    }
+
+    ctx.db.ticket_label_assignment().insert(TicketLabelAssignment {
+        id: 0,
+        task_id,
+        label_id,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_label_from_task(ctx: &ReducerContext, task_id: u64, label_id: u64) -> Result<(), String> {
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
+
+    let to_del: Vec<u64> = ctx.db.ticket_label_assignment().iter()
+        .filter(|a| a.task_id == task_id && a.label_id == label_id)
+        .map(|a| a.id)
+        .collect();
+    for id in to_del {
+        ctx.db.ticket_label_assignment().id().delete(&id);
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn assign_task_to(ctx: &ReducerContext, task_id: u64, assignee: Identity) -> Result<(), String> {
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
+
+    // Verify assignee is an employee in this org
+    let emp = ctx.db.employee().id().find(&assignee)
+        .ok_or("Employee not found")?;
+    if emp.org_id != Some(task.org_id) {
+        return Err("Cannot assign to employee in different org".to_string());
+    }
+
+    let was_unclaimed = task.status == TaskStatus::Unclaimed;
+    ctx.db.task().id().update(Task {
+        assignee: Some(assignee),
+        status: if was_unclaimed { TaskStatus::Claimed } else { task.status.clone() },
+        claimed_at: if was_unclaimed { Some(ctx.timestamp) } else { task.claimed_at },
+        ..task
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn set_task_due_date(ctx: &ReducerContext, task_id: u64, due_at_micros: i64) -> Result<(), String> {
+    let task = ctx.db.task().id().find(&task_id)
+        .ok_or("Task not found")?;
+    require_org_access(ctx, task.org_id)?;
+
+    let due = if due_at_micros == 0 {
+        None
+    } else {
+        Some(Timestamp::from_micros_since_unix_epoch(due_at_micros))
+    };
+
+    ctx.db.task().id().update(Task {
+        due_at: due,
         ..task
     });
 
@@ -3675,5 +3835,264 @@ pub fn create_candidate(
         created_at: now,
     });
 
+    Ok(())
+}
+
+// ============================================================================
+// AI AGENT DEPLOYMENTS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum AgentDeploymentStatus {
+    Draft,
+    Deploying,
+    Active,
+    Paused,
+    Failed,
+}
+
+#[spacetimedb::table(accessor = ai_agent_deployment, public)]
+pub struct AiAgentDeployment {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub name: String,
+    pub department: Department,
+    pub role_description: String,
+    pub system_prompt: String,
+    pub model: String,
+    pub capabilities: Vec<String>,
+    pub self_verification_threshold: f32,
+    pub max_task_duration_minutes: u32,
+    pub status: AgentDeploymentStatus,
+    pub tasks_completed: u64,
+    pub avg_confidence: Option<f32>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+    pub last_active: Option<Timestamp>,
+}
+
+#[spacetimedb::reducer]
+pub fn create_agent_deployment(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    department: String,
+    role_description: String,
+    system_prompt: String,
+    model: String,
+    capabilities: Vec<String>,
+    self_verification_threshold: f32,
+    max_task_duration_minutes: u32,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Agent name cannot be empty".to_string());
+    }
+
+    let dept = match department.as_str() {
+        "Support" => Department::Support,
+        "Sales" => Department::Sales,
+        "Recruitment" => Department::Recruitment,
+        "Engineering" => Department::Engineering,
+        "Operations" => Department::Operations,
+        "Marketing" => Department::Marketing,
+        "Finance" => Department::Finance,
+        _ => return Err(format!("Invalid department: {}", department)),
+    };
+
+    ctx.db.ai_agent_deployment().insert(AiAgentDeployment {
+        id: 0,
+        org_id,
+        name,
+        department: dept,
+        role_description,
+        system_prompt,
+        model,
+        capabilities,
+        self_verification_threshold,
+        max_task_duration_minutes,
+        status: AgentDeploymentStatus::Draft,
+        tasks_completed: 0,
+        avg_confidence: None,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+        last_active: None,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn deploy_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let mut agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Agent is already active".to_string());
+    }
+
+    agent.status = AgentDeploymentStatus::Active;
+    agent.last_active = Some(ctx.timestamp);
+    ctx.db.ai_agent_deployment().id().update(agent);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn pause_agent(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let mut agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    agent.status = AgentDeploymentStatus::Paused;
+    ctx.db.ai_agent_deployment().id().update(agent);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_agent_deployment(ctx: &ReducerContext, agent_id: u64) -> Result<(), String> {
+    let agent = ctx.db.ai_agent_deployment().id().find(&agent_id)
+        .ok_or("Agent deployment not found")?;
+
+    if agent.status == AgentDeploymentStatus::Active {
+        return Err("Cannot delete an active agent. Pause it first.".to_string());
+    }
+
+    ctx.db.ai_agent_deployment().id().delete(&agent_id);
+    Ok(())
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationType {
+    TaskAssigned,
+    TaskCompleted,
+    MentionInMessage,
+    TicketUpdate,
+    PrReviewRequested,
+    AgentCompleted,
+    MeetingReminder,
+    DocumentShared,
+    SystemAlert,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+#[spacetimedb::table(accessor = notification, public)]
+pub struct Notification {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub recipient: Identity,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
+    pub title: String,
+    pub body: String,
+    pub link: Option<String>,
+    pub read: bool,
+    pub dismissed: bool,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_notification(
+    ctx: &ReducerContext,
+    org_id: u64,
+    recipient_hex: String,
+    notification_type: String,
+    priority: String,
+    title: String,
+    body: String,
+    link: Option<String>,
+) -> Result<(), String> {
+    let recipient = Identity::from_hex(&recipient_hex)
+        .map_err(|_| "Invalid recipient identity")?;
+
+    let ntype = match notification_type.as_str() {
+        "TaskAssigned" => NotificationType::TaskAssigned,
+        "TaskCompleted" => NotificationType::TaskCompleted,
+        "MentionInMessage" => NotificationType::MentionInMessage,
+        "TicketUpdate" => NotificationType::TicketUpdate,
+        "PrReviewRequested" => NotificationType::PrReviewRequested,
+        "AgentCompleted" => NotificationType::AgentCompleted,
+        "MeetingReminder" => NotificationType::MeetingReminder,
+        "DocumentShared" => NotificationType::DocumentShared,
+        "SystemAlert" => NotificationType::SystemAlert,
+        _ => return Err(format!("Invalid notification type: {}", notification_type)),
+    };
+
+    let prio = match priority.as_str() {
+        "Low" => NotificationPriority::Low,
+        "Normal" => NotificationPriority::Normal,
+        "High" => NotificationPriority::High,
+        "Urgent" => NotificationPriority::Urgent,
+        _ => NotificationPriority::Normal,
+    };
+
+    ctx.db.notification().insert(Notification {
+        id: 0,
+        org_id,
+        recipient,
+        notification_type: ntype,
+        priority: prio,
+        title,
+        body,
+        link,
+        read: false,
+        dismissed: false,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let mut notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+
+    notif.read = true;
+    ctx.db.notification().id().update(notif);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_all_notifications_read(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
+    let my_notifs: Vec<_> = ctx.db.notification().iter()
+        .filter(|n| n.recipient == ctx.sender() && n.org_id == org_id && !n.read)
+        .collect();
+
+    for mut n in my_notifs {
+        n.read = true;
+        ctx.db.notification().id().update(n);
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn dismiss_notification(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let mut notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+
+    notif.dismissed = true;
+    notif.read = true;
+    ctx.db.notification().id().update(notif);
     Ok(())
 }

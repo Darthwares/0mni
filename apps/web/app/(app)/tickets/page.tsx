@@ -12,6 +12,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
+import { GradientText } from '@/components/reactbits/GradientText'
+import { CountUp } from '@/components/reactbits/CountUp'
 import {
   KanbanBoardProvider,
   KanbanBoard,
@@ -45,6 +47,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -84,6 +91,9 @@ import {
   Reply,
   ChevronDown,
   ChevronUp,
+  Tag,
+  UserPlus,
+  Calendar,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
@@ -205,13 +215,24 @@ export default function TicketsPage() {
   const watchTask = useReducer(reducers.watchTask)
   const unwatchTask = useReducer(reducers.unwatchTask)
   const escalateTask = useReducer(reducers.escalateTask)
+  const createLabel = useReducer(reducers.createTicketLabel)
+  const deleteLabel = useReducer(reducers.deleteTicketLabel)
+  const assignLabelToTask = useReducer(reducers.assignLabelToTask)
+  const removeLabelFromTask = useReducer(reducers.removeLabelFromTask)
+  const assignTaskTo = useReducer(reducers.assignTaskTo)
+  const setTaskDueDate = useReducer(reducers.setTaskDueDate)
+  const [allLabels] = useTable(tables.ticketLabel)
+  const [allLabelAssignments] = useTable(tables.ticketLabelAssignment)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
+  const [filterAssignee, setFilterAssignee] = useState<string>('all')
+  const [filterLabel, setFilterLabel] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showLabelManager, setShowLabelManager] = useState(false)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
 
   // Create form state
@@ -219,7 +240,36 @@ export default function TicketsPage() {
   const [newDesc, setNewDesc] = useState('')
   const [newPriority, setNewPriority] = useState('Medium')
   const [newType, setNewType] = useState('FeatureRequest')
+  const [newAssignee, setNewAssignee] = useState<string>('none')
+  const [newDueDate, setNewDueDate] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+
+  // Labels for this org
+  const orgLabels = useMemo(() => {
+    if (currentOrgId === null) return []
+    return [...allLabels].filter(l => Number(l.orgId) === currentOrgId)
+  }, [allLabels, currentOrgId])
+
+  // Label assignments map: task_id -> label[]
+  const taskLabelsMap = useMemo(() => {
+    const map = new Map<string, any[]>()
+    for (const a of allLabelAssignments) {
+      const label = allLabels.find(l => l.id === a.labelId)
+      if (!label) continue
+      const key = a.taskId.toString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(label)
+    }
+    return map
+  }, [allLabelAssignments, allLabels])
+
+  // Org employees for assignee picker
+  const orgEmployees = useMemo(() => {
+    return [...employees].filter(e => {
+      const oid = e.orgId != null ? Number(e.orgId) : null
+      return oid === currentOrgId
+    })
+  }, [employees, currentOrgId])
 
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -246,8 +296,21 @@ export default function TicketsPage() {
     if (filterType !== 'all') {
       tasks = tasks.filter((t) => t.taskType.tag === filterType)
     }
+    if (filterAssignee !== 'all') {
+      if (filterAssignee === 'unassigned') {
+        tasks = tasks.filter((t) => !t.assignee)
+      } else {
+        tasks = tasks.filter((t) => t.assignee?.toHexString() === filterAssignee)
+      }
+    }
+    if (filterLabel !== 'all') {
+      tasks = tasks.filter((t) => {
+        const labels = taskLabelsMap.get(t.id.toString()) || []
+        return labels.some((l: any) => l.id.toString() === filterLabel)
+      })
+    }
     return tasks
-  }, [allTasks, searchQuery, filterPriority, filterType, currentOrgId])
+  }, [allTasks, searchQuery, filterPriority, filterType, filterAssignee, filterLabel, currentOrgId, taskLabelsMap])
 
   const columnTasks = useMemo(() => {
     const map = new Map<string, any[]>()
@@ -269,19 +332,24 @@ export default function TicketsPage() {
     if (!newTitle.trim() || currentOrgId === null) return
     setIsCreating(true)
     try {
+      const assigneeIdentity = newAssignee !== 'none'
+        ? orgEmployees.find(e => e.id.toHexString() === newAssignee)?.id ?? null
+        : null
       await createTask({
         taskType: { tag: newType } as any,
         title: newTitle.trim(),
         description: newDesc.trim(),
         contextType: { tag: 'Task' } as any,
         contextId: BigInt(0),
-        assignee: null,
+        assignee: assigneeIdentity,
         priority: { tag: newPriority } as any,
         orgId: BigInt(currentOrgId),
       })
       setShowCreate(false)
       setNewTitle('')
       setNewDesc('')
+      setNewAssignee('none')
+      setNewDueDate('')
     } catch (e: any) {
       console.error('Failed to create task:', e)
     } finally {
@@ -381,31 +449,67 @@ export default function TicketsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="h-5" />
-        <div className="flex items-center gap-2">
-          <KanbanSquare className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Tickets</h1>
-          <Badge variant="secondary" className="text-xs">
-            {filteredTasks.length}
-          </Badge>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search tickets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 w-52 text-sm"
-            />
+      <div className="flex flex-col border-b shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-5" />
+          <div className="flex items-center gap-2">
+            <KanbanSquare className="size-5 text-violet-500" />
+            <h1 className="text-lg font-bold">
+              <GradientText colors={['#8b5cf6', '#6366f1', '#ec4899']} animationSpeed={4}>
+                Tickets
+              </GradientText>
+            </h1>
+            <Badge variant="secondary" className="text-xs font-mono">
+              <CountUp to={filteredTasks.length} duration={0.6} />
+            </Badge>
           </div>
 
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search tickets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 w-52 text-sm"
+              />
+            </div>
+
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                onClick={() => setViewMode('board')}
+                className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <KanbanSquare className="size-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <List className="size-4" />
+              </button>
+            </div>
+
+            <PresenceBar />
+
+            <Button size="sm" variant="outline" onClick={() => setShowLabelManager(true)} className="h-8 gap-1.5">
+              <Tag className="size-3.5" />
+              Labels
+            </Button>
+
+            <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
+              <Plus className="size-3.5" />
+              Create
+            </Button>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 px-4 pb-2.5 overflow-x-auto">
+          <Filter className="size-3.5 text-muted-foreground shrink-0" />
           <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="h-8 w-32 text-xs">
-              <Filter className="size-3 mr-1" />
+            <SelectTrigger className="h-7 w-28 text-[11px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -417,27 +521,65 @@ export default function TicketsPage() {
             </SelectContent>
           </Select>
 
-          <div className="flex rounded-lg border overflow-hidden">
-            <button
-              onClick={() => setViewMode('board')}
-              className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <KanbanSquare className="size-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <List className="size-4" />
-            </button>
-          </div>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="h-7 w-28 text-[11px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="FeatureRequest">Feature</SelectItem>
+              <SelectItem value="BugReport">Bug</SelectItem>
+              <SelectItem value="CodeReview">Code Review</SelectItem>
+              <SelectItem value="CustomerSupport">Support</SelectItem>
+              <SelectItem value="Documentation">Docs</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <PresenceBar />
+          <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+            <SelectTrigger className="h-7 w-28 text-[11px]">
+              <SelectValue placeholder="Assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignees</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {orgEmployees.map((e) => (
+                <SelectItem key={e.id.toHexString()} value={e.id.toHexString()}>
+                  {e.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 gap-1.5">
-            <Plus className="size-3.5" />
-            Create
-          </Button>
+          {orgLabels.length > 0 && (
+            <Select value={filterLabel} onValueChange={setFilterLabel}>
+              <SelectTrigger className="h-7 w-28 text-[11px]">
+                <SelectValue placeholder="Label" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Labels</SelectItem>
+                {orgLabels.map((l) => (
+                  <SelectItem key={l.id.toString()} value={l.id.toString()}>
+                    <span className="flex items-center gap-1.5">
+                      <span className={`size-2 rounded-full bg-${l.color}-500`} />
+                      {l.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {(filterPriority !== 'all' || filterType !== 'all' || filterAssignee !== 'all' || filterLabel !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[11px] px-2 text-muted-foreground"
+              onClick={() => { setFilterPriority('all'); setFilterType('all'); setFilterAssignee('all'); setFilterLabel('all') }}
+            >
+              <X className="size-3 mr-0.5" />
+              Clear
+            </Button>
+          )}
         </div>
       </div>
 
@@ -496,6 +638,19 @@ export default function TicketsPage() {
                             <KanbanBoardCardTitle className="line-clamp-2 text-left">
                               {task.title}
                             </KanbanBoardCardTitle>
+
+                            {/* Labels */}
+                            {(() => {
+                              const labels = taskLabelsMap.get(task.id.toString()) || []
+                              if (labels.length === 0) return null
+                              return (
+                                <div className="flex flex-wrap gap-1 w-full">
+                                  {labels.map((l: any) => (
+                                    <LabelBadge key={l.id.toString()} label={l} size="sm" />
+                                  ))}
+                                </div>
+                              )
+                            })()}
 
                             {/* Type badge + Due date */}
                             <div className="flex items-center gap-1.5 w-full">
@@ -589,6 +744,7 @@ export default function TicketsPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Status</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Priority</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-32">Type</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-36">Labels</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Assignee</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Due Date</th>
                       <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Created</th>
@@ -628,6 +784,13 @@ export default function TicketsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-xs text-muted-foreground">{taskTypeLabel(task.taskType.tag)}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(taskLabelsMap.get(task.id.toString()) || []).map((l: any) => (
+                                <LabelBadge key={l.id.toString()} label={l} size="sm" />
+                              ))}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             {assignee ? (
@@ -720,6 +883,13 @@ export default function TicketsPage() {
           sendThreadReply={sendThreadReply}
           watchTask={watchTask}
           unwatchTask={unwatchTask}
+          orgEmployees={orgEmployees}
+          orgLabels={orgLabels}
+          taskLabels={taskLabelsMap.get(selectedTask.id.toString()) || []}
+          assignTaskTo={assignTaskTo}
+          setTaskDueDate={setTaskDueDate}
+          assignLabelToTask={assignLabelToTask}
+          removeLabelFromTask={removeLabelFromTask}
         />
       )}
 
@@ -782,6 +952,31 @@ export default function TicketsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-sm">Assignee</Label>
+                <Select value={newAssignee} onValueChange={setNewAssignee}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {orgEmployees.map((e) => (
+                      <SelectItem key={e.id.toHexString()} value={e.id.toHexString()}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Due Date</Label>
+                <Input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -792,6 +987,16 @@ export default function TicketsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Label Manager Dialog */}
+      <LabelManagerDialog
+        open={showLabelManager}
+        onOpenChange={setShowLabelManager}
+        orgLabels={orgLabels}
+        currentOrgId={currentOrgId}
+        createLabel={createLabel}
+        deleteLabel={deleteLabel}
+      />
     </div>
   )
 }
@@ -895,6 +1100,13 @@ function TaskDetailPanel({
   sendThreadReply,
   watchTask,
   unwatchTask,
+  orgEmployees,
+  orgLabels,
+  taskLabels,
+  assignTaskTo,
+  setTaskDueDate,
+  assignLabelToTask,
+  removeLabelFromTask,
 }: {
   task: any
   employeeMap: Map<string, any>
@@ -910,6 +1122,13 @@ function TaskDetailPanel({
   sendThreadReply: (args: any) => Promise<any>
   watchTask: (args: any) => Promise<any>
   unwatchTask: (args: any) => Promise<any>
+  orgEmployees: any[]
+  orgLabels: any[]
+  taskLabels: any[]
+  assignTaskTo: (args: any) => Promise<any>
+  setTaskDueDate: (args: any) => Promise<any>
+  assignLabelToTask: (args: any) => Promise<any>
+  removeLabelFromTask: (args: any) => Promise<any>
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
   const [isEditing, setIsEditing] = useState(false)
@@ -1188,21 +1407,44 @@ function TaskDetailPanel({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Assignee</p>
-                {assignee ? (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="size-6">
-                      <AvatarFallback className={`${nameToColor(assignee.name)} text-[9px] text-white`}>
-                        {getInitials(assignee.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{assignee.name}</span>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={onClaim} className="h-7 text-xs gap-1">
-                    <User className="size-3" />
-                    Claim task
-                  </Button>
-                )}
+                <Select
+                  value={assignee ? task.assignee.toHexString() : 'unassigned'}
+                  onValueChange={async (val) => {
+                    if (val === 'unassigned') return
+                    if (val === 'claim') { onClaim(); return }
+                    try {
+                      const emp = orgEmployees.find(e => e.id.toHexString() === val)
+                      if (emp) await assignTaskTo({ taskId: task.id, assignee: emp.id })
+                    } catch (e) { console.error(e) }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    {assignee ? (
+                      <div className="flex items-center gap-1.5">
+                        <Avatar className="size-5">
+                          <AvatarFallback className={`${nameToColor(assignee.name)} text-[7px] text-white`}>
+                            {getInitials(assignee.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{assignee.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Unassigned</span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="claim">
+                      <span className="flex items-center gap-1.5">
+                        <UserPlus className="size-3" /> Claim (assign to me)
+                      </span>
+                    </SelectItem>
+                    {orgEmployees.map((e) => (
+                      <SelectItem key={e.id.toHexString()} value={e.id.toHexString()}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Created</p>
@@ -1211,23 +1453,106 @@ function TaskDetailPanel({
                   {formatTimeAgo(task.createdAt)}
                 </div>
               </div>
-              {/* Due Date */}
-              {task.dueAt && (
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground mb-1">Due Date</p>
-                  <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
-                    dueDateStatus === 'overdue'
-                      ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                      : dueDateStatus === 'soon'
-                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                        : 'bg-muted/50 text-muted-foreground border-muted'
-                  }`}>
-                    <CalendarClock className="size-3.5" />
-                    {formatDate(task.dueAt)}
-                    {dueDateStatus === 'overdue' && <span className="ml-1">(Overdue)</span>}
-                    {dueDateStatus === 'soon' && <span className="ml-1">(Due soon)</span>}
-                  </div>
+              {/* Due Date (editable) */}
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground mb-1">Due Date</p>
+                <div className="flex items-center gap-2">
+                  {task.dueAt && (
+                    <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
+                      dueDateStatus === 'overdue'
+                        ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                        : dueDateStatus === 'soon'
+                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          : 'bg-muted/50 text-muted-foreground border-muted'
+                    }`}>
+                      <CalendarClock className="size-3.5" />
+                      {formatDate(task.dueAt)}
+                      {dueDateStatus === 'overdue' && <span className="ml-1">(Overdue)</span>}
+                      {dueDateStatus === 'soon' && <span className="ml-1">(Due soon)</span>}
+                    </div>
+                  )}
+                  <Input
+                    type="date"
+                    className="h-7 w-36 text-xs"
+                    defaultValue={task.dueAt ? (() => {
+                      try { return task.dueAt.toDate().toISOString().split('T')[0] } catch { return '' }
+                    })() : ''}
+                    onChange={async (e) => {
+                      const val = e.target.value
+                      const micros = val ? new Date(val + 'T23:59:59').getTime() * 1000 : 0
+                      try {
+                        await setTaskDueDate({ taskId: task.id, dueAtMicros: BigInt(micros) })
+                      } catch (err) { console.error(err) }
+                    }}
+                  />
+                  {task.dueAt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[10px] px-1.5"
+                      onClick={async () => {
+                        try { await setTaskDueDate({ taskId: task.id, dueAtMicros: BigInt(0) }) } catch {}
+                      }}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  )}
                 </div>
+              </div>
+            </div>
+
+            {/* Labels */}
+            <Separator />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Tag className="size-3.5" />
+                  Labels
+                </h3>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {taskLabels.map((l: any) => (
+                  <LabelBadge
+                    key={l.id.toString()}
+                    label={l}
+                    onRemove={async () => {
+                      try { await removeLabelFromTask({ taskId: task.id, labelId: l.id }) } catch {}
+                    }}
+                  />
+                ))}
+                {taskLabels.length === 0 && (
+                  <span className="text-xs text-muted-foreground">No labels</span>
+                )}
+              </div>
+              {orgLabels.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1">
+                      <Plus className="size-3" /> Add label
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="space-y-1">
+                      {orgLabels
+                        .filter((l) => !taskLabels.some((tl: any) => tl.id === l.id))
+                        .map((l) => (
+                          <button
+                            key={l.id.toString()}
+                            className="flex items-center gap-2 w-full rounded px-2 py-1 text-xs hover:bg-muted transition-colors"
+                            onClick={async () => {
+                              try { await assignLabelToTask({ taskId: task.id, labelId: l.id }) } catch {}
+                            }}
+                          >
+                            <LabelDot color={l.color} />
+                            {l.name}
+                          </button>
+                        ))}
+                      {orgLabels.filter((l) => !taskLabels.some((tl: any) => tl.id === l.id)).length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">All labels assigned</p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
 
@@ -1569,5 +1894,161 @@ function TaskDetailPanel({
         </ScrollArea>
       </div>
     </div>
+  )
+}
+
+// ---- Label helpers ----------------------------------------------------------
+
+const LABEL_COLORS: Record<string, string> = {
+  red: 'bg-red-500/15 text-red-500 border-red-500/20',
+  orange: 'bg-orange-500/15 text-orange-500 border-orange-500/20',
+  amber: 'bg-amber-500/15 text-amber-500 border-amber-500/20',
+  yellow: 'bg-yellow-500/15 text-yellow-500 border-yellow-500/20',
+  green: 'bg-green-500/15 text-green-500 border-green-500/20',
+  emerald: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
+  teal: 'bg-teal-500/15 text-teal-500 border-teal-500/20',
+  cyan: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/20',
+  blue: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+  indigo: 'bg-indigo-500/15 text-indigo-500 border-indigo-500/20',
+  violet: 'bg-violet-500/15 text-violet-500 border-violet-500/20',
+  purple: 'bg-purple-500/15 text-purple-500 border-purple-500/20',
+  fuchsia: 'bg-fuchsia-500/15 text-fuchsia-500 border-fuchsia-500/20',
+  pink: 'bg-pink-500/15 text-pink-500 border-pink-500/20',
+  rose: 'bg-rose-500/15 text-rose-500 border-rose-500/20',
+}
+
+const LABEL_DOT_COLORS: Record<string, string> = {
+  red: 'bg-red-500', orange: 'bg-orange-500', amber: 'bg-amber-500',
+  yellow: 'bg-yellow-500', green: 'bg-green-500', emerald: 'bg-emerald-500',
+  teal: 'bg-teal-500', cyan: 'bg-cyan-500', blue: 'bg-blue-500',
+  indigo: 'bg-indigo-500', violet: 'bg-violet-500', purple: 'bg-purple-500',
+  fuchsia: 'bg-fuchsia-500', pink: 'bg-pink-500', rose: 'bg-rose-500',
+}
+
+function LabelDot({ color }: { color: string }) {
+  return <span className={`size-2.5 rounded-full shrink-0 ${LABEL_DOT_COLORS[color] || 'bg-gray-500'}`} />
+}
+
+function LabelBadge({ label, size = 'default', onRemove }: { label: any; size?: 'sm' | 'default'; onRemove?: () => void }) {
+  const colorClass = LABEL_COLORS[label.color] || 'bg-gray-500/15 text-gray-500 border-gray-500/20'
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border font-medium ${colorClass} ${
+      size === 'sm' ? 'text-[9px] px-1.5 py-0' : 'text-[10px] px-2 py-0.5'
+    }`}>
+      <LabelDot color={label.color} />
+      {label.name}
+      {onRemove && (
+        <button onClick={onRemove} className="ml-0.5 hover:opacity-70 transition-opacity">
+          <X className="size-2.5" />
+        </button>
+      )}
+    </span>
+  )
+}
+
+// ---- Label Manager Dialog ---------------------------------------------------
+
+function LabelManagerDialog({
+  open,
+  onOpenChange,
+  orgLabels,
+  currentOrgId,
+  createLabel,
+  deleteLabel,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  orgLabels: any[]
+  currentOrgId: number | null
+  createLabel: (args: any) => Promise<any>
+  deleteLabel: (args: any) => Promise<any>
+}) {
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState('blue')
+  const [isCreating, setIsCreating] = useState(false)
+
+  const handleCreate = async () => {
+    if (!newName.trim() || currentOrgId === null) return
+    setIsCreating(true)
+    try {
+      await createLabel({ orgId: BigInt(currentOrgId), name: newName.trim(), color: newColor })
+      setNewName('')
+    } catch (e) {
+      console.error('Failed to create label:', e)
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Tag className="size-4" /> Manage Labels
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {/* Existing labels */}
+          <div className="space-y-2">
+            {orgLabels.map((label) => (
+              <div key={label.id.toString()} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <LabelBadge label={label} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] text-muted-foreground hover:text-red-500"
+                  onClick={async () => {
+                    try { await deleteLabel({ labelId: label.id }) } catch {}
+                  }}
+                >
+                  <X className="size-3" />
+                </Button>
+              </div>
+            ))}
+            {orgLabels.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No labels yet. Create one below.</p>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Create new label */}
+          <div className="space-y-3">
+            <Label className="text-sm">New Label</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Label name"
+                className="h-8 text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+              />
+              <Select value={newColor} onValueChange={setNewColor}>
+                <SelectTrigger className="h-8 w-24">
+                  <div className="flex items-center gap-1.5">
+                    <LabelDot color={newColor} />
+                    <span className="text-xs capitalize">{newColor}</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(LABEL_DOT_COLORS).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      <div className="flex items-center gap-1.5">
+                        <LabelDot color={c} />
+                        <span className="capitalize">{c}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={handleCreate} disabled={!newName.trim() || isCreating} className="h-8">
+                {isCreating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

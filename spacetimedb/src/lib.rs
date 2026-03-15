@@ -3800,3 +3800,139 @@ pub fn delete_agent_deployment(ctx: &ReducerContext, agent_id: u64) -> Result<()
     ctx.db.ai_agent_deployment().id().delete(&agent_id);
     Ok(())
 }
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationType {
+    TaskAssigned,
+    TaskCompleted,
+    MentionInMessage,
+    TicketUpdate,
+    PrReviewRequested,
+    AgentCompleted,
+    MeetingReminder,
+    DocumentShared,
+    SystemAlert,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum NotificationPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+#[spacetimedb::table(accessor = notification, public)]
+pub struct Notification {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub recipient: Identity,
+    pub notification_type: NotificationType,
+    pub priority: NotificationPriority,
+    pub title: String,
+    pub body: String,
+    pub link: Option<String>,
+    pub read: bool,
+    pub dismissed: bool,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_notification(
+    ctx: &ReducerContext,
+    org_id: u64,
+    recipient_hex: String,
+    notification_type: String,
+    priority: String,
+    title: String,
+    body: String,
+    link: Option<String>,
+) -> Result<(), String> {
+    let recipient = Identity::from_hex(&recipient_hex)
+        .map_err(|_| "Invalid recipient identity")?;
+
+    let ntype = match notification_type.as_str() {
+        "TaskAssigned" => NotificationType::TaskAssigned,
+        "TaskCompleted" => NotificationType::TaskCompleted,
+        "MentionInMessage" => NotificationType::MentionInMessage,
+        "TicketUpdate" => NotificationType::TicketUpdate,
+        "PrReviewRequested" => NotificationType::PrReviewRequested,
+        "AgentCompleted" => NotificationType::AgentCompleted,
+        "MeetingReminder" => NotificationType::MeetingReminder,
+        "DocumentShared" => NotificationType::DocumentShared,
+        "SystemAlert" => NotificationType::SystemAlert,
+        _ => return Err(format!("Invalid notification type: {}", notification_type)),
+    };
+
+    let prio = match priority.as_str() {
+        "Low" => NotificationPriority::Low,
+        "Normal" => NotificationPriority::Normal,
+        "High" => NotificationPriority::High,
+        "Urgent" => NotificationPriority::Urgent,
+        _ => NotificationPriority::Normal,
+    };
+
+    ctx.db.notification().insert(Notification {
+        id: 0,
+        org_id,
+        recipient,
+        notification_type: ntype,
+        priority: prio,
+        title,
+        body,
+        link,
+        read: false,
+        dismissed: false,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let mut notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+
+    notif.read = true;
+    ctx.db.notification().id().update(notif);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn mark_all_notifications_read(ctx: &ReducerContext, org_id: u64) -> Result<(), String> {
+    let my_notifs: Vec<_> = ctx.db.notification().iter()
+        .filter(|n| n.recipient == ctx.sender() && n.org_id == org_id && !n.read)
+        .collect();
+
+    for mut n in my_notifs {
+        n.read = true;
+        ctx.db.notification().id().update(n);
+    }
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn dismiss_notification(ctx: &ReducerContext, notification_id: u64) -> Result<(), String> {
+    let mut notif = ctx.db.notification().id().find(&notification_id)
+        .ok_or("Notification not found")?;
+
+    if notif.recipient != ctx.sender() {
+        return Err("Not your notification".to_string());
+    }
+
+    notif.dismissed = true;
+    notif.read = true;
+    ctx.db.notification().id().update(notif);
+    Ok(())
+}

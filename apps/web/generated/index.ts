@@ -47,6 +47,7 @@ import CreateCustomerReducer from "./create_customer_reducer";
 import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
+import CreateNotificationReducer from "./create_notification_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
@@ -54,6 +55,7 @@ import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
+import DismissNotificationReducer from "./dismiss_notification_reducer";
 import EditMessageReducer from "./edit_message_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
@@ -63,6 +65,8 @@ import JoinChannelReducer from "./join_channel_reducer";
 import JoinOrgWithEmailReducer from "./join_org_with_email_reducer";
 import JoinOrgWithInviteCodeReducer from "./join_org_with_invite_code_reducer";
 import LeaveChannelReducer from "./leave_channel_reducer";
+import MarkAllNotificationsReadReducer from "./mark_all_notifications_read_reducer";
+import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
@@ -115,6 +119,7 @@ import LeadRow from "./lead_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
+import NotificationRow from "./notification_table";
 import OrgInviteLinkRow from "./org_invite_link_table";
 import OrgMembershipRow from "./org_membership_table";
 import OrganizationRow from "./organization_table";
@@ -336,6 +341,17 @@ const tablesSchema = __schema({
       { name: 'message_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MessageRow),
+  notification: __table({
+    name: 'notification',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'notification_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, NotificationRow),
   org_invite_link: __table({
     name: 'org_invite_link',
     indexes: [
@@ -493,6 +509,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_dm_channel", CreateDmChannelReducer),
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
+  __reducerSchema("create_notification", CreateNotificationReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
@@ -500,6 +517,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("deploy_agent", DeployAgentReducer),
+  __reducerSchema("dismiss_notification", DismissNotificationReducer),
   __reducerSchema("edit_message", EditMessageReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
@@ -509,6 +527,8 @@ const reducersSchema = __reducers(
   __reducerSchema("join_org_with_email", JoinOrgWithEmailReducer),
   __reducerSchema("join_org_with_invite_code", JoinOrgWithInviteCodeReducer),
   __reducerSchema("leave_channel", LeaveChannelReducer),
+  __reducerSchema("mark_all_notifications_read", MarkAllNotificationsReadReducer),
+  __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),

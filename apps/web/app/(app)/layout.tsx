@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
 import { NotificationPrompt } from "@/components/notification-prompt"
+import { NotificationBell } from "@/components/notification-bell"
 import { CommandPalette } from "@/components/command-palette"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import {
@@ -77,8 +78,9 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-                <div className="ml-auto hidden md:block">
+                <div className="ml-auto hidden md:flex items-center gap-2">
                   <PresenceBar />
+                  <NotificationBell />
                 </div>
               </header>
             )}

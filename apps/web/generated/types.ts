@@ -699,6 +699,48 @@ export const MessageType = __t.enum("MessageType", {
 });
 export type MessageType = __Infer<typeof MessageType>;
 
+export const Notification = __t.object("Notification", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  recipient: __t.identity(),
+  get notificationType() {
+    return NotificationType;
+  },
+  get priority() {
+    return NotificationPriority;
+  },
+  title: __t.string(),
+  body: __t.string(),
+  link: __t.option(__t.string()),
+  read: __t.bool(),
+  dismissed: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type Notification = __Infer<typeof Notification>;
+
+// The tagged union or sum type for the algebraic type `NotificationPriority`.
+export const NotificationPriority = __t.enum("NotificationPriority", {
+  Low: __t.unit(),
+  Normal: __t.unit(),
+  High: __t.unit(),
+  Urgent: __t.unit(),
+});
+export type NotificationPriority = __Infer<typeof NotificationPriority>;
+
+// The tagged union or sum type for the algebraic type `NotificationType`.
+export const NotificationType = __t.enum("NotificationType", {
+  TaskAssigned: __t.unit(),
+  TaskCompleted: __t.unit(),
+  MentionInMessage: __t.unit(),
+  TicketUpdate: __t.unit(),
+  PrReviewRequested: __t.unit(),
+  AgentCompleted: __t.unit(),
+  MeetingReminder: __t.unit(),
+  DocumentShared: __t.unit(),
+  SystemAlert: __t.unit(),
+});
+export type NotificationType = __Infer<typeof NotificationType>;
+
 export const OrgInviteLink = __t.object("OrgInviteLink", {
   id: __t.u64(),
   orgId: __t.u64(),

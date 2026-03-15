@@ -23,6 +23,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -389,7 +390,7 @@ export default function ContactsPage() {
 
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Manage your contacts, leads, and relationships</p>
+          <BlurText text="Manage your contacts, leads, and relationships" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
           <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
             <DialogTrigger render={<Button size="sm" className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-500/25 border-0" />}>
               <Plus className="size-4 mr-1.5" />

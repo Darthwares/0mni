@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   FileBarChart2,
   Star,
@@ -234,7 +235,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold tracking-tight">
             <GradientText colors={['#0ea5e9', '#6366f1', '#a855f7']} animationSpeed={6}>Reports</GradientText>
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Build and view reports from your platform data</p>
+          <BlurText text="Build and view reports from your platform data" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
         </div>
         <button onClick={() => setShowNewDialog(true)} className="flex items-center gap-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-sky-500 to-indigo-600 text-white px-3.5 py-2 hover:opacity-90 transition-opacity shadow-md shadow-indigo-500/20">
           <Plus className="size-3.5" /> New Report

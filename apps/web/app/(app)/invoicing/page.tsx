@@ -21,6 +21,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -497,7 +498,7 @@ export default function InvoicingPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         {/* Top row */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Create, track, and manage invoices</p>
+          <BlurText text="Create, track, and manage invoices" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
           <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
             <DialogTrigger render={<Button size="sm" className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-lg shadow-emerald-500/25 border-0" />}>
               <Plus className="size-4 mr-1.5" />

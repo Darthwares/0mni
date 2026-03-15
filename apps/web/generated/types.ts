@@ -402,6 +402,17 @@ export const CandidateStatus = __t.enum("CandidateStatus", {
 });
 export type CandidateStatus = __Infer<typeof CandidateStatus>;
 
+export const CannedResponse = __t.object("CannedResponse", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  title: __t.string(),
+  content: __t.string(),
+  category: __t.option(__t.string()),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type CannedResponse = __Infer<typeof CannedResponse>;
+
 export const Channel = __t.object("Channel", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -1136,6 +1147,20 @@ export const Notification = __t.object("Notification", {
 });
 export type Notification = __Infer<typeof Notification>;
 
+export const NotificationPreference = __t.object("NotificationPreference", {
+  id: __t.u64(),
+  userId: __t.identity(),
+  orgId: __t.u64(),
+  emailEnabled: __t.bool(),
+  desktopEnabled: __t.bool(),
+  ticketUpdates: __t.bool(),
+  aiAlerts: __t.bool(),
+  dealChanges: __t.bool(),
+  mentionAlerts: __t.bool(),
+  updatedAt: __t.timestamp(),
+});
+export type NotificationPreference = __Infer<typeof NotificationPreference>;
+
 // The tagged union or sum type for the algebraic type `NotificationPriority`.
 export const NotificationPriority = __t.enum("NotificationPriority", {
   Low: __t.unit(),
@@ -1569,6 +1594,17 @@ export const TicketLabelAssignment = __t.object("TicketLabelAssignment", {
   labelId: __t.u64(),
 });
 export type TicketLabelAssignment = __Infer<typeof TicketLabelAssignment>;
+
+export const TicketNote = __t.object("TicketNote", {
+  id: __t.u64(),
+  ticketId: __t.u64(),
+  orgId: __t.u64(),
+  author: __t.identity(),
+  content: __t.string(),
+  isInternal: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type TicketNote = __Infer<typeof TicketNote>;
 
 // The tagged union or sum type for the algebraic type `TicketStatus`.
 export const TicketStatus = __t.enum("TicketStatus", {

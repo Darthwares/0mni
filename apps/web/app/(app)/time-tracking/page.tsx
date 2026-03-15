@@ -25,6 +25,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -403,15 +404,19 @@ export default function TimeTrackingPage() {
               {/* Timer display */}
               <div className="flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
-                  <span
-                    className={`text-6xl sm:text-7xl font-bold tabular-nums tracking-tight transition-colors ${
-                      activeTimer
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-neutral-300 dark:text-neutral-600'
-                    }`}
-                  >
-                    {formatDuration(elapsed)}
-                  </span>
+                  {activeTimer ? (
+                    <ShinyText
+                      text={formatDuration(elapsed)}
+                      speed={3}
+                      color="#059669"
+                      shineColor="#34d399"
+                      className="text-6xl sm:text-7xl font-bold tabular-nums tracking-tight"
+                    />
+                  ) : (
+                    <span className="text-6xl sm:text-7xl font-bold tabular-nums tracking-tight text-neutral-300 dark:text-neutral-600">
+                      {formatDuration(elapsed)}
+                    </span>
+                  )}
                   {activeTimer && (
                     <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                       <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />

@@ -22,6 +22,8 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
 import {
   MessageSquare,
   KanbanSquare,
@@ -403,16 +405,25 @@ export default function DashboardPage() {
               {greeting}{firstName ? `, ${firstName}` : ''}
             </h1>
           )}
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {isGlobalOrg ? 'Global workspace activity' : 'Here\'s what\'s happening in your workspace'}
-          </p>
+          <BlurText
+            text={isGlobalOrg ? 'Global workspace activity' : "Here's what's happening in your workspace"}
+            delay={40}
+            animateBy="words"
+            className="text-sm text-muted-foreground mt-0.5"
+          />
         </div>
         <div className="hidden sm:flex items-center gap-3">
           {unreadCount > 0 && (
             <Link href="/notifications">
               <div className="flex items-center gap-2 rounded-lg border bg-red-500/5 border-red-500/10 px-3 py-1.5 hover:bg-red-500/10 transition-colors cursor-pointer">
                 <Bell className="size-3 text-red-500" />
-                <span className="text-xs font-medium tabular-nums text-red-600 dark:text-red-400"><CountUp to={unreadCount} duration={1} /></span>
+                <ShinyText
+                  text={`${unreadCount}`}
+                  speed={2}
+                  color="#dc2626"
+                  shineColor="#f87171"
+                  className="text-xs font-medium tabular-nums"
+                />
                 <span className="text-[10px] text-red-500/70">unread</span>
               </div>
             </Link>

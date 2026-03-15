@@ -48,6 +48,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ---- Config maps ------------------------------------------------------------
 
@@ -306,9 +307,12 @@ export default function ApprovalsPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         {/* Top row: Create button */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Review and manage approval requests across your organization
-          </p>
+          <BlurText
+            text="Review and manage approval requests across your organization"
+            delay={35}
+            animateBy="words"
+            className="text-sm text-muted-foreground"
+          />
 
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<Button />}>

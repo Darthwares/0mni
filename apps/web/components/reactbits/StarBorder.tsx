@@ -9,6 +9,7 @@ interface StarBorderProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
   color?: string
   speed?: string
   thickness?: number
+  bgClassName?: string
 }
 
 const StarBorder: React.FC<StarBorderProps> = ({
@@ -17,6 +18,7 @@ const StarBorder: React.FC<StarBorderProps> = ({
   color = 'white',
   speed = '6s',
   thickness = 1,
+  bgClassName = 'bg-white dark:bg-neutral-900',
   children,
   ...rest
 }) => {
@@ -35,7 +37,7 @@ const StarBorder: React.FC<StarBorderProps> = ({
         } as React.CSSProperties}
       />
       <div
-        className="relative z-10 bg-neutral-900 rounded-[calc(0.75rem-var(--star-thickness))] m-[var(--star-thickness)]"
+        className={`relative z-10 ${bgClassName} rounded-[calc(0.75rem-var(--star-thickness))] m-[var(--star-thickness)]`}
         style={{ '--star-thickness': `${thickness}px` } as React.CSSProperties}
       >
         {children}

@@ -38,6 +38,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -346,7 +347,13 @@ export default function GoalsPage() {
                   <span className="text-[10px] text-muted-foreground font-medium">% avg</span>
                 </div>
               </div>
-              <span className="text-xs font-medium text-muted-foreground mt-3">Company Progress</span>
+              <ShinyText
+                text="Company Progress"
+                speed={4}
+                color="#92400e"
+                shineColor="#f59e0b"
+                className="text-xs font-medium mt-3"
+              />
             </SpotlightCard>
 
             {/* Stat cards */}

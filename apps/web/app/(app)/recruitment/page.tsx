@@ -51,6 +51,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -326,9 +327,12 @@ export default function RecruitmentPage() {
                 Recruitment
               </GradientText>
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Candidate pipeline, job postings, and interview scheduling
-            </p>
+            <BlurText
+              text="Candidate pipeline, job postings, and interview scheduling"
+              delay={35}
+              animateBy="words"
+              className="text-sm text-muted-foreground mt-0.5"
+            />
           </div>
         </div>
         <Dialog open={candidateDialogOpen} onOpenChange={setCandidateDialogOpen}>

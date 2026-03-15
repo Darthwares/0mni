@@ -14,6 +14,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -232,7 +233,12 @@ export default function StandupsPage() {
             <h1 className="text-2xl font-bold tracking-tight">
               <GradientText colors={['#8b5cf6', '#6366f1', '#4f46e5']} animationSpeed={6}>Standups</GradientText>
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Async daily standups and check-ins for your team</p>
+            <BlurText
+              text="Async daily standups and check-ins for your team"
+              delay={35}
+              animateBy="words"
+              className="text-sm text-muted-foreground mt-0.5"
+            />
           </div>
         </div>
 

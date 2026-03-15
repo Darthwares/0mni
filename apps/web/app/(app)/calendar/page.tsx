@@ -44,6 +44,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ── Types ──────────────────────────────────────
 type EventCategoryKey = 'Meeting' | 'Deadline' | 'Interview' | 'Standup' | 'Review' | 'Personal' | 'Other'
@@ -309,9 +310,12 @@ export default function CalendarPage() {
                   Calendar
                 </GradientText>
               </h1>
-              <p className="text-muted-foreground text-sm">
-                Schedule meetings, track deadlines, and manage your time
-              </p>
+              <BlurText
+                text="Schedule meetings, track deadlines, and manage your time"
+                delay={35}
+                animateBy="words"
+                className="text-muted-foreground text-sm"
+              />
             </div>
           </div>
           <Button

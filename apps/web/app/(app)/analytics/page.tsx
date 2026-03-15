@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Users,
   TicketCheck,
@@ -259,9 +260,12 @@ export default function AnalyticsPage() {
               Analytics
             </GradientText>
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Executive overview across all modules
-          </p>
+          <BlurText
+            text="Executive overview across all modules"
+            delay={35}
+            animateBy="words"
+            className="text-sm text-muted-foreground mt-0.5"
+          />
         </div>
       </div>
 

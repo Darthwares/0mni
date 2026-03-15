@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import AcceptCallReducer from "./accept_call_reducer";
+import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
 import ArchiveEmailReducer from "./archive_email_reducer";
@@ -49,6 +50,7 @@ import CreateDmChannelReducer from "./create_dm_channel_reducer";
 import CreateDocumentReducer from "./create_document_reducer";
 import CreateEmailLabelReducer from "./create_email_label_reducer";
 import CreateEpicReducer from "./create_epic_reducer";
+import CreateFormReducer from "./create_form_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
@@ -61,6 +63,7 @@ import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
+import DeleteFormReducer from "./delete_form_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
@@ -70,6 +73,7 @@ import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
 import DismissNotificationReducer from "./dismiss_notification_reducer";
 import DuplicateDocumentReducer from "./duplicate_document_reducer";
+import DuplicateFormReducer from "./duplicate_form_reducer";
 import EditMessageReducer from "./edit_message_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
@@ -89,6 +93,7 @@ import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
+import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
@@ -108,6 +113,7 @@ import SetUserLocationReducer from "./set_user_location_reducer";
 import ShareDocumentReducer from "./share_document_reducer";
 import StartTimeEntryReducer from "./start_time_entry_reducer";
 import StopTimeEntryReducer from "./stop_time_entry_reducer";
+import SubmitFormResponseReducer from "./submit_form_response_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
@@ -121,6 +127,9 @@ import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
 import UpdateEmployeeResumeReducer from "./update_employee_resume_reducer";
 import UpdateEpicReducer from "./update_epic_reducer";
+import UpdateFormReducer from "./update_form_reducer";
+import UpdateFormQuestionReducer from "./update_form_question_reducer";
+import UpdateFormStatusReducer from "./update_form_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
@@ -152,6 +161,10 @@ import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
 import EmployeeRow from "./employee_table";
 import EpicRow from "./epic_table";
+import FormAnswerRow from "./form_answer_table";
+import FormDefRow from "./form_def_table";
+import FormQuestionRow from "./form_question_table";
+import FormResponseRow from "./form_response_table";
 import InterviewRow from "./interview_table";
 import JobPostingRow from "./job_posting_table";
 import KbArticleRow from "./kb_article_table";
@@ -377,6 +390,50 @@ const tablesSchema = __schema({
       { name: 'epic_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EpicRow),
+  form_answer: __table({
+    name: 'form_answer',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'form_answer_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FormAnswerRow),
+  form_def: __table({
+    name: 'form_def',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'form_def_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FormDefRow),
+  form_question: __table({
+    name: 'form_question',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'form_question_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FormQuestionRow),
+  form_response: __table({
+    name: 'form_response',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'form_response_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, FormResponseRow),
   interview: __table({
     name: 'interview',
     indexes: [
@@ -687,6 +744,7 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
+  __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("archive_email", ArchiveEmailReducer),
@@ -701,6 +759,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_document", CreateDocumentReducer),
   __reducerSchema("create_email_label", CreateEmailLabelReducer),
   __reducerSchema("create_epic", CreateEpicReducer),
+  __reducerSchema("create_form", CreateFormReducer),
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
@@ -713,6 +772,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
+  __reducerSchema("delete_form", DeleteFormReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
@@ -722,6 +782,7 @@ const reducersSchema = __reducers(
   __reducerSchema("deploy_agent", DeployAgentReducer),
   __reducerSchema("dismiss_notification", DismissNotificationReducer),
   __reducerSchema("duplicate_document", DuplicateDocumentReducer),
+  __reducerSchema("duplicate_form", DuplicateFormReducer),
   __reducerSchema("edit_message", EditMessageReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
@@ -741,6 +802,7 @@ const reducersSchema = __reducers(
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
+  __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
@@ -760,6 +822,7 @@ const reducersSchema = __reducers(
   __reducerSchema("share_document", ShareDocumentReducer),
   __reducerSchema("start_time_entry", StartTimeEntryReducer),
   __reducerSchema("stop_time_entry", StopTimeEntryReducer),
+  __reducerSchema("submit_form_response", SubmitFormResponseReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("toggle_kb_article_pin", ToggleKbArticlePinReducer),
@@ -773,6 +836,9 @@ const reducersSchema = __reducers(
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
   __reducerSchema("update_employee_resume", UpdateEmployeeResumeReducer),
   __reducerSchema("update_epic", UpdateEpicReducer),
+  __reducerSchema("update_form", UpdateFormReducer),
+  __reducerSchema("update_form_question", UpdateFormQuestionReducer),
+  __reducerSchema("update_form_status", UpdateFormStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),

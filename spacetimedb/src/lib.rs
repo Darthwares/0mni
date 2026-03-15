@@ -4942,3 +4942,296 @@ pub fn increment_kb_article_views(ctx: &ReducerContext, article_id: u64) -> Resu
     ctx.db.kb_article().id().update(KbArticle { views: article.views + 1, ..article });
     Ok(())
 }
+
+// ============================================================================
+// Forms & Surveys
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum FormStatus {
+    Draft,
+    Active,
+    Closed,
+}
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum QuestionType {
+    Text,
+    MultipleChoice,
+    Checkbox,
+    Rating,
+    Scale,
+    Dropdown,
+    Date,
+}
+
+#[spacetimedb::table(accessor = form_def, public)]
+#[derive(Clone)]
+pub struct FormDef {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub description: String,
+    pub status: FormStatus,
+    pub anonymous: bool,
+    pub creator: Identity,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = form_question, public)]
+#[derive(Clone)]
+pub struct FormQuestion {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub form_id: u64,
+    pub question_type: QuestionType,
+    pub label: String,
+    pub required: bool,
+    /// Comma-separated options for MultipleChoice, Checkbox, Dropdown
+    pub options: String,
+    /// Max rating stars for Rating type
+    pub max_rating: u32,
+    /// Sort position within the form
+    pub sort_order: u32,
+}
+
+#[spacetimedb::table(accessor = form_response, public)]
+#[derive(Clone)]
+pub struct FormResponse {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub form_id: u64,
+    pub respondent: Identity,
+    pub submitted_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = form_answer, public)]
+#[derive(Clone)]
+pub struct FormAnswer {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub response_id: u64,
+    pub question_id: u64,
+    pub value: String,
+}
+
+// ---- Form reducers ----------------------------------------------------------
+
+#[spacetimedb::reducer]
+pub fn create_form(ctx: &ReducerContext, org_id: u64, title: String, description: String, anonymous: bool) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Form title cannot be empty".to_string());
+    }
+    ctx.db.form_def().insert(FormDef {
+        id: 0,
+        org_id,
+        title,
+        description,
+        status: FormStatus::Draft,
+        anonymous,
+        creator: ctx.sender(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_form(ctx: &ReducerContext, form_id: u64, title: String, description: String, anonymous: bool) -> Result<(), String> {
+    let form = ctx.db.form_def().id().find(&form_id)
+        .ok_or("Form not found")?;
+    ctx.db.form_def().id().update(FormDef {
+        title,
+        description,
+        anonymous,
+        updated_at: ctx.timestamp,
+        ..form
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_form_status(ctx: &ReducerContext, form_id: u64, status_tag: String) -> Result<(), String> {
+    let form = ctx.db.form_def().id().find(&form_id)
+        .ok_or("Form not found")?;
+    let status = match status_tag.as_str() {
+        "Draft" => FormStatus::Draft,
+        "Active" => FormStatus::Active,
+        "Closed" => FormStatus::Closed,
+        _ => return Err("Invalid status".to_string()),
+    };
+    ctx.db.form_def().id().update(FormDef {
+        status,
+        updated_at: ctx.timestamp,
+        ..form
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_form(ctx: &ReducerContext, form_id: u64) -> Result<(), String> {
+    // Cascade: delete answers for all responses, then responses, then questions, then form
+    let responses: Vec<FormResponse> = ctx.db.form_response().iter()
+        .filter(|r| r.form_id == form_id).collect();
+    for resp in &responses {
+        let answers: Vec<FormAnswer> = ctx.db.form_answer().iter()
+            .filter(|a| a.response_id == resp.id).collect();
+        for ans in answers {
+            ctx.db.form_answer().id().delete(&ans.id);
+        }
+        ctx.db.form_response().id().delete(&resp.id);
+    }
+    let questions: Vec<FormQuestion> = ctx.db.form_question().iter()
+        .filter(|q| q.form_id == form_id).collect();
+    for q in questions {
+        ctx.db.form_question().id().delete(&q.id);
+    }
+    ctx.db.form_def().id().delete(&form_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn duplicate_form(ctx: &ReducerContext, form_id: u64) -> Result<(), String> {
+    let form = ctx.db.form_def().id().find(&form_id)
+        .ok_or("Form not found")?;
+    let new_form = ctx.db.form_def().insert(FormDef {
+        id: 0,
+        title: format!("{} (Copy)", form.title),
+        description: form.description.clone(),
+        status: FormStatus::Draft,
+        anonymous: form.anonymous,
+        creator: ctx.sender(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+        ..form
+    });
+    // Copy questions
+    let questions: Vec<FormQuestion> = ctx.db.form_question().iter()
+        .filter(|q| q.form_id == form_id).collect();
+    for q in questions {
+        ctx.db.form_question().insert(FormQuestion {
+            id: 0,
+            form_id: new_form.id,
+            question_type: q.question_type,
+            label: q.label,
+            required: q.required,
+            options: q.options,
+            max_rating: q.max_rating,
+            sort_order: q.sort_order,
+        });
+    }
+    Ok(())
+}
+
+// ---- Question reducers ------------------------------------------------------
+
+#[spacetimedb::reducer]
+pub fn add_form_question(
+    ctx: &ReducerContext,
+    form_id: u64,
+    question_type_tag: String,
+    label: String,
+    required: bool,
+    options: String,
+    max_rating: u32,
+    sort_order: u32,
+) -> Result<(), String> {
+    let _form = ctx.db.form_def().id().find(&form_id)
+        .ok_or("Form not found")?;
+    let question_type = match question_type_tag.as_str() {
+        "Text" => QuestionType::Text,
+        "MultipleChoice" => QuestionType::MultipleChoice,
+        "Checkbox" => QuestionType::Checkbox,
+        "Rating" => QuestionType::Rating,
+        "Scale" => QuestionType::Scale,
+        "Dropdown" => QuestionType::Dropdown,
+        "Date" => QuestionType::Date,
+        _ => return Err("Invalid question type".to_string()),
+    };
+    ctx.db.form_question().insert(FormQuestion {
+        id: 0,
+        form_id,
+        question_type,
+        label,
+        required,
+        options,
+        max_rating,
+        sort_order,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_form_question(
+    ctx: &ReducerContext,
+    question_id: u64,
+    label: String,
+    required: bool,
+    options: String,
+    max_rating: u32,
+) -> Result<(), String> {
+    let q = ctx.db.form_question().id().find(&question_id)
+        .ok_or("Question not found")?;
+    ctx.db.form_question().id().update(FormQuestion {
+        label,
+        required,
+        options,
+        max_rating,
+        ..q
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn remove_form_question(ctx: &ReducerContext, question_id: u64) -> Result<(), String> {
+    // Also delete any answers referencing this question
+    let answers: Vec<FormAnswer> = ctx.db.form_answer().iter()
+        .filter(|a| a.question_id == question_id).collect();
+    for ans in answers {
+        ctx.db.form_answer().id().delete(&ans.id);
+    }
+    ctx.db.form_question().id().delete(&question_id);
+    Ok(())
+}
+
+// ---- Response reducers ------------------------------------------------------
+
+#[spacetimedb::reducer]
+pub fn submit_form_response(
+    ctx: &ReducerContext,
+    form_id: u64,
+    // Format: "qid:value\nqid:value\n..."
+    answers_json: String,
+) -> Result<(), String> {
+    let form = ctx.db.form_def().id().find(&form_id)
+        .ok_or("Form not found")?;
+    if form.status != FormStatus::Active {
+        return Err("Form is not accepting responses".to_string());
+    }
+    let response = ctx.db.form_response().insert(FormResponse {
+        id: 0,
+        form_id,
+        respondent: ctx.sender(),
+        submitted_at: ctx.timestamp,
+    });
+    // Parse answers - simple format: "qid:value\nqid:value\n..."
+    for line in answers_json.lines() {
+        if let Some((qid_str, value)) = line.split_once(':') {
+            if let Ok(qid) = qid_str.trim().parse::<u64>() {
+                ctx.db.form_answer().insert(FormAnswer {
+                    id: 0,
+                    response_id: response.id,
+                    question_id: qid,
+                    value: value.to_string(),
+                });
+            }
+        }
+    }
+    Ok(())
+}

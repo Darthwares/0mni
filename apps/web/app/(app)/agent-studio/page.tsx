@@ -49,8 +49,12 @@ import {
   Trash2,
   Activity,
   CheckCircle2,
+  Search,
+  Download,
+  Edit3,
   type LucideIcon,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 
 // ── Helpers ────────────────────────────────────
 function getTag(enumVal: unknown): string {
@@ -83,6 +87,7 @@ export default function AgentStudioPage() {
   const createAgentConfig = useReducer(reducers.createAgentConfig)
   const toggleAgentStatus = useReducer(reducers.toggleAgentStatus)
   const deleteAgentConfig = useReducer(reducers.deleteAgentConfig)
+  const updateAgentConfig = useReducer(reducers.updateAgentConfig)
 
   const [selectedTemplate, setSelectedTemplate] = useState<typeof TEMPLATES[0] | null>(null)
   const [deployName, setDeployName] = useState('')
@@ -98,6 +103,14 @@ export default function AgentStudioPage() {
   const [customThreshold, setCustomThreshold] = useState(85)
 
   const [showDetail, setShowDetail] = useState<number | null>(null)
+  const [agentSearch, setAgentSearch] = useState('')
+  const [statusFilterAgent, setStatusFilterAgent] = useState<'all' | 'Active' | 'Paused' | 'Draft'>('all')
+  const [editingAgent, setEditingAgent] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editPrompt, setEditPrompt] = useState('')
+  const [editModel, setEditModel] = useState('')
+  const [editThreshold, setEditThreshold] = useState(85)
 
   // Org-scoped agents
   const agents = useMemo(() => {
@@ -109,6 +122,75 @@ export default function AgentStudioPage() {
   const totalRuns = agents.reduce((acc, a) => acc + Number(a.runsTotal), 0)
   const totalSuccess = agents.reduce((acc, a) => acc + Number(a.runsSuccess), 0)
   const successRate = totalRuns > 0 ? (totalSuccess / totalRuns * 100) : 0
+
+  const filteredAgents = useMemo(() => {
+    let list = agents
+    if (statusFilterAgent !== 'all') {
+      list = list.filter(a => getTag(a.status) === statusFilterAgent)
+    }
+    if (agentSearch) {
+      const q = agentSearch.toLowerCase()
+      list = list.filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q) ||
+        a.department.toLowerCase().includes(q) ||
+        (a.capabilities ?? '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [agents, statusFilterAgent, agentSearch])
+
+  const statusCounts = useMemo(() => {
+    const counts = { Active: 0, Paused: 0, Draft: 0 }
+    for (const a of agents) {
+      const s = getTag(a.status) as keyof typeof counts
+      if (s in counts) counts[s]++
+    }
+    return counts
+  }, [agents])
+
+  const handleExportAgents = useCallback(() => {
+    const headers = ['Name', 'Department', 'Status', 'Model', 'Threshold', 'Capabilities', 'Total Runs', 'Success Rate']
+    const rows = agents.map(a => {
+      const runs = Number(a.runsTotal)
+      const success = Number(a.runsSuccess)
+      return [
+        a.name,
+        a.department,
+        getTag(a.status),
+        a.model,
+        `${a.threshold}%`,
+        (a.capabilities ?? '').replace(/,/g, '; '),
+        String(runs),
+        runs > 0 ? `${Math.round(success / runs * 100)}%` : 'N/A',
+      ]
+    })
+    exportCSV('ai-agents', headers, rows)
+  }, [agents])
+
+  const startEditAgent = useCallback((agent: typeof agents[0]) => {
+    setEditingAgent(Number(agent.id))
+    setEditName(agent.name)
+    setEditDesc(agent.description)
+    setEditPrompt(agent.systemPrompt ?? '')
+    setEditModel(agent.model)
+    setEditThreshold(agent.threshold)
+  }, [])
+
+  const handleSaveEdit = useCallback(() => {
+    if (editingAgent === null) return
+    updateAgentConfig({
+      agentId: BigInt(editingAgent),
+      name: editName.trim(),
+      description: editDesc,
+      department: agents.find(a => Number(a.id) === editingAgent)?.department ?? '',
+      model: editModel,
+      systemPrompt: editPrompt,
+      capabilities: agents.find(a => Number(a.id) === editingAgent)?.capabilities ?? '',
+      threshold: editThreshold,
+    })
+    setEditingAgent(null)
+  }, [editingAgent, editName, editDesc, editPrompt, editModel, editThreshold, agents, updateAgentConfig])
 
   // Deploy from template
   const handleDeploy = useCallback(() => {
@@ -210,18 +292,56 @@ export default function AgentStudioPage() {
           </TabsList>
 
           {/* Deployed Agents */}
-          <TabsContent value="deployed" className="mt-4">
-            {agents.length === 0 ? (
+          <TabsContent value="deployed" className="mt-4 space-y-4">
+            {/* Search + Filter + Export */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search agents..."
+                  value={agentSearch}
+                  onChange={e => setAgentSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleExportAgents} className="gap-1.5 shrink-0">
+                <Download className="size-3.5" /> Export
+              </Button>
+            </div>
+
+            {/* Status filter pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([['all', 'All', ''] as const, ['Active', 'Active', 'bg-emerald-500'] as const, ['Paused', 'Paused', 'bg-amber-500'] as const, ['Draft', 'Draft', 'bg-neutral-400'] as const]).map(([key, label, dot]) => (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilterAgent(key as typeof statusFilterAgent)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    statusFilterAgent === key
+                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {dot && <span className={`size-1.5 rounded-full ${dot}`} />}
+                  {label} ({key === 'all' ? agents.length : statusCounts[key as keyof typeof statusCounts]})
+                </button>
+              ))}
+            </div>
+
+            {filteredAgents.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <Bot className="size-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No agents deployed yet</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Deploy from templates or create a custom agent</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {agents.length === 0 ? 'No agents deployed yet' : 'No agents match your search'}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    {agents.length === 0 ? 'Deploy from templates or create a custom agent' : 'Try adjusting your filters'}
+                  </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {agents.map(agent => {
+                {filteredAgents.map(agent => {
                   const status = getTag(agent.status)
                   const caps = agent.capabilities ? agent.capabilities.split(',').filter(Boolean) : []
                   const Icon = ICON_MAP[agent.gradientColor?.split(' ')[0] || ''] || Bot
@@ -452,12 +572,59 @@ export default function AgentStudioPage() {
                   <Button variant="destructive" size="sm" onClick={() => { deleteAgentConfig({ agentId: BigInt(showDetail!) }); setShowDetail(null) }}>
                     <Trash2 className="mr-1.5 size-3.5" />Delete
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => { startEditAgent(detailAgent); setShowDetail(null) }}>
+                    <Edit3 className="mr-1.5 size-3.5" />Edit
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => { toggleAgentStatus({ agentId: BigInt(showDetail!) }); setShowDetail(null) }}>
                     {getTag(detailAgent.status) === 'Active' ? <><Pause className="mr-1.5 size-3.5" />Pause</> : <><Play className="mr-1.5 size-3.5" />Activate</>}
                   </Button>
                 </DialogFooter>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+        {/* Edit Agent Dialog */}
+        <Dialog open={editingAgent !== null} onOpenChange={open => { if (!open) setEditingAgent(null) }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Agent</DialogTitle>
+              <DialogDescription>Update this agent&apos;s configuration</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Name</Label>
+                  <Input value={editName} onChange={e => setEditName(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label>Model</Label>
+                  <Select value={editModel} onValueChange={setEditModel}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude-opus-4.6">Claude Opus 4.6</SelectItem>
+                      <SelectItem value="claude-sonnet-4.6">Claude Sonnet 4.6</SelectItem>
+                      <SelectItem value="claude-haiku-4.5">Claude Haiku 4.5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>System Prompt</Label>
+                <Textarea value={editPrompt} onChange={e => setEditPrompt(e.target.value)} className="mt-1 min-h-[100px]" />
+              </div>
+              <div>
+                <Label>Confidence Threshold: {editThreshold}%</Label>
+                <input type="range" min={50} max={100} value={editThreshold} onChange={e => setEditThreshold(Number(e.target.value))} className="w-full mt-2 accent-purple-500" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingAgent(null)}>Cancel</Button>
+              <Button onClick={handleSaveEdit} disabled={!editName.trim()}>Save Changes</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

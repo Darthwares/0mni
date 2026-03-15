@@ -79,7 +79,7 @@ const TEMPLATES = [
 
 export default function AgentStudioPage() {
   const { currentOrgId } = useOrg()
-  const allAgents = useTable(tables.agentConfig)
+  const allAgents = useTable(tables.agent_config)
   const createAgentConfig = useReducer(reducers.createAgentConfig)
   const toggleAgentStatus = useReducer(reducers.toggleAgentStatus)
   const deleteAgentConfig = useReducer(reducers.deleteAgentConfig)

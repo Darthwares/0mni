@@ -663,7 +663,7 @@ export default function DashboardPage() {
               <div className="flex items-end gap-1.5 h-20">
                 {weeklyVelocity.map((day, i) => (
                   <Tooltip key={i}>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger>
                       <div className="flex-1 flex flex-col items-center gap-1">
                         <div
                           className={`w-full rounded-t transition-all duration-500 ${

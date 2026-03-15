@@ -141,8 +141,8 @@ export default function CalendarPage() {
   const { identity } = useSpacetimeDB()
 
   // SpacetimeDB data
-  const allCalEvents = useTable(tables.calEvent) ?? []
-  const allAttendees = useTable(tables.calEventAttendee) ?? []
+  const allCalEvents = useTable(tables.cal_event) ?? []
+  const allAttendees = useTable(tables.cal_event_attendee) ?? []
   const allEmployees = useTable(tables.employee) ?? []
   const createCalEvent = useReducer(reducers.createCalEvent)
   const updateCalEvent = useReducer(reducers.updateCalEvent)

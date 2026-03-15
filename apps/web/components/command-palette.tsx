@@ -110,11 +110,11 @@ export function CommandPalette() {
   const allEmployees = useTable(tables.employee)
   const allTasks = useTable(tables.task)
   const allDocuments = useTable(tables.document)
-  const allDriveItems = useTable(tables.driveItem)
+  const allDriveItems = useTable(tables.drive_item)
   const allContacts = useTable(tables.contact)
   const allInvoices = useTable(tables.invoice)
-  const allWhiteboards = useTable(tables.whiteboardBoard)
-  const allAgents = useTable(tables.agentConfig)
+  const allWhiteboards = useTable(tables.whiteboard_board)
+  const allAgents = useTable(tables.agent_config)
 
   // Global keyboard shortcut
   useEffect(() => {

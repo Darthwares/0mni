@@ -83,7 +83,9 @@ import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
+import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
+import SaveDocumentVersionReducer from "./save_document_version_reducer";
 import SelectOrgReducer from "./select_org_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
@@ -133,6 +135,7 @@ import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
 import DocumentFavoriteRow from "./document_favorite_table";
+import DocumentVersionRow from "./document_version_table";
 import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
 import EmployeeRow from "./employee_table";
@@ -304,6 +307,17 @@ const tablesSchema = __schema({
       { name: 'document_favorite_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentFavoriteRow),
+  document_version: __table({
+    name: 'document_version',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_version_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DocumentVersionRow),
   email_label: __table({
     name: 'email_label',
     indexes: [
@@ -673,7 +687,9 @@ const reducersSchema = __reducers(
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),
+  __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
+  __reducerSchema("save_document_version", SaveDocumentVersionReducer),
   __reducerSchema("select_org", SelectOrgReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
   __reducerSchema("send_message", SendMessageReducer),

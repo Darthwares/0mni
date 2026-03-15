@@ -20,6 +20,7 @@ import {
   Settings,
   KanbanSquare,
   PenTool,
+  HardDrive,
   Globe,
   AlertTriangle,
   Share2,
@@ -99,6 +100,7 @@ const navSections = [
     items: [
       { title: "Tickets", href: "/tickets", icon: KanbanSquare, countKey: "tasks" as const },
       { title: "Canvas", href: "/canvas", icon: PenTool },
+      { title: "Drive", href: "/drive", icon: HardDrive },
     ],
   },
   {

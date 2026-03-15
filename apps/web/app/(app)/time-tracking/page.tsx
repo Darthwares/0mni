@@ -36,7 +36,7 @@ const CATEGORY_OPTIONS = [
   { tag: 'Support', label: 'Support', color: '#ec4899' },
   { tag: 'Sales', label: 'Sales', color: '#f97316' },
   { tag: 'Recruitment', label: 'Recruitment', color: '#10b981' },
-  { tag: 'Admin', label: 'Admin', color: '#06b6d4' },
+  { tag: 'Documentation', label: 'Documentation', color: '#06b6d4' },
   { tag: 'Review', label: 'Review', color: '#eab308' },
   { tag: 'Planning', label: 'Planning', color: '#a855f7' },
   { tag: 'Break', label: 'Break', color: '#64748b' },
@@ -121,6 +121,7 @@ export default function TimeTrackingPage() {
   const stopTimeEntry = useReducer(reducers.stopTimeEntry)
   const logTimeEntry = useReducer(reducers.logTimeEntry)
   const deleteTimeEntry = useReducer(reducers.deleteTimeEntry)
+  const updateTimeEntry = useReducer(reducers.updateTimeEntry)
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today')
 
@@ -651,12 +652,18 @@ export default function TimeTrackingPage() {
                               className="flex-1 h-7 px-2 rounded border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                               autoFocus
                               onKeyDown={e => {
-                                if (e.key === 'Enter') setEditingId(null)
+                                if (e.key === 'Enter') {
+                                  updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
+                                  setEditingId(null)
+                                }
                                 if (e.key === 'Escape') setEditingId(null)
                               }}
                             />
                             <button
-                              onClick={() => setEditingId(null)}
+                              onClick={() => {
+                                updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
+                                setEditingId(null)
+                              }}
                               className="size-6 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                             >
                               <Check className="size-3" />

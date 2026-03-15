@@ -230,6 +230,7 @@ import UpdateTaskStatusReducer from "./update_task_status_reducer";
 import UpdateTicketCategoryReducer from "./update_ticket_category_reducer";
 import UpdateTicketPriorityReducer from "./update_ticket_priority_reducer";
 import UpdateTicketStatusReducer from "./update_ticket_status_reducer";
+import UpdateTimeEntryReducer from "./update_time_entry_reducer";
 import UpdateWhiteboardBoardReducer from "./update_whiteboard_board_reducer";
 import UpdateWorkflowReducer from "./update_workflow_reducer";
 import UpdateWorkflowStatusReducer from "./update_workflow_status_reducer";
@@ -1298,6 +1299,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_ticket_category", UpdateTicketCategoryReducer),
   __reducerSchema("update_ticket_priority", UpdateTicketPriorityReducer),
   __reducerSchema("update_ticket_status", UpdateTicketStatusReducer),
+  __reducerSchema("update_time_entry", UpdateTimeEntryReducer),
   __reducerSchema("update_whiteboard_board", UpdateWhiteboardBoardReducer),
   __reducerSchema("update_workflow", UpdateWorkflowReducer),
   __reducerSchema("update_workflow_status", UpdateWorkflowStatusReducer),

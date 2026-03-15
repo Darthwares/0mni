@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useTable, useReducer as useSpacetimeReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -30,23 +30,22 @@ import {
   Plus,
   Paperclip,
   MoreHorizontal,
-  Clock,
-  CheckCheck,
-  Circle,
   X,
-  ChevronDown,
   Tag,
   AlertCircle,
   Sparkles,
+  ArchiveRestore,
+  Undo2,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type EmailView = 'inbox' | 'sent' | 'drafts' | 'starred' | 'important'
-type EmailCategory = 'primary' | 'social' | 'updates' | 'promotions'
+type EmailView = 'inbox' | 'sent' | 'starred' | 'archived' | 'trash' | 'labels'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -117,10 +116,11 @@ function formatFullDate(ts: any): string {
   }
 }
 
-function parseEmailContent(content: string): { subject: string; to: string; body: string } {
+function parseEmailContent(content: string): { subject: string; to: string; cc: string; body: string } {
   const lines = content.split('\n')
   let subject = ''
   let to = ''
+  let cc = ''
   let bodyStart = 0
 
   for (let i = 0; i < lines.length; i++) {
@@ -128,6 +128,8 @@ function parseEmailContent(content: string): { subject: string; to: string; body
       subject = lines[i].slice(9)
     } else if (lines[i].startsWith('To: ')) {
       to = lines[i].slice(4)
+    } else if (lines[i].startsWith('CC: ') || lines[i].startsWith('Cc: ')) {
+      cc = lines[i].slice(4)
     } else if (lines[i].trim() === '' && (subject || to)) {
       bodyStart = i + 1
       break
@@ -138,9 +140,9 @@ function parseEmailContent(content: string): { subject: string; to: string; body
   }
 
   if (subject || to) {
-    return { subject, to, body: lines.slice(bodyStart).join('\n') }
+    return { subject, to, cc, body: lines.slice(bodyStart).join('\n') }
   }
-  return { subject: '', to: '', body: content }
+  return { subject: '', to: '', cc: '', body: content }
 }
 
 function getPreview(content: string): string {
@@ -156,20 +158,56 @@ export default function EmailPage() {
   const { currentOrgId } = useOrg()
   const [allMessages] = useTable(tables.message)
   const [allEmployees] = useTable(tables.employee)
+  const [allEmailMeta] = useTable(tables.email_meta)
+  const [allEmailLabels] = useTable(tables.email_label)
   const [selectedMessageId, setSelectedMessageId] = useState<bigint | null>(null)
   const [view, setView] = useState<EmailView>('inbox')
   const [searchQuery, setSearchQuery] = useState('')
   const [composing, setComposing] = useState(false)
   const [composeTo, setComposeTo] = useState('')
+  const [composeCc, setComposeCc] = useState('')
   const [composeSubject, setComposeSubject] = useState('')
   const [composeBody, setComposeBody] = useState('')
   const [sending, setSending] = useState(false)
-  const [starredIds, setStarredIds] = useState<Set<string>>(new Set())
   const [searchFocused, setSearchFocused] = useState(false)
+  const [showCc, setShowCc] = useState(false)
+  const [activeLabel, setActiveLabel] = useState<string | null>(null)
   const composeBodyRef = useRef<HTMLTextAreaElement>(null)
+
+  // Reducers
   const sendMessage = useSpacetimeReducer(reducers.sendMessage)
+  const toggleEmailStarred = useSpacetimeReducer(reducers.toggleEmailStarred)
+  const markEmailRead = useSpacetimeReducer(reducers.markEmailRead)
+  const archiveEmail = useSpacetimeReducer(reducers.archiveEmail)
+  const trashEmail = useSpacetimeReducer(reducers.trashEmail)
+  const setEmailLabel = useSpacetimeReducer(reducers.setEmailLabel)
+  const createEmailLabel = useSpacetimeReducer(reducers.createEmailLabel)
+  const deleteEmailLabel = useSpacetimeReducer(reducers.deleteEmailLabel)
 
   const myHex = identity?.toHexString() ?? ''
+
+  // Build a map of EmailMeta by messageId for current user
+  const metaMap = useMemo(() => {
+    const map = new Map<string, typeof allEmailMeta[number]>()
+    for (const meta of allEmailMeta) {
+      if (meta.userId.toHexString() === myHex) {
+        map.set(String(meta.messageId), meta)
+      }
+    }
+    return map
+  }, [allEmailMeta, myHex])
+
+  // Labels for current org
+  const labels = useMemo(
+    () => allEmailLabels.filter((l) => l.orgId === BigInt(currentOrgId)),
+    [allEmailLabels, currentOrgId]
+  )
+
+  // Helper to get meta for an email
+  const getMeta = useCallback(
+    (messageId: bigint) => metaMap.get(String(messageId)),
+    [metaMap]
+  )
 
   // Auto-focus compose body when opening
   useEffect(() => {
@@ -178,13 +216,23 @@ export default function EmailPage() {
     }
   }, [composing])
 
+  // Auto-mark email as read when selected
+  useEffect(() => {
+    if (selectedMessageId !== null) {
+      const meta = getMeta(selectedMessageId)
+      if (!meta || !meta.read) {
+        markEmailRead({ messageId: selectedMessageId })
+      }
+    }
+  }, [selectedMessageId, getMeta, markEmailRead])
+
   const handleSendEmail = async () => {
     if (!composeSubject.trim() && !composeBody.trim()) return
     setSending(true)
     try {
-      const content = composeSubject.trim()
-        ? `Subject: ${composeSubject.trim()}\nTo: ${composeTo.trim()}\n\n${composeBody.trim()}`
-        : composeBody.trim()
+      const headers = [`Subject: ${composeSubject.trim()}`, `To: ${composeTo.trim()}`]
+      if (composeCc.trim()) headers.push(`CC: ${composeCc.trim()}`)
+      const content = `${headers.join('\n')}\n\n${composeBody.trim()}`
       await sendMessage({
         contextType: { tag: 'Channel' } as any,
         contextId: BigInt(0),
@@ -193,8 +241,10 @@ export default function EmailPage() {
       })
       setComposing(false)
       setComposeTo('')
+      setComposeCc('')
       setComposeSubject('')
       setComposeBody('')
+      setShowCc(false)
     } catch (err) {
       console.error('Failed to send email:', err)
     } finally {
@@ -202,13 +252,37 @@ export default function EmailPage() {
     }
   }
 
-  const toggleStar = (id: string) => {
-    setStarredIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const handleToggleStar = (messageId: bigint, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    toggleEmailStarred({ messageId })
+  }
+
+  const handleArchive = (messageId: bigint) => {
+    archiveEmail({ messageId })
+    if (selectedMessageId === messageId) setSelectedMessageId(null)
+  }
+
+  const handleTrash = (messageId: bigint) => {
+    trashEmail({ messageId })
+    if (selectedMessageId === messageId) setSelectedMessageId(null)
+  }
+
+  const handleReply = (email: typeof emails[number]) => {
+    const { subject, body } = parseEmailContent(email.content)
+    const senderName = getSenderName(email.sender)
+    setComposing(true)
+    setComposeSubject(subject.startsWith('Re: ') ? subject : `Re: ${subject}`)
+    setComposeTo(senderName)
+    setComposeBody(`\n\n---\nOn ${formatFullDate(email.sentAt)}, ${senderName} wrote:\n> ${body.split('\n').join('\n> ')}`)
+  }
+
+  const handleForward = (email: typeof emails[number]) => {
+    const { subject, body } = parseEmailContent(email.content)
+    const senderName = getSenderName(email.sender)
+    setComposing(true)
+    setComposeSubject(subject.startsWith('Fwd: ') ? subject : `Fwd: ${subject}`)
+    setComposeTo('')
+    setComposeBody(`\n\n---\nForwarded message from ${senderName}:\n\n${body}`)
   }
 
   const employeeMap = useMemo(
@@ -227,10 +301,35 @@ export default function EmailPage() {
   const filteredEmails = useMemo(() => {
     let list = emails
 
-    if (view === 'starred') {
-      list = list.filter((e) => starredIds.has(String(e.id)))
+    // Filter by view
+    switch (view) {
+      case 'inbox':
+        // Show emails that aren't archived or trashed
+        list = list.filter((e) => {
+          const meta = getMeta(e.id)
+          return !meta?.archived && !meta?.trashed
+        })
+        break
+      case 'starred':
+        list = list.filter((e) => getMeta(e.id)?.starred)
+        break
+      case 'sent':
+        list = list.filter((e) => e.sender.toHexString() === myHex)
+        break
+      case 'archived':
+        list = list.filter((e) => getMeta(e.id)?.archived && !getMeta(e.id)?.trashed)
+        break
+      case 'trash':
+        list = list.filter((e) => getMeta(e.id)?.trashed)
+        break
+      case 'labels':
+        if (activeLabel) {
+          list = list.filter((e) => getMeta(e.id)?.label?.value === activeLabel)
+        }
+        break
     }
 
+    // Search filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       list = list.filter(
@@ -241,16 +340,25 @@ export default function EmailPage() {
     }
 
     return list
-  }, [emails, searchQuery, employeeMap, view, starredIds])
+  }, [emails, searchQuery, employeeMap, view, getMeta, myHex, activeLabel])
 
-  const stats = useMemo(() => ({
-    total: emails.length,
-    unread: emails.length, // In a real app, track read state
-    starred: starredIds.size,
-    ai: emails.filter((e) => e.aiGenerated).length,
-  }), [emails, starredIds])
+  const stats = useMemo(() => {
+    const inboxEmails = emails.filter((e) => {
+      const meta = getMeta(e.id)
+      return !meta?.archived && !meta?.trashed
+    })
+    return {
+      total: inboxEmails.length,
+      unread: inboxEmails.filter((e) => !getMeta(e.id)?.read).length,
+      starred: emails.filter((e) => getMeta(e.id)?.starred).length,
+      archived: emails.filter((e) => getMeta(e.id)?.archived && !getMeta(e.id)?.trashed).length,
+      trashed: emails.filter((e) => getMeta(e.id)?.trashed).length,
+      ai: emails.filter((e) => e.aiGenerated).length,
+    }
+  }, [emails, getMeta])
 
   const selectedEmail = emails.find((m) => m.id === selectedMessageId) ?? null
+  const selectedMeta = selectedMessageId ? getMeta(selectedMessageId) : undefined
 
   const getSenderName = (senderId: { toHexString: () => string }) => {
     const emp = employeeMap.get(senderId.toHexString())
@@ -258,12 +366,14 @@ export default function EmailPage() {
   }
 
   const navItems = [
-    { id: 'inbox' as const, label: 'Inbox', icon: Inbox, count: stats.total, gradient: 'from-blue-500 to-indigo-600' },
+    { id: 'inbox' as const, label: 'Inbox', icon: Inbox, count: stats.unread, gradient: 'from-blue-500 to-indigo-600' },
     { id: 'starred' as const, label: 'Starred', icon: Star, count: stats.starred, gradient: 'from-amber-500 to-orange-600' },
     { id: 'sent' as const, label: 'Sent', icon: SendHorizontal, count: 0, gradient: 'from-emerald-500 to-teal-600' },
-    { id: 'drafts' as const, label: 'Drafts', icon: FileText, count: 0, gradient: 'from-violet-500 to-purple-600' },
-    { id: 'important' as const, label: 'Important', icon: AlertCircle, count: 0, gradient: 'from-red-500 to-rose-600' },
+    { id: 'archived' as const, label: 'Archive', icon: Archive, count: stats.archived, gradient: 'from-slate-500 to-gray-600' },
+    { id: 'trash' as const, label: 'Trash', icon: Trash2, count: stats.trashed, gradient: 'from-red-500 to-rose-600' },
   ]
+
+  const viewLabel = navItems.find((n) => n.id === view)?.label ?? (view === 'labels' ? (activeLabel || 'Labels') : 'Email')
 
   return (
     <div className="flex flex-col h-full">
@@ -272,7 +382,7 @@ export default function EmailPage() {
         <Separator orientation="vertical" className="mr-2 h-4" />
         <PresenceBar />
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
       {/* ── Left sidebar - folders ─────────────────────────────────── */}
       <div className="w-60 border-r border-border/60 flex flex-col bg-neutral-50/50 dark:bg-neutral-950/50">
         <div className="p-3">
@@ -316,12 +426,40 @@ export default function EmailPage() {
                   view === item.id
                     ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                     : 'text-muted-foreground',
+                  item.id === 'inbox' && item.count > 0 ? '!bg-blue-500 !text-white' : '',
                 ].join(' ')}>
                   {item.count}
                 </span>
               )}
             </button>
           ))}
+
+          {/* Labels section */}
+          {labels.length > 0 && (
+            <>
+              <div className="px-3 pt-4 pb-1">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Labels</p>
+              </div>
+              {labels.map((label) => (
+                <button
+                  key={String(label.id)}
+                  onClick={() => { setView('labels'); setActiveLabel(label.name); setSelectedMessageId(null) }}
+                  className={[
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
+                    view === 'labels' && activeLabel === label.name
+                      ? 'bg-white dark:bg-neutral-800 text-foreground font-medium shadow-sm'
+                      : 'text-muted-foreground hover:bg-white/60 dark:hover:bg-neutral-800/60 hover:text-foreground',
+                  ].join(' ')}
+                >
+                  <div
+                    className="size-3 rounded-full shrink-0"
+                    style={{ backgroundColor: label.color }}
+                  />
+                  <span className="flex-1 text-left truncate">{label.name}</span>
+                </button>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Stats footer */}
@@ -331,13 +469,17 @@ export default function EmailPage() {
               <p className="text-lg font-bold tabular-nums">
                 <CountUp to={stats.total} duration={1.2} />
               </p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Emails</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Inbox</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-white dark:bg-neutral-800/60">
-              <p className="text-lg font-bold tabular-nums text-violet-600 dark:text-violet-400">
-                <CountUp to={stats.ai} duration={1.2} />
-              </p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">AI Sent</p>
+              {stats.unread > 0 ? (
+                <p className="text-lg font-bold tabular-nums">
+                  <ShinyText text={`${stats.unread}`} speed={3} color="#2563eb" shineColor="#60a5fa" className="text-lg font-bold tabular-nums" />
+                </p>
+              ) : (
+                <p className="text-lg font-bold tabular-nums text-muted-foreground">0</p>
+              )}
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Unread</p>
             </div>
           </div>
         </div>
@@ -354,7 +496,7 @@ export default function EmailPage() {
                 animationSpeed={6}
                 className="text-lg font-bold"
               >
-                {view === 'inbox' ? 'Inbox' : view === 'starred' ? 'Starred' : view === 'sent' ? 'Sent' : view === 'drafts' ? 'Drafts' : 'Important'}
+                {viewLabel}
               </GradientText>
               {filteredEmails.length > 0 && (
                 <span className="text-xs text-muted-foreground tabular-nums bg-neutral-100 dark:bg-neutral-800 rounded-full px-2 py-0.5">
@@ -362,6 +504,14 @@ export default function EmailPage() {
                 </span>
               )}
             </div>
+          </div>
+          <div className="mb-2">
+            <BlurText
+              text={view === 'inbox' ? 'Your primary inbox' : view === 'starred' ? 'Emails you starred' : view === 'sent' ? 'Emails you sent' : view === 'archived' ? 'Archived emails' : view === 'trash' ? 'Deleted emails' : `Labeled: ${activeLabel}`}
+              delay={30}
+              animateBy="words"
+              className="text-xs text-muted-foreground"
+            />
           </div>
           <div className={[
             'relative transition-all',
@@ -392,14 +542,24 @@ export default function EmailPage() {
           {filteredEmails.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-muted-foreground">
               <div className="flex items-center justify-center size-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
-                <Mail className="size-7 opacity-40" />
+                {view === 'trash' ? (
+                  <Trash2 className="size-7 opacity-40" />
+                ) : view === 'archived' ? (
+                  <Archive className="size-7 opacity-40" />
+                ) : (
+                  <Mail className="size-7 opacity-40" />
+                )}
               </div>
               <p className="font-medium text-sm">
-                {view === 'starred' ? 'No starred emails' : 'No emails yet'}
+                {view === 'starred' ? 'No starred emails' : view === 'archived' ? 'No archived emails' : view === 'trash' ? 'Trash is empty' : 'No emails yet'}
               </p>
               <p className="text-xs text-center mt-1">
                 {view === 'starred'
                   ? 'Star emails to find them here'
+                  : view === 'archived'
+                  ? 'Archived emails will appear here'
+                  : view === 'trash'
+                  ? 'Deleted emails will appear here'
                   : 'Email messages will appear here when sent'}
               </p>
             </div>
@@ -408,7 +568,10 @@ export default function EmailPage() {
               {filteredEmails.map((email) => {
                 const senderName = getSenderName(email.sender)
                 const isSelected = selectedMessageId === email.id
-                const isStarred = starredIds.has(String(email.id))
+                const meta = getMeta(email.id)
+                const isStarred = meta?.starred ?? false
+                const isRead = meta?.read ?? false
+                const emailLabel = meta?.label?.value
                 const { subject } = parseEmailContent(email.content)
                 const preview = getPreview(email.content)
                 const isMine = email.sender.toHexString() === myHex
@@ -421,9 +584,15 @@ export default function EmailPage() {
                       'w-full text-left px-4 py-3 transition-all group relative',
                       isSelected
                         ? 'bg-blue-50/80 dark:bg-blue-500/10'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/50',
+                        : isRead
+                        ? 'hover:bg-neutral-50 dark:hover:bg-neutral-900/50'
+                        : 'bg-white dark:bg-neutral-900/80 hover:bg-blue-50/40 dark:hover:bg-blue-500/5',
                     ].join(' ')}
                   >
+                    {/* Unread indicator */}
+                    {!isRead && (
+                      <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />
+                    )}
                     {/* Selected indicator */}
                     {isSelected && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 rounded-r-full bg-blue-500" />
@@ -445,7 +614,10 @@ export default function EmailPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold truncate">
+                          <span className={[
+                            'text-sm truncate',
+                            isRead ? 'font-medium text-foreground/70' : 'font-bold text-foreground',
+                          ].join(' ')}>
                             {isMine ? 'You' : senderName}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
@@ -456,7 +628,10 @@ export default function EmailPage() {
                         </div>
 
                         {subject && (
-                          <p className="text-sm font-medium text-foreground/80 truncate mt-0.5">
+                          <p className={[
+                            'text-sm truncate mt-0.5',
+                            isRead ? 'font-medium text-foreground/60' : 'font-semibold text-foreground/80',
+                          ].join(' ')}>
                             {subject}
                           </p>
                         )}
@@ -472,8 +647,14 @@ export default function EmailPage() {
                               AI
                             </Badge>
                           )}
+                          {emailLabel && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                              <Tag className="size-2.5 mr-0.5" />
+                              {emailLabel}
+                            </Badge>
+                          )}
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleStar(String(email.id)) }}
+                            onClick={(e) => handleToggleStar(email.id, e)}
                             className={[
                               'opacity-0 group-hover:opacity-100 transition-opacity',
                               isStarred ? '!opacity-100' : '',
@@ -521,7 +702,27 @@ export default function EmailPage() {
                   value={composeTo}
                   onChange={(e) => setComposeTo(e.target.value)}
                 />
+                {!showCc && (
+                  <button
+                    onClick={() => setShowCc(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    CC
+                  </button>
+                )}
               </div>
+              {showCc && (
+                <div className="flex items-center gap-2 border-b border-border/40 pb-3">
+                  <span className="text-sm font-medium text-muted-foreground w-12">CC</span>
+                  <Input
+                    placeholder="cc@company.com"
+                    className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto text-sm"
+                    value={composeCc}
+                    onChange={(e) => setComposeCc(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-2 border-b border-border/40 pb-3">
                 <span className="text-sm font-medium text-muted-foreground w-12">Subject</span>
                 <Input
@@ -553,7 +754,19 @@ export default function EmailPage() {
                 <Paperclip className="size-4" />
               </Button>
               <div className="flex-1" />
-              <Button variant="ghost" size="sm" className="text-muted-foreground text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground text-xs"
+                onClick={() => {
+                  setComposing(false)
+                  setComposeTo('')
+                  setComposeCc('')
+                  setComposeSubject('')
+                  setComposeBody('')
+                  setShowCc(false)
+                }}
+              >
                 <Trash2 className="size-3.5 mr-1.5" />
                 Discard
               </Button>
@@ -564,38 +777,131 @@ export default function EmailPage() {
           <div className="flex-1 flex flex-col">
             {/* Toolbar */}
             <div className="px-4 py-2 border-b border-border/40 flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground gap-1.5 text-xs"
+                onClick={() => handleReply(selectedEmail)}
+              >
                 <Reply className="size-3.5" />
                 Reply
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground gap-1.5 text-xs"
+                onClick={() => handleReply(selectedEmail)}
+              >
                 <ReplyAll className="size-3.5" />
                 Reply All
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground gap-1.5 text-xs"
+                onClick={() => handleForward(selectedEmail)}
+              >
                 <Forward className="size-3.5" />
                 Forward
               </Button>
               <Separator orientation="vertical" className="h-5 mx-1" />
-              <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
-                <Archive className="size-3.5" />
-              </Button>
+              {selectedMeta?.archived ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleArchive(selectedEmail.id)}
+                  title="Unarchive"
+                >
+                  <ArchiveRestore className="size-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleArchive(selectedEmail.id)}
+                  title="Archive"
+                >
+                  <Archive className="size-3.5" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
                 className="size-8 text-muted-foreground"
-                onClick={() => toggleStar(String(selectedEmail.id))}
+                onClick={() => handleToggleStar(selectedEmail.id)}
               >
                 <Star className={[
                   'size-3.5',
-                  starredIds.has(String(selectedEmail.id))
+                  selectedMeta?.starred
                     ? 'fill-amber-400 text-amber-400'
                     : '',
                 ].join(' ')} />
               </Button>
-              <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
-                <Trash2 className="size-3.5" />
-              </Button>
+              {selectedMeta?.trashed ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleTrash(selectedEmail.id)}
+                  title="Restore from trash"
+                >
+                  <Undo2 className="size-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-red-500"
+                  onClick={() => handleTrash(selectedEmail.id)}
+                  title="Move to trash"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+
+              {/* Label dropdown */}
+              {labels.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-5 mx-1" />
+                  <div className="relative group/label">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground"
+                      title="Label"
+                    >
+                      <Tag className="size-3.5" />
+                    </Button>
+                    <div className="absolute top-full left-0 mt-1 bg-white dark:bg-neutral-900 border border-border rounded-lg shadow-lg py-1 min-w-[140px] hidden group-hover/label:block z-50">
+                      {selectedMeta?.label?.value && (
+                        <button
+                          onClick={() => setEmailLabel({ messageId: selectedEmail.id, label: '' })}
+                          className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2"
+                        >
+                          <X className="size-3" />
+                          Remove label
+                        </button>
+                      )}
+                      {labels.map((label) => (
+                        <button
+                          key={String(label.id)}
+                          onClick={() => setEmailLabel({ messageId: selectedEmail.id, label: label.name })}
+                          className={[
+                            'w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2',
+                            selectedMeta?.label?.value === label.name ? 'font-medium text-foreground' : 'text-muted-foreground',
+                          ].join(' ')}
+                        >
+                          <div className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="flex-1" />
               <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
                 <MoreHorizontal className="size-4" />
@@ -629,17 +935,32 @@ export default function EmailPage() {
                           AI Generated
                         </Badge>
                       )}
+                      {selectedMeta?.label?.value && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                          <Tag className="size-2.5 mr-0.5" />
+                          {selectedMeta.label.value}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatFullDate(selectedEmail.sentAt)}
                     </p>
                     {(() => {
-                      const { to } = parseEmailContent(selectedEmail.content)
-                      return to ? (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          To: <span className="text-foreground/70">{to}</span>
-                        </p>
-                      ) : null
+                      const { to, cc } = parseEmailContent(selectedEmail.content)
+                      return (
+                        <>
+                          {to && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              To: <span className="text-foreground/70">{to}</span>
+                            </p>
+                          )}
+                          {cc && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              CC: <span className="text-foreground/70">{cc}</span>
+                            </p>
+                          )}
+                        </>
+                      )
                     })()}
                   </div>
                 </div>
@@ -661,10 +982,7 @@ export default function EmailPage() {
                 <Input
                   placeholder="Reply..."
                   className="flex-1 bg-white dark:bg-neutral-900"
-                  onFocus={() => {
-                    setComposing(true)
-                    setComposeSubject(`Re: ${parseEmailContent(selectedEmail.content).subject}`)
-                  }}
+                  onFocus={() => handleReply(selectedEmail)}
                 />
                 <Button size="sm" variant="ghost" className="text-muted-foreground">
                   <Send className="size-4" />

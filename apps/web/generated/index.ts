@@ -39,6 +39,7 @@ import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddInvoiceLineItemReducer from "./add_invoice_line_item_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
+import AddTicketNoteReducer from "./add_ticket_note_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
 import ApproveRequestReducer from "./approve_request_reducer";
 import ArchiveEmailReducer from "./archive_email_reducer";
@@ -53,6 +54,7 @@ import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
 import CreateApprovalRequestReducer from "./create_approval_request_reducer";
 import CreateCalEventReducer from "./create_cal_event_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
+import CreateCannedResponseReducer from "./create_canned_response_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
 import CreateContactReducer from "./create_contact_reducer";
 import CreateCustomerReducer from "./create_customer_reducer";
@@ -81,6 +83,7 @@ import DeleteAgentConfigReducer from "./delete_agent_config_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
+import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
@@ -96,6 +99,7 @@ import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteStandupReducer from "./delete_standup_reducer";
 import DeleteTaskLabelReducer from "./delete_task_label_reducer";
 import DeleteTaskLinkReducer from "./delete_task_link_reducer";
+import DeleteTicketNoteReducer from "./delete_ticket_note_reducer";
 import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeleteWhiteboardBoardReducer from "./delete_whiteboard_board_reducer";
 import DeleteWorkflowReducer from "./delete_workflow_reducer";
@@ -182,6 +186,7 @@ import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
+import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
 import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
 import UpdateSprintReducer from "./update_sprint_reducer";
@@ -210,6 +215,7 @@ import BugRow from "./bug_table";
 import CalEventRow from "./cal_event_table";
 import CallSessionRow from "./call_session_table";
 import CandidateRow from "./candidate_table";
+import CannedResponseRow from "./canned_response_table";
 import ChannelRow from "./channel_table";
 import CodeRepositoryRow from "./code_repository_table";
 import ContactRow from "./contact_table";
@@ -239,6 +245,7 @@ import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
 import NotificationRow from "./notification_table";
+import NotificationPreferenceRow from "./notification_preference_table";
 import ObjectiveRow from "./objective_table";
 import OrgInviteLinkRow from "./org_invite_link_table";
 import OrgMembershipRow from "./org_membership_table";
@@ -259,6 +266,7 @@ import TaskWatcherRow from "./task_watcher_table";
 import TicketRow from "./ticket_table";
 import TicketLabelRow from "./ticket_label_table";
 import TicketLabelAssignmentRow from "./ticket_label_assignment_table";
+import TicketNoteRow from "./ticket_note_table";
 import TimeEntryRow from "./time_entry_table";
 import TypingIndicatorRow from "./typing_indicator_table";
 import UserLocationRow from "./user_location_table";
@@ -385,6 +393,17 @@ const tablesSchema = __schema({
       { name: 'candidate_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CandidateRow),
+  canned_response: __table({
+    name: 'canned_response',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'canned_response_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CannedResponseRow),
   channel: __table({
     name: 'channel',
     indexes: [
@@ -704,6 +723,17 @@ const tablesSchema = __schema({
       { name: 'notification_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, NotificationRow),
+  notification_preference: __table({
+    name: 'notification_preference',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'notification_preference_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, NotificationPreferenceRow),
   objective: __table({
     name: 'objective',
     indexes: [
@@ -924,6 +954,17 @@ const tablesSchema = __schema({
       { name: 'ticket_label_assignment_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TicketLabelAssignmentRow),
+  ticket_note: __table({
+    name: 'ticket_note',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'ticket_note_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TicketNoteRow),
   time_entry: __table({
     name: 'time_entry',
     indexes: [
@@ -996,6 +1037,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_invoice_line_item", AddInvoiceLineItemReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
+  __reducerSchema("add_ticket_note", AddTicketNoteReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("approve_request", ApproveRequestReducer),
   __reducerSchema("archive_email", ArchiveEmailReducer),
@@ -1010,6 +1052,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_approval_request", CreateApprovalRequestReducer),
   __reducerSchema("create_cal_event", CreateCalEventReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
+  __reducerSchema("create_canned_response", CreateCannedResponseReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
   __reducerSchema("create_contact", CreateContactReducer),
   __reducerSchema("create_customer", CreateCustomerReducer),
@@ -1038,6 +1081,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
+  __reducerSchema("delete_canned_response", DeleteCannedResponseReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
@@ -1053,6 +1097,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_standup", DeleteStandupReducer),
   __reducerSchema("delete_task_label", DeleteTaskLabelReducer),
   __reducerSchema("delete_task_link", DeleteTaskLinkReducer),
+  __reducerSchema("delete_ticket_note", DeleteTicketNoteReducer),
   __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
   __reducerSchema("delete_whiteboard_board", DeleteWhiteboardBoardReducer),
   __reducerSchema("delete_workflow", DeleteWorkflowReducer),
@@ -1139,6 +1184,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
+  __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),
   __reducerSchema("update_objective_status", UpdateObjectiveStatusReducer),
   __reducerSchema("update_organization", UpdateOrganizationReducer),
   __reducerSchema("update_sprint", UpdateSprintReducer),

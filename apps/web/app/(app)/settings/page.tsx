@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,7 +56,9 @@ export default function SettingsPage() {
   const { currentOrgId: orgId, currentOrg, orgMembers: allOrgMembers, isAdminOrOwner, myRole } = useOrg()
   const [allEmployees] = useTable(tables.employee)
   const [allInviteLinks] = useTable(tables.org_invite_link)
+  const [allNotifPrefs] = useTable(tables.notification_preference)
   const updateProfile = useSpacetimeReducer(reducers.updateEmployeeProfile)
+  const updateNotifPrefs = useSpacetimeReducer(reducers.updateNotificationPreferences)
   const inviteByEmail = useSpacetimeReducer(reducers.inviteByEmail)
   const generateInviteLink = useSpacetimeReducer(reducers.generateInviteLink)
   const approveMembership = useSpacetimeReducer(reducers.approveMembership)
@@ -69,13 +71,39 @@ export default function SettingsPage() {
   const [profileEmail, setProfileEmail] = useState('')
   const [profileRole, setProfileRole] = useState('')
   const [profileDepartment, setProfileDepartment] = useState('Operations')
-  const [notifications, setNotifications] = useState({
-    email: true,
-    desktop: true,
-    ticketUpdates: true,
-    aiAlerts: true,
-    dealChanges: false,
-  })
+  // DB-backed notification preferences
+  const myNotifPref = useMemo(() => {
+    if (!identity || orgId === null) return null
+    const myHex = identity.toHexString()
+    return allNotifPrefs.find(p => p.userId.toHexString() === myHex && Number(p.orgId) === orgId) ?? null
+  }, [allNotifPrefs, identity, orgId])
+
+  const notifications = useMemo(() => ({
+    email: myNotifPref?.emailEnabled ?? true,
+    desktop: myNotifPref?.desktopEnabled ?? true,
+    ticketUpdates: myNotifPref?.ticketUpdates ?? true,
+    aiAlerts: myNotifPref?.aiAlerts ?? true,
+    dealChanges: myNotifPref?.dealChanges ?? false,
+    mentionAlerts: myNotifPref?.mentionAlerts ?? true,
+  }), [myNotifPref])
+
+  const handleNotifToggle = useCallback(async (key: string, checked: boolean) => {
+    if (orgId === null) return
+    const next = { ...notifications, [key]: checked }
+    try {
+      await updateNotifPrefs({
+        orgId: BigInt(orgId),
+        emailEnabled: next.email,
+        desktopEnabled: next.desktop,
+        ticketUpdates: next.ticketUpdates,
+        aiAlerts: next.aiAlerts,
+        dealChanges: next.dealChanges,
+        mentionAlerts: next.mentionAlerts,
+      })
+    } catch (e) {
+      console.error('Failed to update notification preferences:', e)
+    }
+  }, [orgId, notifications, updateNotifPrefs])
 
   // Org management state
   const [inviteEmail, setInviteEmail] = useState('')
@@ -565,11 +593,12 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { key: 'email' as const, label: 'Email Notifications', desc: 'Receive email for important updates' },
-                { key: 'desktop' as const, label: 'Desktop Notifications', desc: 'Browser push notifications' },
-                { key: 'ticketUpdates' as const, label: 'Ticket Updates', desc: 'When tickets are assigned or escalated' },
-                { key: 'aiAlerts' as const, label: 'AI Agent Alerts', desc: 'When AI agents need human review' },
-                { key: 'dealChanges' as const, label: 'Deal Stage Changes', desc: 'When deals move through the pipeline' },
+                { key: 'email', label: 'Email Notifications', desc: 'Receive email for important updates' },
+                { key: 'desktop', label: 'Desktop Notifications', desc: 'Browser push notifications' },
+                { key: 'ticketUpdates', label: 'Ticket Updates', desc: 'When tickets are assigned or escalated' },
+                { key: 'aiAlerts', label: 'AI Agent Alerts', desc: 'When AI agents need human review' },
+                { key: 'dealChanges', label: 'Deal Stage Changes', desc: 'When deals move through the pipeline' },
+                { key: 'mentionAlerts', label: 'Mention Alerts', desc: 'When someone @mentions you in messages or comments' },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between">
                   <div>
@@ -577,10 +606,8 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
                   </div>
                   <Switch
-                    checked={notifications[item.key]}
-                    onCheckedChange={(checked) =>
-                      setNotifications((prev) => ({ ...prev, [item.key]: checked }))
-                    }
+                    checked={notifications[item.key as keyof typeof notifications] ?? true}
+                    onCheckedChange={(checked) => handleNotifToggle(item.key, checked)}
                   />
                 </div>
               ))}

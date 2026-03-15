@@ -48,7 +48,13 @@ import {
   CircleDot,
   Plus,
   Headphones,
+  StickyNote,
+  MessageSquarePlus,
+  Trash2,
+  BookTemplate,
+  ChevronUp,
 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -174,12 +180,18 @@ export default function SupportPage() {
   const [allCustomers] = useTable(tables.customer)
   const [allMessages] = useTable(tables.message)
   const [allEmployees] = useTable(tables.employee)
+  const [allTicketNotes] = useTable(tables.ticket_note)
+  const [allCannedResponses] = useTable(tables.canned_response)
   const sendMessage = useSpacetimeReducer(reducers.sendMessage)
   const createTicket = useSpacetimeReducer(reducers.createTicket)
   const createCustomer = useSpacetimeReducer(reducers.createCustomer)
   const updateTicketStatus = useSpacetimeReducer(reducers.updateTicketStatus)
   const updateTicketPriority = useSpacetimeReducer(reducers.updateTicketPriority)
   const assignTicket = useSpacetimeReducer(reducers.assignTicket)
+  const addTicketNote = useSpacetimeReducer(reducers.addTicketNote)
+  const deleteTicketNote = useSpacetimeReducer(reducers.deleteTicketNote)
+  const createCannedResponse = useSpacetimeReducer(reducers.createCannedResponse)
+  const deleteCannedResponse = useSpacetimeReducer(reducers.deleteCannedResponse)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -207,6 +219,15 @@ export default function SupportPage() {
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [newCustomerPhone, setNewCustomerPhone] = useState('')
   const [newCustomerCompany, setNewCustomerCompany] = useState('')
+
+  // Internal notes state
+  const [noteInput, setNoteInput] = useState('')
+  const [showNotes, setShowNotes] = useState(false)
+  // Canned response state
+  const [showCannedPicker, setShowCannedPicker] = useState(false)
+  const [newCannedTitle, setNewCannedTitle] = useState('')
+  const [newCannedContent, setNewCannedContent] = useState('')
+  const [showCannedDialog, setShowCannedDialog] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -245,6 +266,20 @@ export default function SupportPage() {
       .filter((m) => m.contextType.tag === 'Customer' && m.contextId === selectedTicket.id)
       .sort((a, b) => Number(a.sentAt.toMillis()) - Number(b.sentAt.toMillis()))
   }, [allMessages, selectedTicket])
+
+  // Internal notes for selected ticket
+  const ticketNotes = useMemo(() => {
+    if (!selectedTicket) return []
+    return [...allTicketNotes]
+      .filter((n) => n.ticketId === selectedTicket.id)
+      .sort((a, b) => Number(a.createdAt.toMillis()) - Number(b.createdAt.toMillis()))
+  }, [allTicketNotes, selectedTicket])
+
+  // Org-scoped canned responses
+  const cannedResponses = useMemo(() => {
+    if (currentOrgId === null) return []
+    return allCannedResponses.filter((r) => Number(r.orgId) === currentOrgId)
+  }, [allCannedResponses, currentOrgId])
 
   // Ticket history for the selected customer
   const customerTickets = useMemo(() => {
@@ -286,6 +321,33 @@ export default function SupportPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSendMessage()
+    }
+  }
+
+  async function handleAddNote() {
+    if (!noteInput.trim() || !selectedTicket) return
+    try {
+      await addTicketNote({ ticketId: selectedTicket.id, content: noteInput.trim(), isInternal: true })
+      setNoteInput('')
+    } catch (e) {
+      console.error('Failed to add note:', e)
+    }
+  }
+
+  async function handleCreateCannedResponse() {
+    if (!newCannedTitle.trim() || !newCannedContent.trim() || currentOrgId === null) return
+    try {
+      await createCannedResponse({
+        orgId: BigInt(currentOrgId),
+        title: newCannedTitle.trim(),
+        content: newCannedContent.trim(),
+        category: undefined,
+      })
+      setNewCannedTitle('')
+      setNewCannedContent('')
+      setShowCannedDialog(false)
+    } catch (e) {
+      console.error('Failed to create canned response:', e)
     }
   }
 
@@ -841,9 +903,94 @@ export default function SupportPage() {
                 </div>
               </ScrollArea>
 
+              {/* Internal notes panel (collapsible) */}
+              {showNotes && (
+                <div className="flex-shrink-0 border-t border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <StickyNote className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Internal Notes</span>
+                    <span className="text-[10px] text-amber-500">({ticketNotes.length})</span>
+                  </div>
+                  {ticketNotes.length > 0 && (
+                    <div className="space-y-2 mb-2 max-h-32 overflow-y-auto">
+                      {ticketNotes.map((note) => {
+                        const author = allEmployees.find((e) => e.id.toHexString() === note.author.toHexString())
+                        return (
+                          <div key={note.id.toString()} className="bg-amber-100/60 dark:bg-amber-900/20 rounded-lg px-3 py-2 text-xs group relative">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="font-medium text-amber-800 dark:text-amber-300">{author?.name ?? 'Agent'}</span>
+                              <span className="text-amber-500 dark:text-amber-600">{timeAgo(note.createdAt)}</span>
+                            </div>
+                            <p className="text-amber-900 dark:text-amber-200 whitespace-pre-wrap">{note.content}</p>
+                            {identity && note.author.toHexString() === identity.toHexString() && (
+                              <button
+                                onClick={() => deleteTicketNote({ noteId: note.id })}
+                                className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-amber-400 hover:text-red-500 transition-all"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Add internal note..."
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote() } }}
+                      className="flex-1 h-8 text-xs bg-white dark:bg-neutral-900 border-amber-200 dark:border-amber-800"
+                    />
+                    <Button size="sm" onClick={handleAddNote} disabled={!noteInput.trim()} className="h-8 px-2 bg-amber-600 hover:bg-amber-700 text-white text-xs">
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Canned response picker */}
+              {showCannedPicker && cannedResponses.length > 0 && (
+                <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2 max-h-32 overflow-y-auto">
+                  <p className="text-[10px] font-semibold text-neutral-400 mb-1.5">Quick Replies</p>
+                  <div className="space-y-1">
+                    {cannedResponses.map((resp) => (
+                      <button
+                        key={resp.id.toString()}
+                        onClick={() => {
+                          setMessageInput(resp.content)
+                          setShowCannedPicker(false)
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors group"
+                      >
+                        <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{resp.title}</span>
+                        <p className="text-[10px] text-neutral-400 truncate">{resp.content}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Message composer */}
               <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setShowNotes(!showNotes); setShowCannedPicker(false) }}
+                      className={`p-1.5 rounded-md transition-colors ${showNotes ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                      title="Internal notes"
+                    >
+                      <StickyNote className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => { setShowCannedPicker(!showCannedPicker); setShowNotes(false) }}
+                      className={`p-1.5 rounded-md transition-colors ${showCannedPicker ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                      title="Canned responses"
+                    >
+                      <BookTemplate className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <Input
                     placeholder="Type a reply..."
                     value={messageInput}
@@ -863,9 +1010,53 @@ export default function SupportPage() {
                   </Button>
                 </div>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1.5 px-0.5">
-                  Press Enter to send
+                  Press Enter to send · <button onClick={() => setShowCannedDialog(true)} className="text-violet-500 hover:text-violet-600">Manage canned responses</button>
                 </p>
               </div>
+
+              {/* Create canned response dialog */}
+              <Dialog open={showCannedDialog} onOpenChange={setShowCannedDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Manage Canned Responses</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {cannedResponses.length > 0 && (
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {cannedResponses.map((resp) => (
+                          <div key={resp.id.toString()} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border bg-neutral-50 dark:bg-neutral-900">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{resp.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{resp.content}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-600" onClick={() => deleteCannedResponse({ responseId: resp.id })}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Title</Label>
+                        <Input value={newCannedTitle} onChange={(e) => setNewCannedTitle(e.target.value)} placeholder="e.g. Greeting" className="mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Response content</Label>
+                        <Textarea value={newCannedContent} onChange={(e) => setNewCannedContent(e.target.value)} placeholder="Type the canned response text..." className="mt-1" rows={3} />
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowCannedDialog(false)}>Close</Button>
+                    <Button onClick={handleCreateCannedResponse} disabled={!newCannedTitle.trim() || !newCannedContent.trim()}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Add Response
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500 bg-neutral-50 dark:bg-neutral-950">

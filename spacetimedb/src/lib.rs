@@ -6917,3 +6917,177 @@ pub fn delete_task_link(
     ctx.db.task_link().id().delete(&link_id);
     Ok(())
 }
+
+// ============================================================================
+// NOTIFICATION PREFERENCES
+// ============================================================================
+
+#[spacetimedb::table(accessor = notification_preference, public)]
+#[derive(Clone)]
+pub struct NotificationPreference {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub user_id: Identity,
+    pub org_id: u64,
+    pub email_enabled: bool,
+    pub desktop_enabled: bool,
+    pub ticket_updates: bool,
+    pub ai_alerts: bool,
+    pub deal_changes: bool,
+    pub mention_alerts: bool,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn update_notification_preferences(
+    ctx: &ReducerContext,
+    org_id: u64,
+    email_enabled: bool,
+    desktop_enabled: bool,
+    ticket_updates: bool,
+    ai_alerts: bool,
+    deal_changes: bool,
+    mention_alerts: bool,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    // Find existing preference for this user+org
+    let existing = ctx.db.notification_preference().iter()
+        .find(|p| p.user_id == ctx.sender() && p.org_id == org_id);
+
+    if let Some(pref) = existing {
+        ctx.db.notification_preference().id().update(NotificationPreference {
+            email_enabled,
+            desktop_enabled,
+            ticket_updates,
+            ai_alerts,
+            deal_changes,
+            mention_alerts,
+            updated_at: ctx.timestamp,
+            ..pref
+        });
+    } else {
+        ctx.db.notification_preference().insert(NotificationPreference {
+            id: 0,
+            user_id: ctx.sender(),
+            org_id,
+            email_enabled,
+            desktop_enabled,
+            ticket_updates,
+            ai_alerts,
+            deal_changes,
+            mention_alerts,
+            updated_at: ctx.timestamp,
+        });
+    }
+    Ok(())
+}
+
+// ============================================================================
+// TICKET INTERNAL NOTES
+// ============================================================================
+
+#[spacetimedb::table(accessor = ticket_note, public)]
+#[derive(Clone)]
+pub struct TicketNote {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub ticket_id: u64,
+    pub org_id: u64,
+    pub author: Identity,
+    pub content: String,
+    pub is_internal: bool,  // true = internal note (hidden from customer), false = public reply
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_ticket_note(
+    ctx: &ReducerContext,
+    ticket_id: u64,
+    content: String,
+    is_internal: bool,
+) -> Result<(), String> {
+    let ticket = ctx.db.ticket().id().find(&ticket_id).ok_or("Ticket not found")?;
+    require_org_access(ctx, ticket.org_id)?;
+    if content.trim().is_empty() {
+        return Err("Note content cannot be empty".to_string());
+    }
+    ctx.db.ticket_note().insert(TicketNote {
+        id: 0,
+        ticket_id,
+        org_id: ticket.org_id,
+        author: ctx.sender(),
+        content: content.trim().to_string(),
+        is_internal,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_ticket_note(
+    ctx: &ReducerContext,
+    note_id: u64,
+) -> Result<(), String> {
+    let note = ctx.db.ticket_note().id().find(&note_id).ok_or("Note not found")?;
+    require_org_access(ctx, note.org_id)?;
+    if note.author != ctx.sender() {
+        return Err("Only the author can delete their note".to_string());
+    }
+    ctx.db.ticket_note().id().delete(&note_id);
+    Ok(())
+}
+
+// ============================================================================
+// CANNED RESPONSES
+// ============================================================================
+
+#[spacetimedb::table(accessor = canned_response, public)]
+#[derive(Clone)]
+pub struct CannedResponse {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub title: String,
+    pub content: String,
+    pub category: Option<String>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn create_canned_response(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    content: String,
+    category: Option<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if title.trim().is_empty() || content.trim().is_empty() {
+        return Err("Title and content are required".to_string());
+    }
+    ctx.db.canned_response().insert(CannedResponse {
+        id: 0,
+        org_id,
+        title: title.trim().to_string(),
+        content: content.trim().to_string(),
+        category: category.map(|c| c.trim().to_string()),
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_canned_response(
+    ctx: &ReducerContext,
+    response_id: u64,
+) -> Result<(), String> {
+    let resp = ctx.db.canned_response().id().find(&response_id).ok_or("Canned response not found")?;
+    require_org_access(ctx, resp.org_id)?;
+    ctx.db.canned_response().id().delete(&response_id);
+    Ok(())
+}

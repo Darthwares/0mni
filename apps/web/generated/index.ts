@@ -73,6 +73,7 @@ import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
+import DeleteStandupReducer from "./delete_standup_reducer";
 import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeployAgentReducer from "./deploy_agent_reducer";
 import DismissNotificationReducer from "./dismiss_notification_reducer";
@@ -118,6 +119,7 @@ import ShareDocumentReducer from "./share_document_reducer";
 import StartTimeEntryReducer from "./start_time_entry_reducer";
 import StopTimeEntryReducer from "./stop_time_entry_reducer";
 import SubmitFormResponseReducer from "./submit_form_response_reducer";
+import SubmitStandupReducer from "./submit_standup_reducer";
 import SyncIdentityReducer from "./sync_identity_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
@@ -191,6 +193,7 @@ import PullRequestRow from "./pull_request_table";
 import ReactionRow from "./reaction_table";
 import ResourcePresenceRow from "./resource_presence_table";
 import SprintRow from "./sprint_table";
+import StandupEntryRow from "./standup_entry_table";
 import TaskRow from "./task_table";
 import TaskExtensionRow from "./task_extension_table";
 import TaskWatcherRow from "./task_watcher_table";
@@ -662,6 +665,17 @@ const tablesSchema = __schema({
       { name: 'sprint_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, SprintRow),
+  standup_entry: __table({
+    name: 'standup_entry',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'standup_entry_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, StandupEntryRow),
   task: __table({
     name: 'task',
     indexes: [
@@ -812,6 +826,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
   __reducerSchema("delete_sprint", DeleteSprintReducer),
+  __reducerSchema("delete_standup", DeleteStandupReducer),
   __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
   __reducerSchema("deploy_agent", DeployAgentReducer),
   __reducerSchema("dismiss_notification", DismissNotificationReducer),
@@ -857,6 +872,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_time_entry", StartTimeEntryReducer),
   __reducerSchema("stop_time_entry", StopTimeEntryReducer),
   __reducerSchema("submit_form_response", SubmitFormResponseReducer),
+  __reducerSchema("submit_standup", SubmitStandupReducer),
   __reducerSchema("sync_identity", SyncIdentityReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("toggle_kb_article_pin", ToggleKbArticlePinReducer),

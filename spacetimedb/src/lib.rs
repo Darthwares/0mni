@@ -5459,3 +5459,68 @@ pub fn delete_expense(ctx: &ReducerContext, expense_id: u64) -> Result<(), Strin
     ctx.db.expense().id().delete(&expense_id);
     Ok(())
 }
+
+// ============================================================================
+// Standups
+// ============================================================================
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum StandupMood {
+    Great,
+    Good,
+    Okay,
+    Struggling,
+}
+
+#[spacetimedb::table(accessor = standup_entry, public)]
+#[derive(Clone)]
+pub struct StandupEntry {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub author: Identity,
+    pub yesterday: String,
+    pub today: String,
+    pub blockers: String,
+    pub mood: StandupMood,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn submit_standup(
+    ctx: &ReducerContext,
+    org_id: u64,
+    yesterday: String,
+    today: String,
+    blockers: String,
+    mood_tag: String,
+) -> Result<(), String> {
+    if yesterday.trim().is_empty() && today.trim().is_empty() {
+        return Err("Standup must have at least yesterday or today content".to_string());
+    }
+    let mood = match mood_tag.as_str() {
+        "Great" => StandupMood::Great,
+        "Good" => StandupMood::Good,
+        "Okay" => StandupMood::Okay,
+        "Struggling" => StandupMood::Struggling,
+        _ => return Err("Invalid mood".to_string()),
+    };
+    ctx.db.standup_entry().insert(StandupEntry {
+        id: 0,
+        org_id,
+        author: ctx.sender(),
+        yesterday,
+        today,
+        blockers,
+        mood,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_standup(ctx: &ReducerContext, standup_id: u64) -> Result<(), String> {
+    ctx.db.standup_entry().id().delete(&standup_id);
+    Ok(())
+}

@@ -1175,6 +1175,29 @@ export const SprintStatus = __t.enum("SprintStatus", {
 });
 export type SprintStatus = __Infer<typeof SprintStatus>;
 
+export const StandupEntry = __t.object("StandupEntry", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  author: __t.identity(),
+  yesterday: __t.string(),
+  today: __t.string(),
+  blockers: __t.string(),
+  get mood() {
+    return StandupMood;
+  },
+  createdAt: __t.timestamp(),
+});
+export type StandupEntry = __Infer<typeof StandupEntry>;
+
+// The tagged union or sum type for the algebraic type `StandupMood`.
+export const StandupMood = __t.enum("StandupMood", {
+  Great: __t.unit(),
+  Good: __t.unit(),
+  Okay: __t.unit(),
+  Struggling: __t.unit(),
+});
+export type StandupMood = __Infer<typeof StandupMood>;
+
 export const Task = __t.object("Task", {
   id: __t.u64(),
   orgId: __t.u64(),

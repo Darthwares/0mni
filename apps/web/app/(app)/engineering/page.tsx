@@ -52,7 +52,10 @@ import {
   Bot,
   Plus,
   Trash2,
+  Search,
+  Download,
 } from 'lucide-react'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -192,6 +195,10 @@ export default function EngineeringPage() {
   const [newPrTitle, setNewPrTitle] = useState('')
   const [newPrDesc, setNewPrDesc] = useState('')
 
+  // Search state
+  const [prSearch, setPrSearch] = useState('')
+  const [bugSearch, setBugSearch] = useState('')
+
   // Bug dialog state
   const [bugDialogOpen, setBugDialogOpen] = useState(false)
   const [newBugTitle, setNewBugTitle] = useState('')
@@ -277,6 +284,36 @@ export default function EngineeringPage() {
     const aiTriagedPct = total > 0 ? Math.round((aiTriagedCount / total) * 100) : 0
     return { total, critical, inProgress, aiTriagedPct }
   }, [bugs])
+
+  const filteredPRs = useMemo(() => {
+    if (!prSearch.trim()) return pullRequests
+    const q = prSearch.toLowerCase()
+    return pullRequests.filter(pr => {
+      const repo = reposMap.get(pr.repositoryId)
+      return pr.title.toLowerCase().includes(q) || (pr.externalId?.toLowerCase().includes(q) ?? false) || (repo?.name.toLowerCase().includes(q) ?? false) || pr.status.tag.toLowerCase().includes(q)
+    })
+  }, [pullRequests, prSearch, reposMap])
+
+  const filteredBugs = useMemo(() => {
+    if (!bugSearch.trim()) return bugs
+    const q = bugSearch.toLowerCase()
+    return bugs.filter(b => b.title.toLowerCase().includes(q) || b.severity.tag.toLowerCase().includes(q) || b.priority.tag.toLowerCase().includes(q) || b.status.tag.toLowerCase().includes(q))
+  }, [bugs, bugSearch])
+
+  const handleExportPRs = useCallback(() => {
+    exportCSV('pull-requests', ['Title', 'PR #', 'Repository', 'Status', 'AI Reviewed', 'Security Issues', 'Performance Issues', 'Created'],
+      filteredPRs.map(pr => {
+        const repo = reposMap.get(pr.repositoryId)
+        return [pr.title, pr.externalId ?? '', repo?.name ?? '', prStatusClass(pr.status.tag).label, pr.aiReviewed ? 'Yes' : 'No', String(pr.securityIssues.length), String(pr.performanceIssues.length), formatTimestamp(pr.createdAt)]
+      })
+    )
+  }, [filteredPRs, reposMap])
+
+  const handleExportBugs = useCallback(() => {
+    exportCSV('bugs', ['Title', 'Severity', 'Priority', 'Status', 'AI Triaged', 'Suggested Fix', 'Reported'],
+      filteredBugs.map(b => [b.title, b.severity.tag, b.priority.tag, bugStatusClass(b.status.tag).label, b.aiTriaged ? 'Yes' : 'No', b.aiSuggestedFix ?? '', formatTimestamp(b.reportedAt)])
+    )
+  }, [filteredBugs])
 
   const repos = useMemo(
     () => [...allRepos].sort((a, b) => a.name.localeCompare(b.name)),
@@ -517,6 +554,18 @@ export default function EngineeringPage() {
             </SpotlightCard>
           </div>
 
+          {/* PR Search + Export */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input placeholder="Search PRs by title, repo, status..." value={prSearch} onChange={e => setPrSearch(e.target.value)} className="pl-9 h-9" />
+            </div>
+            <span className="text-xs text-neutral-400 tabular-nums">{filteredPRs.length} PR{filteredPRs.length !== 1 ? 's' : ''}</span>
+            <Button variant="outline" size="sm" onClick={handleExportPRs} className="gap-1.5 h-8 ml-auto">
+              <Download className="size-3.5" />Export
+            </Button>
+          </div>
+
           {/* PR Table */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
@@ -544,20 +593,20 @@ export default function EngineeringPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pullRequests.length === 0 ? (
+                  {filteredPRs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-16">
                         <div className="flex flex-col items-center text-muted-foreground">
                           <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
                             <GitPullRequest className="size-6 opacity-40" />
                           </div>
-                          <p className="font-medium">No pull requests yet</p>
-                          <p className="text-sm mt-1">Connect your repositories to start tracking PRs.</p>
+                          <p className="font-medium">{prSearch ? 'No matching PRs' : 'No pull requests yet'}</p>
+                          <p className="text-sm mt-1">{prSearch ? 'Try a different search term' : 'Connect your repositories to start tracking PRs.'}</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    pullRequests.map(pr => {
+                    filteredPRs.map(pr => {
                       const repo = reposMap.get(pr.repositoryId)
                       return (
                         <TableRow key={pr.id.toString()} className="group hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
@@ -682,6 +731,18 @@ export default function EngineeringPage() {
             </SpotlightCard>
           </div>
 
+          {/* Bug Search + Export */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input placeholder="Search bugs by title, severity, priority..." value={bugSearch} onChange={e => setBugSearch(e.target.value)} className="pl-9 h-9" />
+            </div>
+            <span className="text-xs text-neutral-400 tabular-nums">{filteredBugs.length} bug{filteredBugs.length !== 1 ? 's' : ''}</span>
+            <Button variant="outline" size="sm" onClick={handleExportBugs} className="gap-1.5 h-8 ml-auto">
+              <Download className="size-3.5" />Export
+            </Button>
+          </div>
+
           {/* Bug Table */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
@@ -699,20 +760,20 @@ export default function EngineeringPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bugs.length === 0 ? (
+                  {filteredBugs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-16">
                         <div className="flex flex-col items-center text-muted-foreground">
                           <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mb-4">
                             <Bug className="size-6 opacity-40" />
                           </div>
-                          <p className="font-medium">No bugs reported</p>
-                          <p className="text-sm mt-1">Your codebase is clean!</p>
+                          <p className="font-medium">{bugSearch ? 'No matching bugs' : 'No bugs reported'}</p>
+                          <p className="text-sm mt-1">{bugSearch ? 'Try a different search term' : 'Your codebase is clean!'}</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    bugs.map(bug => (
+                    filteredBugs.map(bug => (
                       <TableRow key={bug.id.toString()} className="group hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
                         <TableCell className="pl-4 max-w-xs">
                           <span className="font-medium text-sm line-clamp-1" title={bug.title}>

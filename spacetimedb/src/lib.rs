@@ -6631,6 +6631,81 @@ pub fn delete_contact(
     Ok(())
 }
 
+// ── Contact Interactions ─────────────────────────────────────────────────────
+
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub enum InteractionType {
+    Call,
+    Email,
+    Meeting,
+    Note,
+    Other,
+}
+
+#[spacetimedb::table(accessor = contact_interaction, public)]
+#[derive(Clone)]
+pub struct ContactInteraction {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub contact_id: u64,
+    pub interaction_type: InteractionType,
+    pub summary: String,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn add_contact_interaction(
+    ctx: &ReducerContext,
+    contact_id: u64,
+    interaction_type_tag: String,
+    summary: String,
+) -> Result<(), String> {
+    let existing = ctx.db.contact().id().find(contact_id)
+        .ok_or("Contact not found")?;
+    require_org_access(ctx, existing.org_id)?;
+
+    let interaction_type = match interaction_type_tag.as_str() {
+        "Call" => InteractionType::Call,
+        "Email" => InteractionType::Email,
+        "Meeting" => InteractionType::Meeting,
+        "Note" => InteractionType::Note,
+        _ => InteractionType::Other,
+    };
+
+    ctx.db.contact_interaction().insert(ContactInteraction {
+        id: 0,
+        org_id: existing.org_id,
+        contact_id,
+        interaction_type,
+        summary,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+
+    // Also update the last_contacted timestamp
+    ctx.db.contact().id().update(Contact {
+        last_contacted: ctx.timestamp,
+        ..existing
+    });
+
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_contact_interaction(
+    ctx: &ReducerContext,
+    interaction_id: u64,
+) -> Result<(), String> {
+    let interaction = ctx.db.contact_interaction().id().find(interaction_id)
+        .ok_or("Interaction not found")?;
+    require_org_access(ctx, interaction.org_id)?;
+    ctx.db.contact_interaction().id().delete(&interaction_id);
+    Ok(())
+}
+
 // ── Workflows ────────────────────────────────────────────────────────────────
 
 #[derive(SpacetimeType, Clone, Debug, PartialEq)]

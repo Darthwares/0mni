@@ -19,6 +19,12 @@ import {
   List,
   ArrowUpDown,
   Trash2,
+  Edit3,
+  MessageSquare,
+  PhoneCall,
+  Video,
+  StickyNote,
+  MoreHorizontal,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -147,10 +153,13 @@ export default function ContactsPage() {
 
   // SpacetimeDB
   const allContacts = useTable(tables.contact)
+  const allInteractions = useTable(tables.contactInteraction)
   const createContact = useReducer(reducers.createContact)
+  const updateContact = useReducer(reducers.updateContact)
   const toggleContactStar = useReducer(reducers.toggleContactStar)
   const deleteContact = useReducer(reducers.deleteContact)
-  const logContactInteraction = useReducer(reducers.logContactInteraction)
+  const addContactInteraction = useReducer(reducers.addContactInteraction)
+  const deleteContactInteraction = useReducer(reducers.deleteContactInteraction)
 
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
@@ -168,6 +177,22 @@ export default function ContactsPage() {
   const [newType, setNewType] = useState<ContactTypeTag>('Customer')
   const [newTags, setNewTags] = useState('')
   const [newNotes, setNewNotes] = useState('')
+
+  // Edit form state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editCompany, setEditCompany] = useState('')
+  const [editTitle, setEditTitle] = useState('')
+  const [editType, setEditType] = useState<ContactTypeTag>('Customer')
+  const [editTags, setEditTags] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+
+  // Interaction dialog state
+  const [interactionOpen, setInteractionOpen] = useState(false)
+  const [interactionType, setInteractionType] = useState<string>('Call')
+  const [interactionSummary, setInteractionSummary] = useState('')
 
   // Org-scoped contacts
   const contacts = useMemo(() => {
@@ -221,6 +246,14 @@ export default function ContactsPage() {
 
   const selected = selectedId !== null ? contacts.find(c => Number(c.id) === selectedId) ?? null : null
 
+  // Interactions for the selected contact, sorted newest first
+  const contactInteractions = useMemo(() => {
+    if (!selected || currentOrgId === null) return []
+    return allInteractions
+      .filter(i => Number(i.contactId) === Number(selected.id) && i.orgId === BigInt(currentOrgId))
+      .sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+  }, [allInteractions, selected, currentOrgId])
+
   function toggleStar(id: number, e?: React.MouseEvent) {
     e?.stopPropagation()
     toggleContactStar({ contactId: BigInt(id) })
@@ -230,6 +263,47 @@ export default function ContactsPage() {
     setNewName(''); setNewEmail(''); setNewPhone(''); setNewCompany('')
     setNewTitle(''); setNewType('Customer'); setNewTags(''); setNewNotes('')
   }
+
+  const openEditDialog = useCallback(() => {
+    if (!selected) return
+    setEditName(selected.name)
+    setEditEmail(selected.email)
+    setEditPhone(selected.phone)
+    setEditCompany(selected.company)
+    setEditTitle(selected.title)
+    setEditType(getTag(selected.contactType) as ContactTypeTag)
+    setEditTags(selected.tags)
+    setEditNotes(selected.notes)
+    setEditOpen(true)
+  }, [selected])
+
+  const handleUpdate = useCallback(() => {
+    if (!selected || !editName.trim() || !editEmail.trim()) return
+    updateContact({
+      contactId: BigInt(Number(selected.id)),
+      name: editName.trim(),
+      email: editEmail.trim(),
+      phone: editPhone.trim(),
+      company: editCompany.trim(),
+      typeTag: editType,
+      title: editTitle.trim(),
+      tags: editTags.trim(),
+      notes: editNotes.trim(),
+    })
+    setEditOpen(false)
+  }, [selected, editName, editEmail, editPhone, editCompany, editType, editTitle, editTags, editNotes, updateContact])
+
+  const handleLogInteraction = useCallback(() => {
+    if (!selected || !interactionSummary.trim()) return
+    addContactInteraction({
+      contactId: BigInt(Number(selected.id)),
+      interactionTypeTag: interactionType,
+      summary: interactionSummary.trim(),
+    })
+    setInteractionOpen(false)
+    setInteractionSummary('')
+    setInteractionType('Call')
+  }, [selected, interactionType, interactionSummary, addContactInteraction])
 
   const handleCreate = useCallback(() => {
     if (!newName.trim() || !newEmail.trim() || currentOrgId === null) return
@@ -355,17 +429,160 @@ export default function ContactsPage() {
               )}
 
               <div className="flex items-center gap-3">
-                <Button variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10" onClick={() => logContactInteraction({ contactId: BigInt(Number(selected.id)) })}>
-                  <Mail className="size-4 mr-1.5" />
+                <Button variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10" onClick={openEditDialog}>
+                  <Edit3 className="size-4 mr-1.5" />
+                  Edit
+                </Button>
+                <Button variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10" onClick={() => setInteractionOpen(true)}>
+                  <MessageSquare className="size-4 mr-1.5" />
                   Log Interaction
                 </Button>
-                <Button variant="outline" className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => { deleteContact({ contactId: BigInt(Number(selected.id)) }); setSelectedId(null) }}>
+                <Button variant="outline" className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => { if (confirm('Delete this contact?')) { deleteContact({ contactId: BigInt(Number(selected.id)) }); setSelectedId(null) } }}>
                   <Trash2 className="size-4 mr-1.5" />
                   Delete
                 </Button>
               </div>
+
+              {/* Interaction History */}
+              <div className="mt-8">
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-3">Interaction History</p>
+                {contactInteractions.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border/60 p-6 text-center">
+                    <MessageSquare className="size-5 mx-auto text-muted-foreground/40 mb-2" />
+                    <p className="text-sm text-muted-foreground">No interactions logged yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Click &quot;Log Interaction&quot; to record a touchpoint</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {contactInteractions.map(interaction => {
+                      const iType = getTag(interaction.interactionType)
+                      const icon = iType === 'Call' ? PhoneCall : iType === 'Email' ? Mail : iType === 'Meeting' ? Video : iType === 'Note' ? StickyNote : MoreHorizontal
+                      const Icon = icon
+                      const colorClass = iType === 'Call' ? 'text-blue-500' : iType === 'Email' ? 'text-violet-500' : iType === 'Meeting' ? 'text-emerald-500' : iType === 'Note' ? 'text-amber-500' : 'text-neutral-500'
+                      return (
+                        <div key={Number(interaction.id)} className="group flex items-start gap-3 p-3 rounded-lg border border-border/60 hover:border-border transition-colors">
+                          <div className={`flex items-center justify-center size-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 shrink-0 ${colorClass}`}>
+                            <Icon className="size-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium">{iType}</span>
+                              <span className="text-[11px] text-muted-foreground">{fmtDate(tsToDate(interaction.createdAt))}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-0.5">{interaction.summary}</p>
+                          </div>
+                          <button
+                            onClick={() => deleteContactInteraction({ interactionId: BigInt(Number(interaction.id)) })}
+                            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-red-500/60 hover:text-red-500"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Edit Contact Dialog */}
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Contact</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="e-name">Name *</Label>
+                    <Input id="e-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="e-email">Email *</Label>
+                    <Input id="e-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="e-phone">Phone</Label>
+                    <Input id="e-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="e-company">Company</Label>
+                    <Input id="e-company" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="e-title">Title</Label>
+                    <Input id="e-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Type</Label>
+                    <Select value={editType} onValueChange={v => setEditType(v as ContactTypeTag)}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Customer">Customer</SelectItem>
+                        <SelectItem value="Vendor">Vendor</SelectItem>
+                        <SelectItem value="Partner">Partner</SelectItem>
+                        <SelectItem value="Lead">Lead</SelectItem>
+                        <SelectItem value="Personal">Personal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-tags">Tags (comma-separated)</Label>
+                  <Input id="e-tags" value={editTags} onChange={(e) => setEditTags(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-notes">Notes</Label>
+                  <Textarea id="e-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="min-h-20" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                <Button onClick={handleUpdate} disabled={!editName.trim() || !editEmail.trim()} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-0">
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Log Interaction Dialog */}
+          <Dialog open={interactionOpen} onOpenChange={(open) => { setInteractionOpen(open); if (!open) { setInteractionSummary(''); setInteractionType('Call') } }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Log Interaction</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Type</Label>
+                  <Select value={interactionType} onValueChange={setInteractionType}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Call"><span className="flex items-center gap-2"><PhoneCall className="size-3.5 text-blue-500" />Call</span></SelectItem>
+                      <SelectItem value="Email"><span className="flex items-center gap-2"><Mail className="size-3.5 text-violet-500" />Email</span></SelectItem>
+                      <SelectItem value="Meeting"><span className="flex items-center gap-2"><Video className="size-3.5 text-emerald-500" />Meeting</span></SelectItem>
+                      <SelectItem value="Note"><span className="flex items-center gap-2"><StickyNote className="size-3.5 text-amber-500" />Note</span></SelectItem>
+                      <SelectItem value="Other"><span className="flex items-center gap-2"><MoreHorizontal className="size-3.5 text-neutral-500" />Other</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="i-summary">Summary *</Label>
+                  <Textarea id="i-summary" placeholder="Brief description of the interaction..." value={interactionSummary} onChange={(e) => setInteractionSummary(e.target.value)} className="min-h-24" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setInteractionOpen(false); setInteractionSummary(''); setInteractionType('Call') }}>Cancel</Button>
+                <Button onClick={handleLogInteraction} disabled={!interactionSummary.trim()} className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white border-0">
+                  Log Interaction
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     )

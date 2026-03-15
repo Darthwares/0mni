@@ -78,6 +78,7 @@ import CreateNotificationReducer from "./create_notification_reducer";
 import CreateObjectiveReducer from "./create_objective_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
 import CreatePullRequestReducer from "./create_pull_request_reducer";
+import CreateSavedReportReducer from "./create_saved_report_reducer";
 import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTaskLabelReducer from "./create_task_label_reducer";
@@ -108,6 +109,7 @@ import DeleteMeetingReducer from "./delete_meeting_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeletePullRequestReducer from "./delete_pull_request_reducer";
+import DeleteSavedReportReducer from "./delete_saved_report_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteStandupReducer from "./delete_standup_reducer";
 import DeleteTaskLabelReducer from "./delete_task_label_reducer";
@@ -179,6 +181,7 @@ import ToggleDriveSharedReducer from "./toggle_drive_shared_reducer";
 import ToggleDriveStarReducer from "./toggle_drive_star_reducer";
 import ToggleEmailStarredReducer from "./toggle_email_starred_reducer";
 import ToggleKbArticlePinReducer from "./toggle_kb_article_pin_reducer";
+import ToggleReportFavoriteReducer from "./toggle_report_favorite_reducer";
 import TrashEmailReducer from "./trash_email_reducer";
 import UnfavoriteDocumentReducer from "./unfavorite_document_reducer";
 import UnpinMessageReducer from "./unpin_message_reducer";
@@ -274,6 +277,7 @@ import PinnedMessageRow from "./pinned_message_table";
 import PullRequestRow from "./pull_request_table";
 import ReactionRow from "./reaction_table";
 import ResourcePresenceRow from "./resource_presence_table";
+import SavedReportRow from "./saved_report_table";
 import SprintRow from "./sprint_table";
 import StandupEntryRow from "./standup_entry_table";
 import TaskRow from "./task_table";
@@ -842,6 +846,17 @@ const tablesSchema = __schema({
       { name: 'resource_presence_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ResourcePresenceRow),
+  saved_report: __table({
+    name: 'saved_report',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'saved_report_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SavedReportRow),
   sprint: __table({
     name: 'sprint',
     indexes: [
@@ -1096,6 +1111,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_objective", CreateObjectiveReducer),
   __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_pull_request", CreatePullRequestReducer),
+  __reducerSchema("create_saved_report", CreateSavedReportReducer),
   __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_task_label", CreateTaskLabelReducer),
@@ -1126,6 +1142,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
   __reducerSchema("delete_pull_request", DeletePullRequestReducer),
+  __reducerSchema("delete_saved_report", DeleteSavedReportReducer),
   __reducerSchema("delete_sprint", DeleteSprintReducer),
   __reducerSchema("delete_standup", DeleteStandupReducer),
   __reducerSchema("delete_task_label", DeleteTaskLabelReducer),
@@ -1197,6 +1214,7 @@ const reducersSchema = __reducers(
   __reducerSchema("toggle_drive_star", ToggleDriveStarReducer),
   __reducerSchema("toggle_email_starred", ToggleEmailStarredReducer),
   __reducerSchema("toggle_kb_article_pin", ToggleKbArticlePinReducer),
+  __reducerSchema("toggle_report_favorite", ToggleReportFavoriteReducer),
   __reducerSchema("trash_email", TrashEmailReducer),
   __reducerSchema("unfavorite_document", UnfavoriteDocumentReducer),
   __reducerSchema("unpin_message", UnpinMessageReducer),

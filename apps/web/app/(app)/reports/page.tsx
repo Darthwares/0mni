@@ -1,8 +1,8 @@
 'use client'
 
-import { useTable, useSpacetimeDB } from 'spacetimedb/react'
-import { useState, useMemo } from 'react'
-import { tables } from '@/generated'
+import { useTable, useSpacetimeDB, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
+import { useState, useMemo, useCallback } from 'react'
+import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -82,15 +82,46 @@ export default function ReportsPage() {
   const [allLeads] = useTable(tables.lead)
   const [allCandidates] = useTable(tables.candidate)
   const [allActivity] = useTable(tables.activity_log)
+  const [allSavedReports] = useTable(tables.saved_report)
+
+  const createSavedReport = useSpacetimeReducer(reducers.createSavedReport)
+  const deleteSavedReport = useSpacetimeReducer(reducers.deleteSavedReport)
+  const toggleReportFavorite = useSpacetimeReducer(reducers.toggleReportFavorite)
+
+  // DB-backed custom reports mapped to ReportTemplate shape
+  const customReports = useMemo(() => {
+    if (currentOrgId === null) return []
+    const iconMap: Record<string, typeof BarChart3> = { Tasks: BarChart3, Tickets: TicketCheck, Leads: TrendingDown, Candidates: UserSearch, Team: Users, Activity: Activity }
+    const colorMap: Record<string, string> = { Tasks: 'indigo', Tickets: 'amber', Leads: 'emerald', Candidates: 'rose', Team: 'violet', Activity: 'cyan' }
+    return allSavedReports
+      .filter(r => Number(r.orgId) === currentOrgId)
+      .map(r => ({
+        id: `saved-${r.id}`,
+        dbId: r.id,
+        name: r.name,
+        description: r.description,
+        source: r.source as DataSource,
+        chartType: r.chartType as ChartType,
+        icon: iconMap[r.source] ?? BarChart3,
+        color: colorMap[r.source] ?? 'indigo',
+        spotlightColor: 'rgba(99,102,241,0.15)',
+        isFavorite: r.isFavorite,
+      }))
+  }, [allSavedReports, currentOrgId])
+
+  // DB-backed favorites set (combines built-in template faves + saved report faves)
+  const favorites = useMemo(() => {
+    const set = new Set<string>()
+    customReports.filter(r => r.isFavorite).forEach(r => set.add(r.id))
+    return set
+  }, [customReports])
 
   // ── local state ──────────────────────────────────────────────────────────
   const [activeReport, setActiveReport] = useState<string | null>(null)
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [dateRange, setDateRange] = useState<DateRange>('all')
   const [viewFilter, setViewFilter] = useState<ViewFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewDialog, setShowNewDialog] = useState(false)
-  const [customReports, setCustomReports] = useState<ReportTemplate[]>([])
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newSource, setNewSource] = useState<DataSource>('Tasks')
@@ -149,20 +180,35 @@ export default function ReportsPage() {
     return list
   }, [allReports, viewFilter, favorites, searchQuery])
 
-  const toggleFav = (id: string) => setFavorites(prev => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  })
+  const toggleFav = useCallback((id: string) => {
+    // Only DB-saved reports support favorite toggle
+    const saved = customReports.find(r => r.id === id)
+    if (saved) {
+      try { toggleReportFavorite({ reportId: saved.dbId }) } catch (e) { console.error(e) }
+    }
+  }, [customReports, toggleReportFavorite])
 
-  const createReport = () => {
-    if (!newName.trim()) return
-    const id = `custom-${Date.now()}`
-    const iconMap: Record<DataSource, typeof BarChart3> = { Tasks: BarChart3, Tickets: TicketCheck, Leads: TrendingDown, Candidates: UserSearch, Team: Users, Activity: Activity }
-    const colorMap: Record<DataSource, string> = { Tasks: 'indigo', Tickets: 'amber', Leads: 'emerald', Candidates: 'rose', Team: 'violet', Activity: 'cyan' }
-    setCustomReports(prev => [...prev, { id, name: newName, description: newDesc || 'Custom report', source: newSource, chartType: newChart, icon: iconMap[newSource], color: colorMap[newSource], spotlightColor: 'rgba(99,102,241,0.15)' }])
+  const createReport = useCallback(() => {
+    if (!newName.trim() || currentOrgId === null) return
+    try {
+      createSavedReport({
+        orgId: BigInt(currentOrgId),
+        name: newName.trim(),
+        description: newDesc.trim() || 'Custom report',
+        source: newSource,
+        chartType: newChart,
+      })
+    } catch (e) { console.error('Failed to create report:', e) }
     setNewName(''); setNewDesc(''); setShowNewDialog(false)
-  }
+  }, [newName, newDesc, newSource, newChart, currentOrgId, createSavedReport])
+
+  const handleDeleteReport = useCallback((id: string) => {
+    const saved = customReports.find(r => r.id === id)
+    if (saved && confirm('Delete this report?')) {
+      try { deleteSavedReport({ reportId: saved.dbId }) } catch (e) { console.error(e) }
+      if (activeReport === id) setActiveReport(null)
+    }
+  }, [customReports, deleteSavedReport, activeReport])
 
   // ── date range label ─────────────────────────────────────────────────────
   const rangeLabel: Record<DateRange, string> = { week: 'This Week', month: 'This Month', quarter: 'This Quarter', year: 'This Year', all: 'All Time' }

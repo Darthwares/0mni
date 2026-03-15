@@ -39,10 +39,19 @@ import {
   Users as UsersIcon,
   Mail,
   Send,
+  Zap,
+  Activity,
+  Lock,
+  Eye,
+  Monitor,
+  Smartphone,
+  Laptop,
 } from 'lucide-react'
 import { useAuth } from 'react-oidc-context'
 import { useOrg, displayOrgName } from '@/components/org-context'
 import { useSpacetimeDB } from 'spacetimedb/react'
+import { GradientText } from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
 
 export default function SettingsPage() {
   const auth = useAuth()
@@ -97,7 +106,6 @@ export default function SettingsPage() {
       if (!orgId) return
       await inviteByEmail({ orgId: BigInt(orgId), email: inviteEmail.trim() })
 
-      // Send invite email via Resend
       const currentEmployee = allEmployees.find(
         (e) => identity && e.id.toHexString() === identity.toHexString()
       )
@@ -201,14 +209,12 @@ export default function SettingsPage() {
     return <UsersIcon className="size-3.5 text-neutral-400" />
   }
 
-  // Find current user's employee record — must match by SpacetimeDB identity
   const currentEmployee = useMemo(() => {
     if (!identity) return null
     const myHex = identity.toHexString()
     return allEmployees.find((e) => e.id.toHexString() === myHex) ?? null
   }, [allEmployees, identity])
 
-  // Populate form from employee data
   useEffect(() => {
     if (currentEmployee) {
       setProfileName(currentEmployee.name || '')
@@ -243,57 +249,103 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm">Manage your account and platform preferences</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <GradientText colors={['#6366f1', '#8b5cf6', '#a78bfa', '#818cf8']} animationSpeed={6}>
+              Settings
+            </GradientText>
+          </h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Manage your account, organization, and platform preferences
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {myRole && (
+            <Badge variant="outline" className="text-xs gap-1.5">
+              {roleIcon(myRole)}
+              {myRole}
+            </Badge>
+          )}
+          {currentOrg && (
+            <Badge className="text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
+              {displayOrgName(currentOrg.name)}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="profile">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="organization">Organization</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="platform">Platform</TabsTrigger>
+        <TabsList className="bg-neutral-100/80 dark:bg-neutral-800/80">
+          <TabsTrigger value="profile" className="gap-1.5 text-xs">
+            <User className="size-3.5" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="organization" className="gap-1.5 text-xs">
+            <Building2 className="size-3.5" />
+            Organization
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-1.5 text-xs">
+            <Bell className="size-3.5" />
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-1.5 text-xs">
+            <Shield className="size-3.5" />
+            Security
+          </TabsTrigger>
+          <TabsTrigger value="platform" className="gap-1.5 text-xs">
+            <Database className="size-3.5" />
+            Platform
+          </TabsTrigger>
         </TabsList>
 
+        {/* ── Profile Tab ────────────────────── */}
         <TabsContent value="profile" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="size-4" />
-                Profile Information
-              </CardTitle>
-              <CardDescription>Update your personal details</CardDescription>
+          <SpotlightCard spotlightColor="rgba(99, 102, 241, 0.15)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
+                  <User className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Profile Information</CardTitle>
+                  <CardDescription className="text-xs">Update your personal details and role</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Full Name</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Full Name</Label>
                   <Input
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="mt-1"
+                    className="mt-1.5 bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <Label>Email</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Email</Label>
                   <Input
                     value={profileEmail}
                     onChange={(e) => setProfileEmail(e.target.value)}
-                    className="mt-1"
+                    className="mt-1.5 bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Role</Label>
-                  <Input value={profileRole} onChange={(e) => setProfileRole(e.target.value)} className="mt-1" />
+                  <Label className="text-xs font-medium text-muted-foreground">Role</Label>
+                  <Input
+                    value={profileRole}
+                    onChange={(e) => setProfileRole(e.target.value)}
+                    className="mt-1.5 bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 focus:ring-indigo-500/20"
+                  />
                 </div>
                 <div>
-                  <Label>Department</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Department</Label>
                   <Select value={profileDepartment} onValueChange={setProfileDepartment}>
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1.5 bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -308,41 +360,101 @@ export default function SettingsPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving || !profileName.trim()}>
-                {saved ? <><Check className="mr-2 size-4" />Saved</> : saving ? 'Saving...' : 'Save Changes'}
-              </Button>
+              <div className="flex items-center gap-3 pt-1">
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={saving || !profileName.trim()}
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-sm"
+                >
+                  {saved ? <><Check className="mr-2 size-4" />Saved</> : saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                {saved && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle className="size-3.5" />
+                    Profile updated successfully
+                  </span>
+                )}
+              </div>
             </CardContent>
-          </Card>
+          </SpotlightCard>
+
+          {/* Avatar/Identity card */}
+          <SpotlightCard spotlightColor="rgba(99, 102, 241, 0.1)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-semibold">
+                  {(profileName || '?')[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold">{profileName || 'Not set'}</p>
+                  <p className="text-sm text-muted-foreground">{profileEmail || 'No email'}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {profileRole && <Badge variant="secondary" className="text-[10px]">{profileRole}</Badge>}
+                    <Badge variant="outline" className="text-[10px]">{profileDepartment}</Badge>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">SpacetimeDB Identity</p>
+                  <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                    {identity?.toHexString()?.slice(0, 16)}...
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </SpotlightCard>
         </TabsContent>
 
+        {/* ── Organization Tab ────────────────────── */}
         <TabsContent value="organization" className="mt-4 space-y-4">
           {currentOrg && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="size-4" />
-                  {displayOrgName(currentOrg.name)}
-                </CardTitle>
-                <CardDescription>
-                  {currentOrg.domain && <>Domain: {currentOrg.domain} &middot; </>}
-                  {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
-                  {currentOrg.autoApproveDomain && currentOrg.domain && (
-                    <> &middot; Auto-approve @{currentOrg.domain}</>
-                  )}
-                </CardDescription>
+            <SpotlightCard spotlightColor="rgba(59, 130, 246, 0.15)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2 bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+                    <Building2 className="size-4" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{displayOrgName(currentOrg.name)}</CardTitle>
+                    <CardDescription className="text-xs">
+                      {currentOrg.domain && <>Domain: {currentOrg.domain} · </>}
+                      {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
+                      {currentOrg.autoApproveDomain && currentOrg.domain && (
+                        <> · Auto-approve @{currentOrg.domain}</>
+                      )}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-3 text-center">
+                    <div>
+                      <p className="text-lg font-bold">{activeMembers.length}</p>
+                      <p className="text-[10px] text-muted-foreground">Active</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-amber-500">{pendingMembers.length}</p>
+                      <p className="text-[10px] text-muted-foreground">Pending</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-blue-500">{invitedMembers.length}</p>
+                      <p className="text-[10px] text-muted-foreground">Invited</p>
+                    </div>
+                  </div>
+                </div>
               </CardHeader>
-            </Card>
+            </SpotlightCard>
           )}
 
           {/* Invite Members */}
           {isAdminOrOwner && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <UserPlus className="size-4" />
-                  Invite Members
-                </CardTitle>
-                <CardDescription>Invite people by email or share an invite link</CardDescription>
+            <SpotlightCard spotlightColor="rgba(34, 197, 94, 0.12)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2 bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+                    <UserPlus className="size-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">Invite Members</CardTitle>
+                    <CardDescription className="text-xs">Invite people by email or share an invite link</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -352,9 +464,14 @@ export default function SettingsPage() {
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleInviteByEmail()}
+                    className="bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700"
                   />
-                  <Button onClick={handleInviteByEmail} disabled={inviteSending || !inviteEmail.trim()}>
-                    {inviteSent ? <><Check className="mr-1 size-4" />Sent</> : inviteSending ? 'Sending...' : 'Invite'}
+                  <Button
+                    onClick={handleInviteByEmail}
+                    disabled={inviteSending || !inviteEmail.trim()}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                  >
+                    {inviteSent ? <><Check className="mr-1 size-4" />Sent</> : inviteSending ? 'Sending...' : <><Send className="mr-1.5 size-3.5" />Invite</>}
                   </Button>
                 </div>
 
@@ -363,101 +480,111 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium flex items-center gap-2">
-                      <Link2 className="size-4" />
+                      <Link2 className="size-4 text-blue-500" />
                       Invite Links
                     </p>
-                    <Button variant="outline" size="sm" onClick={handleGenerateLink}>
+                    <Button variant="outline" size="sm" onClick={handleGenerateLink} className="text-xs">
                       Generate Link
                     </Button>
                   </div>
 
                   {orgInviteLinks.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No active invite links</p>
+                    <p className="text-xs text-muted-foreground py-3 text-center">No active invite links</p>
                   ) : (
-                    orgInviteLinks.map((link) => (
-                      <div key={link.id.toString()} className="text-sm bg-neutral-50 dark:bg-neutral-800 rounded-lg p-2 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <code className="font-mono text-xs">{link.code}</code>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">
-                              {link.useCount} use{Number(link.useCount) !== 1 ? 's' : ''}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              onClick={() => handleCopyInviteLink(link.code)}
-                            >
-                              {copiedLink ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              onClick={() => setLinkEmailTarget(linkEmailTarget === link.code ? null : link.code)}
-                            >
-                              <Mail className="size-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-red-500 hover:text-red-600"
-                              onClick={() => handleRevokeLink(link.id)}
-                            >
-                              <XCircle className="size-3.5" />
-                            </Button>
+                    <div className="space-y-2">
+                      {orgInviteLinks.map((link) => (
+                        <div key={link.id.toString()} className="text-sm bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-3 space-y-2 border border-neutral-100 dark:border-neutral-700/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Link2 className="size-3.5 text-blue-500" />
+                              <code className="font-mono text-xs bg-neutral-200/50 dark:bg-neutral-700/50 px-1.5 py-0.5 rounded">{link.code}</code>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary" className="text-[10px]">
+                                {link.useCount} use{Number(link.useCount) !== 1 ? 's' : ''}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => handleCopyInviteLink(link.code)}
+                              >
+                                {copiedLink ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => setLinkEmailTarget(linkEmailTarget === link.code ? null : link.code)}
+                              >
+                                <Mail className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-red-500 hover:text-red-600"
+                                onClick={() => handleRevokeLink(link.id)}
+                              >
+                                <XCircle className="size-3.5" />
+                              </Button>
+                            </div>
                           </div>
+                          {linkEmailTarget === link.code && (
+                            <div className="flex gap-2">
+                              <Input
+                                type="email"
+                                placeholder="Send link to email..."
+                                value={linkEmailAddress}
+                                onChange={(e) => setLinkEmailAddress(e.target.value)}
+                                className="h-7 text-xs bg-white dark:bg-neutral-900"
+                                onKeyDown={(e) => e.key === 'Enter' && handleSendLinkEmail(link.code)}
+                              />
+                              <Button
+                                size="sm"
+                                className="h-7 px-2"
+                                disabled={linkEmailSending || !linkEmailAddress.trim()}
+                                onClick={() => handleSendLinkEmail(link.code)}
+                              >
+                                <Send className="size-3.5" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                        {linkEmailTarget === link.code && (
-                          <div className="flex gap-2">
-                            <Input
-                              type="email"
-                              placeholder="Send link to email..."
-                              value={linkEmailAddress}
-                              onChange={(e) => setLinkEmailAddress(e.target.value)}
-                              className="h-7 text-xs"
-                              onKeyDown={(e) => e.key === 'Enter' && handleSendLinkEmail(link.code)}
-                            />
-                            <Button
-                              size="sm"
-                              className="h-7 px-2"
-                              disabled={linkEmailSending || !linkEmailAddress.trim()}
-                              onClick={() => handleSendLinkEmail(link.code)}
-                            >
-                              <Send className="size-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
               </CardContent>
-            </Card>
+            </SpotlightCard>
           )}
 
           {/* Pending Requests */}
           {isAdminOrOwner && pendingMembers.length > 0 && (
-            <Card>
-              <CardHeader>
+            <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.15)" className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/10">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
+                  <div className="rounded-md p-1 bg-amber-500/10">
+                    <Activity className="size-3.5 text-amber-500" />
+                  </div>
                   Pending Requests
-                  <Badge variant="secondary">{pendingMembers.length}</Badge>
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px]">
+                    {pendingMembers.length}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {pendingMembers.map((m) => (
-                  <div key={m.id.toString()} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                  <div key={m.id.toString()} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                     <div>
                       <p className="text-sm font-medium">{m.email}</p>
                       <p className="text-xs text-muted-foreground">Requested access</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="default" className="h-7" onClick={() => handleApprove(m.id)}>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => handleApprove(m.id)}>
                         <CheckCircle className="size-3.5 mr-1" />
                         Approve
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-red-500" onClick={() => handleReject(m.id)}>
+                      <Button size="sm" variant="ghost" className="h-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={() => handleReject(m.id)}>
                         <XCircle className="size-3.5 mr-1" />
                         Reject
                       </Button>
@@ -465,16 +592,21 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </CardContent>
-            </Card>
+            </SpotlightCard>
           )}
 
           {/* Member List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <UsersIcon className="size-4" />
-                Members ({activeMembers.length})
-              </CardTitle>
+          <SpotlightCard spotlightColor="rgba(99, 102, 241, 0.1)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-violet-500 to-indigo-500 text-white">
+                  <UsersIcon className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Members ({activeMembers.length})</CardTitle>
+                  <CardDescription className="text-xs">People in your organization</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-1">
               {activeMembers.map((m) => {
@@ -482,9 +614,9 @@ export default function SettingsPage() {
                   (e) => m.identity && e.id.toHexString() === m.identity.toHexString()
                 )
                 return (
-                  <div key={m.id.toString()} className="flex items-center justify-between py-2">
+                  <div key={m.id.toString()} className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-sm font-medium">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-sm">
                         {(employee?.name || m.email)?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
@@ -494,7 +626,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {roleIcon(m.role.tag)}
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-[10px]">
                         {m.role.tag}
                       </Badge>
                     </div>
@@ -504,47 +636,61 @@ export default function SettingsPage() {
 
               {invitedMembers.length > 0 && (
                 <>
-                  <Separator className="my-2" />
-                  <p className="text-xs font-medium text-muted-foreground pt-2">Invited</p>
+                  <Separator className="my-3" />
+                  <p className="text-xs font-medium text-muted-foreground pt-1 pb-1 flex items-center gap-1.5">
+                    <Mail className="size-3" />
+                    Invited ({invitedMembers.length})
+                  </p>
                   {invitedMembers.map((m) => (
-                    <div key={m.id.toString()} className="flex items-center justify-between py-2">
+                    <div key={m.id.toString()} className="flex items-center justify-between py-2.5 px-2 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-sm">
+                        <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
                           <UserPlus className="size-3.5 text-neutral-400" />
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">{m.email}</p>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="text-xs">Invited</Badge>
+                      <Badge variant="secondary" className="text-[10px]">Invited</Badge>
                     </div>
                   ))}
                 </>
               )}
             </CardContent>
-          </Card>
+          </SpotlightCard>
         </TabsContent>
 
+        {/* ── Notifications Tab ────────────────────── */}
         <TabsContent value="notifications" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Bell className="size-4" />
-                Notification Preferences
-              </CardTitle>
+          <SpotlightCard spotlightColor="rgba(245, 158, 11, 0.12)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                  <Bell className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Notification Preferences</CardTitle>
+                  <CardDescription className="text-xs">Control how and when you receive notifications</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-1">
               {[
-                { key: 'email' as const, label: 'Email Notifications', desc: 'Receive email for important updates' },
-                { key: 'desktop' as const, label: 'Desktop Notifications', desc: 'Browser push notifications' },
-                { key: 'ticketUpdates' as const, label: 'Ticket Updates', desc: 'When tickets are assigned or escalated' },
-                { key: 'aiAlerts' as const, label: 'AI Agent Alerts', desc: 'When AI agents need human review' },
-                { key: 'dealChanges' as const, label: 'Deal Stage Changes', desc: 'When deals move through the pipeline' },
+                { key: 'email' as const, label: 'Email Notifications', desc: 'Receive email for important updates', icon: Mail },
+                { key: 'desktop' as const, label: 'Desktop Notifications', desc: 'Browser push notifications', icon: Monitor },
+                { key: 'ticketUpdates' as const, label: 'Ticket Updates', desc: 'When tickets are assigned or escalated', icon: Activity },
+                { key: 'aiAlerts' as const, label: 'AI Agent Alerts', desc: 'When AI agents need human review', icon: Zap },
+                { key: 'dealChanges' as const, label: 'Deal Stage Changes', desc: 'When deals move through the pipeline', icon: Globe },
               ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                <div key={item.key} className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-md p-1.5 bg-neutral-100 dark:bg-neutral-800">
+                      <item.icon className="size-3.5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{item.label}</p>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
                   </div>
                   <Switch
                     checked={notifications[item.key]}
@@ -555,92 +701,166 @@ export default function SettingsPage() {
                 </div>
               ))}
             </CardContent>
-          </Card>
+          </SpotlightCard>
         </TabsContent>
 
+        {/* ── Security Tab ────────────────────── */}
         <TabsContent value="security" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Shield className="size-4" />
-                Security
-              </CardTitle>
+          <SpotlightCard spotlightColor="rgba(239, 68, 68, 0.1)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-red-500 to-rose-500 text-white">
+                  <Shield className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Security & Authentication</CardTitle>
+                  <CardDescription className="text-xs">Manage your security settings and sessions</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Authentication</p>
-                  <p className="text-xs text-muted-foreground">Signed in via OIDC</p>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200/50 dark:border-emerald-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-emerald-500/10">
+                    <Lock className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Authentication</p>
+                    <p className="text-xs text-muted-foreground">Signed in via OIDC provider</p>
+                  </div>
                 </div>
-                <Badge variant="secondary">Connected</Badge>
+                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                  <CheckCircle className="size-3 mr-1" />
+                  Connected
+                </Badge>
               </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Identity</p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {auth.user?.profile?.sub?.slice(0, 20)}...
-                  </p>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200/50 dark:border-neutral-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-neutral-200 dark:bg-neutral-700">
+                    <Key className="size-3.5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Identity</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {auth.user?.profile?.sub?.slice(0, 24)}...
+                    </p>
+                  </div>
                 </div>
-                <Badge variant="outline">OIDC</Badge>
+                <Badge variant="outline" className="text-[10px]">OIDC</Badge>
               </div>
-              <Separator />
-              <div>
-                <p className="text-sm font-medium">Active Sessions</p>
-                <p className="text-xs text-muted-foreground">Current session from this browser</p>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200/50 dark:border-neutral-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-neutral-200 dark:bg-neutral-700">
+                    <Laptop className="size-3.5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Active Sessions</p>
+                    <p className="text-xs text-muted-foreground">Current session from this browser</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400">Active</span>
+                </div>
               </div>
             </CardContent>
-          </Card>
+          </SpotlightCard>
         </TabsContent>
 
+        {/* ── Platform Tab ────────────────────── */}
         <TabsContent value="platform" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Database className="size-4" />
-                SpacetimeDB Connection
-              </CardTitle>
+          <SpotlightCard spotlightColor="rgba(99, 102, 241, 0.12)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-cyan-500 to-blue-500 text-white">
+                  <Database className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">SpacetimeDB Connection</CardTitle>
+                  <CardDescription className="text-xs">Real-time database and sync status</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Server</p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {process.env.NEXT_PUBLIC_SPACETIMEDB_URI || 'https://maincloud.spacetimedb.com'}
-                  </p>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200/50 dark:border-emerald-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-emerald-500/10">
+                    <Zap className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Server</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {process.env.NEXT_PUBLIC_SPACETIMEDB_URI || 'maincloud.spacetimedb.com'}
+                    </p>
+                  </div>
                 </div>
-                <Badge variant="secondary" className="bg-green-500/10 text-green-500">Connected</Badge>
+                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                  Connected
+                </Badge>
               </div>
-              <Separator />
-              <div>
-                <p className="text-sm font-medium">Database</p>
-                <p className="text-xs text-muted-foreground font-mono">
-                  {process.env.NEXT_PUBLIC_SPACETIMEDB_NAME || 'omni-platform'}
-                </p>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200/50 dark:border-neutral-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-neutral-200 dark:bg-neutral-700">
+                    <Database className="size-3.5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Database</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {process.env.NEXT_PUBLIC_SPACETIMEDB_NAME || 'omni-platform'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <Separator />
-              <div>
-                <p className="text-sm font-medium">Real-time Sync</p>
-                <p className="text-xs text-muted-foreground">
-                  All data is synced in real-time via SpacetimeDB subscriptions
-                </p>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200/50 dark:border-neutral-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-neutral-200 dark:bg-neutral-700">
+                    <Activity className="size-3.5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Real-time Sync</p>
+                    <p className="text-xs text-muted-foreground">
+                      All data synced via SpacetimeDB subscriptions
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">WebSocket</Badge>
               </div>
             </CardContent>
-          </Card>
+          </SpotlightCard>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Palette className="size-4" />
-                Appearance
-              </CardTitle>
+          <SpotlightCard spotlightColor="rgba(168, 85, 247, 0.1)" className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg p-2 bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+                  <Palette className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Appearance</CardTitle>
+                  <CardDescription className="text-xs">Customize your visual experience</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Theme can be toggled using the sun/moon icon in the sidebar footer.
-              </p>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/30 border border-neutral-200/50 dark:border-neutral-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-md p-1.5 bg-neutral-200 dark:bg-neutral-700">
+                    <Eye className="size-3.5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Theme</p>
+                    <p className="text-xs text-muted-foreground">
+                      Toggle using the sun/moon icon in the sidebar footer
+                    </p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
-          </Card>
+          </SpotlightCard>
         </TabsContent>
       </Tabs>
     </div>

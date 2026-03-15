@@ -45,9 +45,13 @@ const routeNames: Record<string, string> = {
   "/time-tracking": "Time Tracking",
   "/knowledge-base": "Knowledge Base",
   "/notifications": "Notifications",
+  "/forms": "Forms & Surveys",
+  "/goals": "Goals & OKRs",
+  "/invoicing": "Invoicing",
+  "/whiteboard": "Whiteboard",
 }
 
-const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
+const fullScreenRoutes = ["/messages", "/tickets", "/canvas", "/whiteboard"]
 
 // Outer layout — only uses hooks that don't need SpacetimeDBProvider
 export default function AppLayout({ children }: { children: React.ReactNode }) {

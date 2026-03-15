@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Share2,
   UserPlus,
+  Bell,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -75,6 +76,7 @@ const navSections = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Notifications", href: "/notifications", icon: Bell, countKey: "notifications" as const },
       { title: "Activity", href: "/activity", icon: Activity },
     ],
   },
@@ -124,6 +126,7 @@ function useCounts() {
   const [allLeads] = useTable(tables.lead)
   const [allCandidates] = useTable(tables.candidate)
   const [allTasks] = useTable(tables.task)
+  const [allNotifications] = useTable(tables.notification)
 
   const openTickets = allTickets.filter(
     (t) => t.status.tag !== "Closed" && t.status.tag !== "Resolved"
@@ -141,12 +144,17 @@ function useCounts() {
     (t) => t.status.tag === "Unclaimed" || t.status.tag === "NeedsReview"
   ).length
 
+  const unreadNotifications = allNotifications.filter(
+    (n) => !n.read && !n.dismissed
+  ).length
+
   return {
     tickets: openTickets,
     leads: activeLeads,
     candidates: activeCandidates,
     messages: 0,
     tasks: pendingTasks,
+    notifications: unreadNotifications,
   }
 }
 

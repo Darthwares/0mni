@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -63,6 +64,7 @@ import {
   Edit3,
   UserCheck,
   XCircle,
+  Download,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -487,6 +489,25 @@ export default function RecruitmentPage() {
             />
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          {filteredCandidates.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportCSV('candidates', [
+                { header: 'Name', accessor: (c: typeof filteredCandidates[0]) => c.name },
+                { header: 'Email', accessor: (c: typeof filteredCandidates[0]) => c.email },
+                { header: 'Phone', accessor: (c: typeof filteredCandidates[0]) => c.phone },
+                { header: 'Status', accessor: (c: typeof filteredCandidates[0]) => c.status?.tag ?? '' },
+                { header: 'Position', accessor: (c: typeof filteredCandidates[0]) => c.position },
+                { header: 'Source', accessor: (c: typeof filteredCandidates[0]) => c.source },
+                { header: 'Notes', accessor: (c: typeof filteredCandidates[0]) => c.notes },
+              ], filteredCandidates)}
+            >
+              <Download className="size-4 mr-1.5" />
+              Export
+            </Button>
+          )}
         <Dialog open={candidateDialogOpen} onOpenChange={setCandidateDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="size-4" />
@@ -536,6 +557,7 @@ export default function RecruitmentPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs defaultValue="candidates">

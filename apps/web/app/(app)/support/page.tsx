@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { PresenceBar } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
@@ -56,6 +57,7 @@ import {
   ArrowUpCircle,
   Edit3,
   Tag,
+  Download,
 } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import GradientText from '@/components/reactbits/GradientText'
@@ -661,8 +663,27 @@ export default function SupportPage() {
           </div>
 
           {/* Ticket count */}
-          <div className="flex-shrink-0 px-3 py-1.5 text-xs text-neutral-400 dark:text-neutral-500 font-medium border-b border-neutral-100 dark:border-neutral-800">
-            {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''}
+          <div className="flex-shrink-0 px-3 py-1.5 flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800">
+            <span className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">
+              {filteredTickets.length} ticket{filteredTickets.length !== 1 ? 's' : ''}
+            </span>
+            {filteredTickets.length > 0 && (
+              <button
+                onClick={() => exportCSV('support-tickets', [
+                  { header: 'Subject', accessor: (t: typeof filteredTickets[0]) => t.subject },
+                  { header: 'Status', accessor: (t: typeof filteredTickets[0]) => t.status?.tag ?? '' },
+                  { header: 'Priority', accessor: (t: typeof filteredTickets[0]) => t.priority?.tag ?? '' },
+                  { header: 'Category', accessor: (t: typeof filteredTickets[0]) => t.category?.tag ?? '' },
+                  { header: 'Escalations', accessor: (t: typeof filteredTickets[0]) => t.escalationCount ?? 0 },
+                  { header: 'AI Resolved', accessor: (t: typeof filteredTickets[0]) => t.aiAutoResolved ? 'Yes' : 'No' },
+                  { header: 'Created', accessor: (t: typeof filteredTickets[0]) => { try { return t.createdAt.toDate().toLocaleDateString() } catch { return '' } } },
+                ], filteredTickets)}
+                className="flex items-center gap-1 text-[10px] text-neutral-400 dark:text-neutral-500 hover:text-foreground transition-colors"
+              >
+                <Download className="size-3" />
+                Export
+              </button>
+            )}
           </div>
 
           {/* Scrollable list */}

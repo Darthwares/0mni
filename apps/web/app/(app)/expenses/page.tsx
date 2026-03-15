@@ -6,9 +6,10 @@ import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import {
   Plane, Utensils, Monitor, Building2, Wrench, GraduationCap, MoreHorizontal,
-  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown, Pencil, Trash2,
+  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown, Pencil, Trash2, Download,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
@@ -283,6 +284,25 @@ export default function ExpensesPage() {
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            {filtered.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportCSV('expenses', [
+                  { header: 'Description', accessor: (e: typeof filtered[0]) => e.description },
+                  { header: 'Amount', accessor: (e: typeof filtered[0]) => `$${e.dollars.toFixed(2)}` },
+                  { header: 'Category', accessor: (e: typeof filtered[0]) => e.cat },
+                  { header: 'Status', accessor: (e: typeof filtered[0]) => e.statusKey },
+                  { header: 'Date', accessor: (e: typeof filtered[0]) => e.date.toLocaleDateString() },
+                  { header: 'Receipt', accessor: (e: typeof filtered[0]) => e.hasReceipt ? 'Yes' : 'No' },
+                  { header: 'Notes', accessor: (e: typeof filtered[0]) => e.notes },
+                ], filtered)}
+              >
+                <Download className="size-4 mr-1.5" />
+                Export
+              </Button>
+            )}
           <Dialog open={createOpen} onOpenChange={open => { setCreateOpen(open); if (!open) resetForm() }}>
             <DialogTrigger asChild>
               <Button size="sm" className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-lg shadow-red-500/25 border-0">
@@ -339,6 +359,7 @@ export default function ExpensesPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats */}

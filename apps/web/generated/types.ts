@@ -623,6 +623,25 @@ export const DocumentFavorite = __t.object("DocumentFavorite", {
 });
 export type DocumentFavorite = __Infer<typeof DocumentFavorite>;
 
+export const DocumentPin = __t.object("DocumentPin", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  documentId: __t.u64(),
+  pinnedBy: __t.identity(),
+  pinnedAt: __t.timestamp(),
+});
+export type DocumentPin = __Infer<typeof DocumentPin>;
+
+export const DocumentTag = __t.object("DocumentTag", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  documentId: __t.u64(),
+  tag: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type DocumentTag = __Infer<typeof DocumentTag>;
+
 // The tagged union or sum type for the algebraic type `DocumentType`.
 export const DocumentType = __t.enum("DocumentType", {
   Wiki: __t.unit(),

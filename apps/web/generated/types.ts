@@ -1430,6 +1430,50 @@ export const TaskExtension = __t.object("TaskExtension", {
 });
 export type TaskExtension = __Infer<typeof TaskExtension>;
 
+export const TaskLabel = __t.object("TaskLabel", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  color: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type TaskLabel = __Infer<typeof TaskLabel>;
+
+export const TaskLabelAssignment = __t.object("TaskLabelAssignment", {
+  id: __t.u64(),
+  taskId: __t.u64(),
+  labelId: __t.u64(),
+});
+export type TaskLabelAssignment = __Infer<typeof TaskLabelAssignment>;
+
+export const TaskLink = __t.object("TaskLink", {
+  id: __t.u64(),
+  sourceTaskId: __t.u64(),
+  targetTaskId: __t.u64(),
+  get linkType() {
+    return TaskLinkType;
+  },
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type TaskLink = __Infer<typeof TaskLink>;
+
+// The tagged union or sum type for the algebraic type `TaskLinkType`.
+export const TaskLinkType = __t.enum("TaskLinkType", {
+  Blocks: __t.unit(),
+  BlockedBy: __t.unit(),
+  Duplicates: __t.unit(),
+  DuplicatedBy: __t.unit(),
+  RelatesTo: __t.unit(),
+});
+export type TaskLinkType = __Infer<typeof TaskLinkType>;
+
+export const TaskParent = __t.object("TaskParent", {
+  childTaskId: __t.u64(),
+  parentTaskId: __t.u64(),
+});
+export type TaskParent = __Infer<typeof TaskParent>;
+
 // The tagged union or sum type for the algebraic type `TaskStatus`.
 export const TaskStatus = __t.enum("TaskStatus", {
   Unclaimed: __t.unit(),

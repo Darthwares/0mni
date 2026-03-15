@@ -95,6 +95,10 @@ import {
   Flame,
   CalendarDays,
   Hash,
+  Tag,
+  Link2,
+  GitBranch,
+  Check,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 
@@ -223,6 +227,9 @@ export default function TicketsPage() {
   const [allSprints] = useTable(tables.sprint)
   const [allEpics] = useTable(tables.epic)
   const [allTaskExtensions] = useTable(tables.task_extension)
+  const [allTaskLabels] = useTable(tables.taskLabel)
+  const [allLabelAssignments] = useTable(tables.taskLabelAssignment)
+  const [allTaskParents] = useTable(tables.taskParent)
   const createTask = useReducer(reducers.createTask)
   const claimTask = useReducer(reducers.claimTask)
   const updateTaskStatus = useReducer(reducers.updateTaskStatus)
@@ -237,6 +244,13 @@ export default function TicketsPage() {
   const createEpic = useReducer(reducers.createEpic)
   const updateEpic = useReducer(reducers.updateEpic)
   const setTaskExtension = useReducer(reducers.setTaskExtension)
+  const createTaskLabel = useReducer(reducers.createTaskLabel)
+  const updateTaskLabel = useReducer(reducers.updateTaskLabel)
+  const deleteTaskLabel = useReducer(reducers.deleteTaskLabel)
+  const assignLabelToTask = useReducer(reducers.assignLabelToTask)
+  const removeLabelFromTask = useReducer(reducers.removeLabelFromTask)
+  const setTaskParent = useReducer(reducers.setTaskParent)
+  const removeTaskParent = useReducer(reducers.removeTaskParent)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
@@ -244,10 +258,14 @@ export default function TicketsPage() {
   const [filterType, setFilterType] = useState<string>('all')
   const [filterEpic, setFilterEpic] = useState<string>('all')
   const [filterSprint, setFilterSprint] = useState<string>('all')
+  const [filterLabel, setFilterLabel] = useState<string>('all')
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateSprint, setShowCreateSprint] = useState(false)
   const [showCreateEpic, setShowCreateEpic] = useState(false)
+  const [showManageLabels, setShowManageLabels] = useState(false)
+  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState('#8b5cf6')
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
 
   // Create form state
@@ -292,6 +310,49 @@ export default function TicketsPage() {
     allEpics.forEach((e) => map.set(e.id.toString(), e))
     return map
   }, [allEpics])
+
+  // Label lookup: taskId -> label objects
+  const orgLabels = useMemo(() => {
+    if (currentOrgId === null) return [...allTaskLabels]
+    return allTaskLabels.filter((l) => Number(l.orgId) === currentOrgId)
+  }, [allTaskLabels, currentOrgId])
+
+  const labelMap = useMemo(() => {
+    const map = new Map<string, any>()
+    allTaskLabels.forEach((l) => map.set(l.id.toString(), l))
+    return map
+  }, [allTaskLabels])
+
+  const taskLabelsMap = useMemo(() => {
+    const map = new Map<string, any[]>()
+    allLabelAssignments.forEach((a) => {
+      const label = labelMap.get(a.labelId.toString())
+      if (!label) return
+      const key = a.taskId.toString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(label)
+    })
+    return map
+  }, [allLabelAssignments, labelMap])
+
+  // Subtask lookup: parentTaskId -> child tasks
+  const childTasksMap = useMemo(() => {
+    const map = new Map<string, bigint[]>()
+    allTaskParents.forEach((tp) => {
+      const key = tp.parentTaskId.toString()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(tp.childTaskId)
+    })
+    return map
+  }, [allTaskParents])
+
+  const parentTaskMap = useMemo(() => {
+    const map = new Map<string, bigint>()
+    allTaskParents.forEach((tp) => {
+      map.set(tp.childTaskId.toString(), tp.parentTaskId)
+    })
+    return map
+  }, [allTaskParents])
 
   const orgSprints = useMemo(() => {
     if (currentOrgId === null) return [...allSprints]
@@ -338,8 +399,14 @@ export default function TicketsPage() {
         return ext?.sprintId?.toString() === filterSprint
       })
     }
+    if (filterLabel !== 'all') {
+      tasks = tasks.filter((t) => {
+        const labels = taskLabelsMap.get(t.id.toString()) || []
+        return labels.some((l: any) => l.id.toString() === filterLabel)
+      })
+    }
     return tasks
-  }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, currentOrgId, extensionMap])
+  }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, filterLabel, currentOrgId, extensionMap, taskLabelsMap])
 
   // Sprint-scoped tasks for sprint view
   const sprintTasks = useMemo(() => {
@@ -701,6 +768,26 @@ export default function TicketsPage() {
             </Select>
           )}
 
+          {orgLabels.length > 0 && (
+            <Select value={filterLabel} onValueChange={setFilterLabel}>
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <Tag className="size-3 mr-1" />
+                <SelectValue placeholder="Label" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Labels</SelectItem>
+                {orgLabels.map((l) => (
+                  <SelectItem key={l.id.toString()} value={l.id.toString()}>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full" style={{ backgroundColor: l.color }} />
+                      {l.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <div className="flex rounded-lg border overflow-hidden">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -759,6 +846,14 @@ export default function TicketsPage() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">New Epic</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" onClick={() => setShowManageLabels(true)} className="h-8 w-8 p-0">
+                  <Tag className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Manage Labels</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -931,6 +1026,38 @@ export default function TicketsPage() {
                                 return null
                               })()}
                             </div>
+
+                            {/* Labels */}
+                            {(() => {
+                              const labels = taskLabelsMap.get(task.id.toString()) || []
+                              return labels.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 w-full">
+                                  {labels.slice(0, 3).map((label: any) => (
+                                    <span
+                                      key={label.id.toString()}
+                                      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                                      style={{ backgroundColor: label.color + '20', color: label.color, border: `1px solid ${label.color}30` }}
+                                    >
+                                      {label.name}
+                                    </span>
+                                  ))}
+                                  {labels.length > 3 && (
+                                    <span className="text-[9px] text-muted-foreground">+{labels.length - 3}</span>
+                                  )}
+                                </div>
+                              ) : null
+                            })()}
+
+                            {/* Subtask count */}
+                            {(() => {
+                              const children = childTasksMap.get(task.id.toString())
+                              return children && children.length > 0 ? (
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground w-full">
+                                  <GitBranch className="size-3" />
+                                  {children.length} subtask{children.length !== 1 ? 's' : ''}
+                                </div>
+                              ) : null
+                            })()}
 
                             {/* Bottom: Assignee + Time */}
                             <div className="flex items-center justify-between w-full">
@@ -1457,6 +1584,40 @@ export default function TicketsPage() {
           sendThreadReply={sendThreadReply}
           watchTask={watchTask}
           unwatchTask={unwatchTask}
+          taskLabelsForDetail={taskLabelsMap.get(selectedTask.id.toString()) || []}
+          availableLabelsForDetail={orgLabels.filter((l) => {
+            const assigned = taskLabelsMap.get(selectedTask.id.toString()) || []
+            return !assigned.some((a: any) => a.id.toString() === l.id.toString())
+          })}
+          subtasksForDetail={(() => {
+            const childIds = childTasksMap.get(selectedTask.id.toString()) || []
+            return childIds.map((cid) => allTasks.find((t) => t.id === cid)).filter(Boolean)
+          })()}
+          onAssignLabelToTask={async (taskId, labelId) => {
+            await assignLabelToTask({ taskId, labelId })
+          }}
+          onRemoveLabelFromTask={async (taskId, labelId) => {
+            await removeLabelFromTask({ taskId, labelId })
+          }}
+          onCreateSubtask={async (parentTaskId, title) => {
+            if (currentOrgId === null) return
+            await createTask({
+              title,
+              description: '',
+              taskType: { tag: 'Bug' } as any,
+              priority: { tag: 'Medium' } as any,
+              contextType: { tag: 'Internal' } as any,
+              contextId: 0n,
+              orgId: BigInt(currentOrgId),
+            })
+            // Find the newly created task (most recent one with that title)
+            const newTask = [...allTasks]
+              .filter((t) => t.title === title)
+              .sort((a, b) => Number(b.id) - Number(a.id))[0]
+            if (newTask) {
+              await setTaskParent({ childTaskId: newTask.id, parentTaskId })
+            }
+          }}
         />
       )}
 
@@ -1623,6 +1784,80 @@ export default function TicketsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Labels Dialog */}
+      <Dialog open={showManageLabels} onOpenChange={setShowManageLabels}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="size-5 text-amber-500" />
+              Manage Labels
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Create new label */}
+            <div className="flex gap-2">
+              <Input
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                placeholder="Label name"
+                className="flex-1 h-9"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newLabelName.trim() && currentOrgId !== null) {
+                    createTaskLabel({ orgId: BigInt(currentOrgId), name: newLabelName.trim(), color: newLabelColor })
+                    setNewLabelName('')
+                  }
+                }}
+              />
+              <input
+                type="color"
+                value={newLabelColor}
+                onChange={(e) => setNewLabelColor(e.target.value)}
+                className="h-9 w-9 rounded-md border cursor-pointer"
+              />
+              <Button
+                size="sm"
+                className="h-9"
+                disabled={!newLabelName.trim()}
+                onClick={() => {
+                  if (currentOrgId === null) return
+                  createTaskLabel({ orgId: BigInt(currentOrgId), name: newLabelName.trim(), color: newLabelColor })
+                  setNewLabelName('')
+                }}
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+            {/* Existing labels */}
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {orgLabels.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No labels yet. Create one above.</p>
+              ) : (
+                orgLabels.map((label) => (
+                  <div key={label.id.toString()} className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                    <span
+                      className="size-3 rounded-full shrink-0"
+                      style={{ backgroundColor: label.color }}
+                    />
+                    <span className="flex-1 text-sm font-medium truncate">{label.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteTaskLabel({ labelId: label.id })}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowManageLabels(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1732,6 +1967,12 @@ function TaskDetailPanel({
   sendThreadReply,
   watchTask,
   unwatchTask,
+  taskLabelsForDetail,
+  availableLabelsForDetail,
+  subtasksForDetail,
+  onAssignLabelToTask,
+  onRemoveLabelFromTask,
+  onCreateSubtask,
 }: {
   task: any
   employeeMap: Map<string, any>
@@ -1753,6 +1994,12 @@ function TaskDetailPanel({
   sendThreadReply: (args: any) => Promise<any>
   watchTask: (args: any) => Promise<any>
   unwatchTask: (args: any) => Promise<any>
+  taskLabelsForDetail: any[]
+  availableLabelsForDetail: any[]
+  subtasksForDetail: any[]
+  onAssignLabelToTask: (taskId: bigint, labelId: bigint) => Promise<any>
+  onRemoveLabelFromTask: (taskId: bigint, labelId: bigint) => Promise<any>
+  onCreateSubtask: (parentTaskId: bigint, title: string) => Promise<any>
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
   const [isEditing, setIsEditing] = useState(false)
@@ -2171,6 +2418,136 @@ function TaskDetailPanel({
                     })}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Labels */}
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                <Tag className="size-3.5 text-amber-400" />
+                Labels
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {(taskLabelsForDetail || []).map((label: any) => (
+                  <span
+                    key={label.id.toString()}
+                    className="group inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium cursor-default"
+                    style={{ backgroundColor: label.color + '20', color: label.color, border: `1px solid ${label.color}30` }}
+                  >
+                    {label.name}
+                    <button
+                      onClick={() => onRemoveLabelFromTask(task.id, label.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 -mr-0.5"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+                {/* Add label dropdown */}
+                <Select
+                  value=""
+                  onValueChange={(val) => {
+                    if (val) onAssignLabelToTask(task.id, BigInt(val))
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-auto min-w-[100px] text-[11px] border-dashed">
+                    <Plus className="size-3 mr-1" />
+                    <SelectValue placeholder="Add label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(availableLabelsForDetail || []).map((label: any) => (
+                      <SelectItem key={label.id.toString()} value={label.id.toString()}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                    {(availableLabelsForDetail || []).length === 0 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels available</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Subtasks */}
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                <GitBranch className="size-3.5 text-blue-400" />
+                Subtasks
+                {(subtasksForDetail || []).length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                    {(subtasksForDetail || []).filter((s: any) => s.status.tag === 'Completed').length}/{(subtasksForDetail || []).length}
+                  </Badge>
+                )}
+              </h3>
+              {(subtasksForDetail || []).length > 0 && (
+                <div className="space-y-1.5">
+                  {(subtasksForDetail || []).map((subtask: any) => {
+                    const isDone = subtask.status.tag === 'Completed'
+                    return (
+                      <div
+                        key={subtask.id.toString()}
+                        className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 group"
+                      >
+                        <button
+                          onClick={() => {
+                            if (isDone) {
+                              onUpdateStatus(subtask.id, 'Claimed')
+                            } else {
+                              onUpdateStatus(subtask.id, 'Completed')
+                            }
+                          }}
+                          className={`size-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${
+                            isDone
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'border-muted-foreground/30 hover:border-green-500'
+                          }`}
+                        >
+                          {isDone && <Check className="size-3" />}
+                        </button>
+                        <span className={`text-xs flex-1 truncate ${isDone ? 'line-through text-muted-foreground' : ''}`}>
+                          {subtask.title}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground uppercase">
+                          {subtask.status.tag}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {/* Subtask progress bar */}
+                  {(subtasksForDetail || []).length > 0 && (() => {
+                    const total = (subtasksForDetail || []).length
+                    const done = (subtasksForDetail || []).filter((s: any) => s.status.tag === 'Completed').length
+                    const pct = total > 0 ? (done / total) * 100 : 0
+                    return (
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{Math.round(pct)}%</span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+              {/* Add subtask input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a subtask..."
+                  className="flex-1 h-8 rounded-md border bg-transparent px-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                      const title = (e.target as HTMLInputElement).value.trim()
+                      ;(e.target as HTMLInputElement).value = ''
+                      await onCreateSubtask(task.id, title)
+                    }
+                  }}
+                />
               </div>
             </div>
 

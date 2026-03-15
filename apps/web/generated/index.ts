@@ -42,6 +42,7 @@ import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
 import ApproveRequestReducer from "./approve_request_reducer";
 import ArchiveEmailReducer from "./archive_email_reducer";
+import AssignLabelToTaskReducer from "./assign_label_to_task_reducer";
 import CancelRequestReducer from "./cancel_request_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
@@ -70,6 +71,8 @@ import CreateObjectiveReducer from "./create_objective_reducer";
 import CreateOrganizationReducer from "./create_organization_reducer";
 import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
+import CreateTaskLabelReducer from "./create_task_label_reducer";
+import CreateTaskLinkReducer from "./create_task_link_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import CreateWhiteboardBoardReducer from "./create_whiteboard_board_reducer";
 import CreateWorkflowReducer from "./create_workflow_reducer";
@@ -90,6 +93,8 @@ import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
 import DeleteSprintReducer from "./delete_sprint_reducer";
 import DeleteStandupReducer from "./delete_standup_reducer";
+import DeleteTaskLabelReducer from "./delete_task_label_reducer";
+import DeleteTaskLinkReducer from "./delete_task_link_reducer";
 import DeleteTimeEntryReducer from "./delete_time_entry_reducer";
 import DeleteWhiteboardBoardReducer from "./delete_whiteboard_board_reducer";
 import DeleteWorkflowReducer from "./delete_workflow_reducer";
@@ -122,7 +127,9 @@ import RejectMembershipReducer from "./reject_membership_reducer";
 import RejectRequestReducer from "./reject_request_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveInvoiceLineItemReducer from "./remove_invoice_line_item_reducer";
+import RemoveLabelFromTaskReducer from "./remove_label_from_task_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
+import RemoveTaskParentReducer from "./remove_task_parent_reducer";
 import RenameDriveItemReducer from "./rename_drive_item_reducer";
 import RequestCallReducer from "./request_call_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
@@ -137,6 +144,7 @@ import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
 import SetEmailLabelReducer from "./set_email_label_reducer";
 import SetResourcePresenceReducer from "./set_resource_presence_reducer";
 import SetTaskExtensionReducer from "./set_task_extension_reducer";
+import SetTaskParentReducer from "./set_task_parent_reducer";
 import SetTypingStatusReducer from "./set_typing_status_reducer";
 import SetUserLocationReducer from "./set_user_location_reducer";
 import ShareDocumentReducer from "./share_document_reducer";
@@ -176,6 +184,7 @@ import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
 import UpdateSprintReducer from "./update_sprint_reducer";
 import UpdateTaskReducer from "./update_task_reducer";
+import UpdateTaskLabelReducer from "./update_task_label_reducer";
 import UpdateTaskStatusReducer from "./update_task_status_reducer";
 import UpdateWhiteboardBoardReducer from "./update_whiteboard_board_reducer";
 import UpdateWorkflowReducer from "./update_workflow_reducer";
@@ -237,6 +246,10 @@ import SprintRow from "./sprint_table";
 import StandupEntryRow from "./standup_entry_table";
 import TaskRow from "./task_table";
 import TaskExtensionRow from "./task_extension_table";
+import TaskLabelRow from "./task_label_table";
+import TaskLabelAssignmentRow from "./task_label_assignment_table";
+import TaskLinkRow from "./task_link_table";
+import TaskParentRow from "./task_parent_table";
 import TaskWatcherRow from "./task_watcher_table";
 import TicketRow from "./ticket_table";
 import TicketLabelRow from "./ticket_label_table";
@@ -818,6 +831,50 @@ const tablesSchema = __schema({
       { name: 'task_extension_task_id_key', constraint: 'unique', columns: ['taskId'] },
     ],
   }, TaskExtensionRow),
+  task_label: __table({
+    name: 'task_label',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'task_label_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TaskLabelRow),
+  task_label_assignment: __table({
+    name: 'task_label_assignment',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'task_label_assignment_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TaskLabelAssignmentRow),
+  task_link: __table({
+    name: 'task_link',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'task_link_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, TaskLinkRow),
+  task_parent: __table({
+    name: 'task_parent',
+    indexes: [
+      { name: 'child_task_id', algorithm: 'btree', columns: [
+        'childTaskId',
+      ] },
+    ],
+    constraints: [
+      { name: 'task_parent_child_task_id_key', constraint: 'unique', columns: ['childTaskId'] },
+    ],
+  }, TaskParentRow),
   task_watcher: __table({
     name: 'task_watcher',
     indexes: [
@@ -937,6 +994,7 @@ const reducersSchema = __reducers(
   __reducerSchema("approve_membership", ApproveMembershipReducer),
   __reducerSchema("approve_request", ApproveRequestReducer),
   __reducerSchema("archive_email", ArchiveEmailReducer),
+  __reducerSchema("assign_label_to_task", AssignLabelToTaskReducer),
   __reducerSchema("cancel_request", CancelRequestReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
@@ -965,6 +1023,8 @@ const reducersSchema = __reducers(
   __reducerSchema("create_organization", CreateOrganizationReducer),
   __reducerSchema("create_sprint", CreateSprintReducer),
   __reducerSchema("create_task", CreateTaskReducer),
+  __reducerSchema("create_task_label", CreateTaskLabelReducer),
+  __reducerSchema("create_task_link", CreateTaskLinkReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("create_whiteboard_board", CreateWhiteboardBoardReducer),
   __reducerSchema("create_workflow", CreateWorkflowReducer),
@@ -985,6 +1045,8 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
   __reducerSchema("delete_sprint", DeleteSprintReducer),
   __reducerSchema("delete_standup", DeleteStandupReducer),
+  __reducerSchema("delete_task_label", DeleteTaskLabelReducer),
+  __reducerSchema("delete_task_link", DeleteTaskLinkReducer),
   __reducerSchema("delete_time_entry", DeleteTimeEntryReducer),
   __reducerSchema("delete_whiteboard_board", DeleteWhiteboardBoardReducer),
   __reducerSchema("delete_workflow", DeleteWorkflowReducer),
@@ -1017,7 +1079,9 @@ const reducersSchema = __reducers(
   __reducerSchema("reject_request", RejectRequestReducer),
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_invoice_line_item", RemoveInvoiceLineItemReducer),
+  __reducerSchema("remove_label_from_task", RemoveLabelFromTaskReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
+  __reducerSchema("remove_task_parent", RemoveTaskParentReducer),
   __reducerSchema("rename_drive_item", RenameDriveItemReducer),
   __reducerSchema("request_call", RequestCallReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
@@ -1032,6 +1096,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_email_label", SetEmailLabelReducer),
   __reducerSchema("set_resource_presence", SetResourcePresenceReducer),
   __reducerSchema("set_task_extension", SetTaskExtensionReducer),
+  __reducerSchema("set_task_parent", SetTaskParentReducer),
   __reducerSchema("set_typing_status", SetTypingStatusReducer),
   __reducerSchema("set_user_location", SetUserLocationReducer),
   __reducerSchema("share_document", ShareDocumentReducer),
@@ -1071,6 +1136,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_organization", UpdateOrganizationReducer),
   __reducerSchema("update_sprint", UpdateSprintReducer),
   __reducerSchema("update_task", UpdateTaskReducer),
+  __reducerSchema("update_task_label", UpdateTaskLabelReducer),
   __reducerSchema("update_task_status", UpdateTaskStatusReducer),
   __reducerSchema("update_whiteboard_board", UpdateWhiteboardBoardReducer),
   __reducerSchema("update_workflow", UpdateWorkflowReducer),

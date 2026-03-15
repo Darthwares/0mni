@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -26,7 +26,11 @@ import {
   AlertTriangle,
   Inbox,
   Filter,
+  Search,
+  Download,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -171,6 +175,7 @@ export default function NotificationsPage() {
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All')
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // All notifications for current org, newest first
   const notifications = useMemo(
@@ -186,9 +191,14 @@ export default function NotificationsPage() {
     return notifications.filter((n) => {
       const matchesType = typeFilter === 'All' || n.notificationType.tag === typeFilter
       const matchesRead = !showUnreadOnly || !n.read
-      return matchesType && matchesRead
+      if (!matchesType || !matchesRead) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q)
+      }
+      return true
     })
-  }, [notifications, typeFilter, showUnreadOnly])
+  }, [notifications, typeFilter, showUnreadOnly, searchQuery])
 
   // Group by date
   const grouped = useMemo(() => {
@@ -226,6 +236,19 @@ export default function NotificationsPage() {
       console.error('Failed to dismiss notification:', err)
     }
   }
+
+  const handleExportNotifications = useCallback(() => {
+    const headers = ['Title', 'Body', 'Type', 'Priority', 'Read', 'Time']
+    const rows = filtered.map(n => [
+      n.title,
+      n.body,
+      n.notificationType.tag,
+      n.priority.tag,
+      n.read ? 'Yes' : 'No',
+      timeAgo(n.createdAt),
+    ])
+    exportCSV('notifications', headers, rows)
+  }, [filtered])
 
   const handleMarkAllRead = () => {
     if (currentOrgId === null) return
@@ -348,6 +371,23 @@ export default function NotificationsPage() {
               </button>
             )
           })}
+        </div>
+
+        {/* Search + Export */}
+        <div className="flex items-center gap-3 mt-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search notifications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExportNotifications} className="gap-1.5 h-8">
+            <Download className="size-3.5" /> Export
+          </Button>
+          <span className="text-xs text-muted-foreground tabular-nums">{filtered.length} notifications</span>
         </div>
       </div>
 

@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Calendar,
   Pencil,
+  Download,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -28,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import {
@@ -582,7 +584,28 @@ export default function InvoicingPage() {
         {/* Top row */}
         <div className="flex items-center justify-between">
           <BlurText text="Create, track, and manage invoices" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
-          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
+          <div className="flex items-center gap-2">
+            {filtered.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportCSV('invoices', [
+                  { header: 'Invoice #', accessor: (i: typeof filtered[0]) => i.invoiceNumber },
+                  { header: 'Client', accessor: (i: typeof filtered[0]) => i.clientName },
+                  { header: 'Email', accessor: (i: typeof filtered[0]) => i.clientEmail },
+                  { header: 'Status', accessor: (i: typeof filtered[0]) => getTag(i.status) },
+                  { header: 'Total', accessor: (i: typeof filtered[0]) => (invoiceTotal(i) / 100).toFixed(2) },
+                  { header: 'Issued', accessor: (i: typeof filtered[0]) => tsToDate(i.issuedAt).toLocaleDateString() },
+                  { header: 'Due', accessor: (i: typeof filtered[0]) => tsToDate(i.dueAt).toLocaleDateString() },
+                  { header: 'Tax Rate %', accessor: (i: typeof filtered[0]) => i.taxRate },
+                  { header: 'Notes', accessor: (i: typeof filtered[0]) => i.notes },
+                ], filtered)}
+              >
+                <Download className="size-4 mr-1.5" />
+                Export
+              </Button>
+            )}
+            <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm() }}>
             <DialogTrigger render={<Button size="sm" className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-lg shadow-emerald-500/25 border-0" />}>
               <Plus className="size-4 mr-1.5" />
               New Invoice
@@ -699,6 +722,7 @@ export default function InvoicingPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats */}

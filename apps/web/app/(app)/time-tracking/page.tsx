@@ -18,10 +18,12 @@ import {
   Check,
   X,
   Tag,
+  Download,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
+import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -602,9 +604,27 @@ export default function TimeTrackingPage() {
                 <CalendarDays className="size-4 inline-block mr-1.5 -mt-0.5 text-muted-foreground" />
                 Time Entries
               </h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+                </span>
+                {filteredEntries.length > 0 && (
+                  <button
+                    onClick={() => exportCSV('time-entries', [
+                      { header: 'Description', accessor: (e: typeof filteredEntries[0]) => e.description },
+                      { header: 'Category', accessor: (e: typeof filteredEntries[0]) => e.category?.tag ?? 'Other' },
+                      { header: 'Duration (min)', accessor: (e: typeof filteredEntries[0]) => e.durationMinutes },
+                      { header: 'Billable', accessor: (e: typeof filteredEntries[0]) => e.billable ? 'Yes' : 'No' },
+                      { header: 'Started', accessor: (e: typeof filteredEntries[0]) => e.startedAt ? new Date(Number(e.startedAt) / 1000).toLocaleString() : '' },
+                      { header: 'Ended', accessor: (e: typeof filteredEntries[0]) => e.endedAt ? new Date(Number(e.endedAt) / 1000).toLocaleString() : '' },
+                    ], filteredEntries)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Download className="size-3.5" />
+                    Export
+                  </button>
+                )}
+              </div>
             </div>
             {filteredEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">

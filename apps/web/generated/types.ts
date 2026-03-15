@@ -268,6 +268,15 @@ export const AutoSyncSource = __t.enum("AutoSyncSource", {
 });
 export type AutoSyncSource = __Infer<typeof AutoSyncSource>;
 
+export const BlockerResolution = __t.object("BlockerResolution", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  standupId: __t.u64(),
+  resolvedBy: __t.identity(),
+  resolvedAt: __t.timestamp(),
+});
+export type BlockerResolution = __Infer<typeof BlockerResolution>;
+
 export const Bug = __t.object("Bug", {
   id: __t.u64(),
   orgId: __t.u64(),

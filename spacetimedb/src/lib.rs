@@ -6222,7 +6222,57 @@ pub fn submit_standup(
 
 #[spacetimedb::reducer]
 pub fn delete_standup(ctx: &ReducerContext, standup_id: u64) -> Result<(), String> {
+    let entry = ctx.db.standup_entry().id().find(standup_id)
+        .ok_or("Standup not found")?;
+    require_org_access(ctx, entry.org_id)?;
     ctx.db.standup_entry().id().delete(&standup_id);
+    Ok(())
+}
+
+// ── Blocker Resolutions ─────────────────────────────────────────────────────
+
+#[spacetimedb::table(accessor = blocker_resolution, public)]
+#[derive(Clone)]
+pub struct BlockerResolution {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub org_id: u64,
+    pub standup_id: u64,
+    pub resolved_by: Identity,
+    pub resolved_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn resolve_blocker(
+    ctx: &ReducerContext,
+    standup_id: u64,
+) -> Result<(), String> {
+    let entry = ctx.db.standup_entry().id().find(standup_id)
+        .ok_or("Standup not found")?;
+    require_org_access(ctx, entry.org_id)?;
+    ctx.db.blocker_resolution().insert(BlockerResolution {
+        id: 0,
+        org_id: entry.org_id,
+        standup_id,
+        resolved_by: ctx.sender(),
+        resolved_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn unresolve_blocker(
+    ctx: &ReducerContext,
+    standup_id: u64,
+) -> Result<(), String> {
+    // Find and delete the resolution for this standup
+    let resolution = ctx.db.blocker_resolution().iter()
+        .find(|r| r.standup_id == standup_id);
+    if let Some(r) = resolution {
+        require_org_access(ctx, r.org_id)?;
+        ctx.db.blocker_resolution().id().delete(&r.id);
+    }
     Ok(())
 }
 

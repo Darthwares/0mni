@@ -32,6 +32,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Sparkles,
   Plus,
@@ -163,7 +164,7 @@ export default function AgentStudioPage() {
             <h1 className="text-2xl font-bold tracking-tight">
               <GradientText colors={['#a855f7', '#8b5cf6', '#6366f1']} animationSpeed={6}>Agent Studio</GradientText>
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Design, configure, and deploy AI employees for your organization</p>
+            <BlurText text="Design, configure, and deploy AI employees for your organization" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
           </div>
         </div>
 

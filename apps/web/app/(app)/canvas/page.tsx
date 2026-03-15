@@ -65,7 +65,13 @@ import {
   Eye,
   EyeOff,
   Users,
+  Star,
+  BarChart3,
+  type LucideIcon,
 } from 'lucide-react'
+import GradientText from '@/components/reactbits/GradientText'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import CountUp from '@/components/reactbits/CountUp'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -235,8 +241,19 @@ export default function CanvasPage() {
   const [titleDraft, setTitleDraft] = useState('')
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareDocId, setShareDocId] = useState<bigint | null>(null)
+  const [starredIds, setStarredIds] = useState<Set<bigint>>(new Set())
+  const [listFilter, setListFilter] = useState<'all' | 'documents' | 'whiteboards' | 'starred'>('all')
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const toggleStar = useCallback((id: bigint) => {
+    setStarredIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
@@ -305,6 +322,51 @@ export default function CanvasPage() {
     if (activeDocId === null) return null
     return canvasDocuments.find((d) => d.id === activeDocId) ?? null
   }, [activeDocId, canvasDocuments])
+
+  // Document stats
+  const docStats = useMemo(() => {
+    const docs = canvasDocuments.filter((d) => d.docType.tag === 'Canvas')
+    const whiteboards = canvasDocuments.filter((d) => d.docType.tag === 'Whiteboard')
+    const shared = canvasDocuments.filter((d) => (d.sharedWith?.length ?? 0) > 0)
+    return { documents: docs.length, whiteboards: whiteboards.length, folders: folders.length, shared: shared.length }
+  }, [canvasDocuments, folders])
+
+  // Recent documents (last 5, non-folder)
+  const recentDocs = useMemo(() => {
+    return [...canvasDocuments]
+      .filter((d) => d.docType.tag !== 'Folder')
+      .sort((a, b) => timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime())
+      .slice(0, 5)
+  }, [canvasDocuments])
+
+  // Word count for active document
+  const activeDocWordCount = useMemo(() => {
+    if (!activeDoc || activeDoc.docType.tag !== 'Canvas') return null
+    const parsed = parseContent(activeDoc.content)
+    if (!parsed || !Array.isArray(parsed)) return null
+    let words = 0
+    const countInBlocks = (blocks: any[]) => {
+      for (const block of blocks) {
+        if (block.content && Array.isArray(block.content)) {
+          for (const inline of block.content) {
+            if (inline.text) words += inline.text.trim().split(/\s+/).filter(Boolean).length
+          }
+        }
+        if (block.children && Array.isArray(block.children)) countInBlocks(block.children)
+      }
+    }
+    countInBlocks(parsed)
+    return words
+  }, [activeDoc])
+
+  // Filtered list for type/starred filtering
+  const typeFilteredDocuments = useMemo(() => {
+    let items = filteredDocuments
+    if (listFilter === 'documents') items = items.filter((d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Folder')
+    else if (listFilter === 'whiteboards') items = items.filter((d) => d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder')
+    else if (listFilter === 'starred') items = items.filter((d) => starredIds.has(d.id))
+    return items
+  }, [filteredDocuments, listFilter, starredIds])
 
   // Last edited by name
   const lastEditedByName = useMemo(() => {
@@ -525,6 +587,15 @@ export default function CanvasPage() {
                 <>Saved {formatTimeAgo(timestampToDate(activeDoc.updatedAt))}</>
               )}
             </span>
+            {/* Word count */}
+            {activeDocWordCount !== null && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <BarChart3 className="size-3" />
+                {activeDocWordCount.toLocaleString()} words
+                <span className="mx-0.5">·</span>
+                {Math.max(1, Math.ceil(activeDocWordCount / 200))} min read
+              </span>
+            )}
             {/* Last edited by */}
             {lastEditedByName && (
               <span className="text-[10px] text-muted-foreground">
@@ -560,8 +631,12 @@ export default function CanvasPage() {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
-          <PenTool className="size-5 text-violet-500" />
-          <h1 className="text-lg font-bold">Canvas</h1>
+          <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+            <PenTool className="size-4 text-white" />
+          </div>
+          <h1 className="text-lg font-bold">
+            <GradientText colors={['#8b5cf6', '#6366f1', '#a78bfa']} animationSpeed={6}>Canvas</GradientText>
+          </h1>
           <Badge variant="secondary" className="text-xs">
             {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
           </Badge>
@@ -650,19 +725,96 @@ export default function CanvasPage() {
 
       {/* Document List */}
       <ScrollArea className="flex-1">
-        <div className="p-6">
-          {filteredDocuments.length === 0 ? (
+        <div className="p-6 space-y-6">
+          {/* Stats row */}
+          {currentFolderId === null && !searchQuery && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {([
+                { label: 'Documents', value: docStats.documents, icon: FileText, color: 'from-blue-500/20 to-blue-600/5' },
+                { label: 'Whiteboards', value: docStats.whiteboards, icon: PenTool, color: 'from-emerald-500/20 to-emerald-600/5' },
+                { label: 'Folders', value: docStats.folders, icon: Folder, color: 'from-amber-500/20 to-amber-600/5' },
+                { label: 'Shared', value: docStats.shared, icon: Users, color: 'from-violet-500/20 to-violet-600/5' },
+              ] as { label: string; value: number; icon: LucideIcon; color: string }[]).map((stat) => (
+                <SpotlightCard key={stat.label} className="!p-4 !rounded-xl" spotlightColor="rgba(139, 92, 246, 0.15)">
+                  <div className={`size-8 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-2`}>
+                    <stat.icon className="size-4 text-foreground/70" />
+                  </div>
+                  <div className="text-xl font-bold"><CountUp to={stat.value} duration={1.5} /></div>
+                  <div className="text-[11px] text-muted-foreground">{stat.label}</div>
+                </SpotlightCard>
+              ))}
+            </div>
+          )}
+
+          {/* Filter pills */}
+          {currentFolderId === null && (
+            <div className="flex items-center gap-2">
+              {([
+                { id: 'all' as const, label: 'All' },
+                { id: 'documents' as const, label: 'Documents' },
+                { id: 'whiteboards' as const, label: 'Whiteboards' },
+                { id: 'starred' as const, label: 'Starred' },
+              ]).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setListFilter(f.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                    listFilter === f.id
+                      ? 'bg-violet-500/15 text-violet-400 ring-1 ring-violet-500/30'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {f.id === 'starred' && <Star className="size-3 inline mr-1" />}
+                  {f.label}
+                  {f.id === 'starred' && starredIds.size > 0 && (
+                    <span className="ml-1 text-[10px]">({starredIds.size})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Recent Documents - only at root with no search */}
+          {currentFolderId === null && !searchQuery && listFilter === 'all' && recentDocs.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Recently Updated</h3>
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {recentDocs.map((doc) => {
+                  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+                  return (
+                    <button
+                      key={doc.id.toString()}
+                      onClick={() => setActiveDocId(doc.id)}
+                      className="flex-shrink-0 w-48 rounded-xl border bg-card p-3 text-left transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 group"
+                    >
+                      <div className={`h-16 rounded-lg mb-2 flex items-center justify-center ${
+                        isWhiteboard ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5' : 'bg-gradient-to-br from-blue-500/10 to-blue-500/5'
+                      }`}>
+                        {isWhiteboard ? <PenTool className="size-6 text-emerald-400/50" /> : <FileText className="size-6 text-blue-400/50" />}
+                      </div>
+                      <p className="text-xs font-medium truncate">{doc.title}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatTimeAgo(timestampToDate(doc.updatedAt))}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {typeFilteredDocuments.length === 0 ? (
             <EmptyState
               inFolder={currentFolderId !== null}
               onCreateClick={() => setShowCreate(true)}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredDocuments.map((doc) => (
+              {typeFilteredDocuments.map((doc) => (
                 <CanvasCard
                   key={doc.id.toString()}
                   doc={doc}
                   employeeMap={employeeMap}
+                  starred={starredIds.has(doc.id)}
+                  onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
                       setCurrentFolderId(doc.id)
@@ -684,11 +836,13 @@ export default function CanvasPage() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-2">
-              {filteredDocuments.map((doc) => (
+              {typeFilteredDocuments.map((doc) => (
                 <CanvasListItem
                   key={doc.id.toString()}
                   doc={doc}
                   employeeMap={employeeMap}
+                  starred={starredIds.has(doc.id)}
+                  onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
                       setCurrentFolderId(doc.id)
@@ -974,6 +1128,8 @@ export default function CanvasPage() {
 function CanvasCard({
   doc,
   employeeMap,
+  starred,
+  onToggleStar,
   onOpen,
   onDelete,
   onMove,
@@ -981,6 +1137,8 @@ function CanvasCard({
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
+  starred: boolean
+  onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
@@ -1052,8 +1210,24 @@ function CanvasCard({
         </div>
       </div>
 
+      {/* Star indicator */}
+      {starred && (
+        <div className="absolute top-2 left-2">
+          <Star className="size-3.5 text-amber-400 fill-amber-400" />
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleStar() }}
+            className="p-1.5 rounded-md bg-background/80 border hover:bg-muted transition-colors"
+            title={starred ? 'Unstar' : 'Star'}
+          >
+            <Star className={`size-3.5 ${starred ? 'text-amber-400 fill-amber-400' : ''}`} />
+          </button>
+        )}
         {!isFolder && (
           <button
             onClick={(e) => { e.stopPropagation(); onShare() }}
@@ -1113,6 +1287,8 @@ function CanvasCard({
 function CanvasListItem({
   doc,
   employeeMap,
+  starred,
+  onToggleStar,
   onOpen,
   onDelete,
   onMove,
@@ -1120,6 +1296,8 @@ function CanvasListItem({
 }: {
   doc: SpacetimeDocument
   employeeMap: Map<string, any>
+  starred: boolean
+  onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
   onMove: () => void
@@ -1164,6 +1342,15 @@ function CanvasListItem({
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {!isFolder && (
           <button
+            onClick={(e) => { e.stopPropagation(); onToggleStar() }}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title={starred ? 'Unstar' : 'Star'}
+          >
+            <Star className={`size-3.5 ${starred ? 'text-amber-400 fill-amber-400' : ''}`} />
+          </button>
+        )}
+        {!isFolder && (
+          <button
             onClick={(e) => { e.stopPropagation(); onMove() }}
             className="p-1.5 rounded-md hover:bg-muted transition-colors"
             title="Move to folder"
@@ -1178,6 +1365,10 @@ function CanvasListItem({
           <Trash2 className="size-3.5" />
         </button>
       </div>
+      {/* Star indicator in list view */}
+      {starred && !isFolder && (
+        <Star className="size-3 text-amber-400 fill-amber-400 shrink-0" />
+      )}
     </div>
   )
 }

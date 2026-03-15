@@ -4047,6 +4047,42 @@ pub fn delete_time_entry(ctx: &ReducerContext, entry_id: u64) -> Result<(), Stri
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_time_entry(
+    ctx: &ReducerContext,
+    entry_id: u64,
+    description: String,
+    category_tag: String,
+    duration_minutes: u32,
+    billable: bool,
+) -> Result<(), String> {
+    let entry = ctx.db.time_entry().id().find(&entry_id)
+        .ok_or("Time entry not found")?;
+    if entry.user_id != ctx.sender() {
+        return Err("Not your time entry".to_string());
+    }
+    let category = match category_tag.as_str() {
+        "Development" => TimeEntryCategory::Development,
+        "Meeting" => TimeEntryCategory::Meeting,
+        "Support" => TimeEntryCategory::Support,
+        "Sales" => TimeEntryCategory::Sales,
+        "Recruitment" => TimeEntryCategory::Recruitment,
+        "Documentation" => TimeEntryCategory::Documentation,
+        "Review" => TimeEntryCategory::Review,
+        "Planning" => TimeEntryCategory::Planning,
+        "Break" => TimeEntryCategory::Break,
+        _ => TimeEntryCategory::Other,
+    };
+    ctx.db.time_entry().id().update(TimeEntry {
+        description,
+        category,
+        duration_minutes,
+        billable,
+        ..entry
+    });
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - SPRINTS & EPICS
 // ============================================================================

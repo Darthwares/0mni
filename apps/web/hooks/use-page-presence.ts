@@ -4,13 +4,27 @@ import { useEffect, useMemo } from 'react'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 
-type ResourceType = 'Canvas' | 'Ticket' | 'Channel' | 'Page'
+// Stable page IDs — deterministic mapping from page path to numeric ID
+const PAGE_IDS: Record<string, number> = {
+  '/dashboard': 100001,
+  '/analytics': 100002,
+  '/activity': 100003,
+  '/messages': 100004,
+  '/email': 100005,
+  '/support': 100006,
+  '/sales': 100007,
+  '/recruitment': 100008,
+  '/tickets': 100009,
+  '/canvas': 100010,
+  '/engineering': 100011,
+  '/collaboration': 100012,
+  '/ai-employees': 100013,
+  '/agent-studio': 100014,
+  '/settings': 100015,
+  '/profile': 100016,
+}
 
-/**
- * Track and display presence for a resource (canvas, ticket, channel).
- * Automatically registers the current user as present and cleans up on unmount.
- */
-export function useResourcePresence(resourceType: ResourceType, resourceId: bigint | number | null) {
+export function usePagePresence(pagePath: string) {
   const { identity } = useSpacetimeDB()
   const setPresence = useReducer(reducers.setResourcePresence)
   const clearPresence = useReducer(reducers.clearResourcePresence)
@@ -18,25 +32,24 @@ export function useResourcePresence(resourceType: ResourceType, resourceId: bigi
   const [allEmployees] = useTable(tables.employee)
 
   const myHex = identity?.toHexString() ?? ''
+  const pageId = PAGE_IDS[pagePath] ?? 0
 
   const employeeMap = useMemo(
     () => new Map(allEmployees.map((e) => [e.id.toHexString(), e])),
     [allEmployees]
   )
 
-  // Set presence when viewing a resource
+  // Set page presence
   useEffect(() => {
-    if (!resourceId || !identity) return
+    if (!pageId || !identity) return
 
-    const id = typeof resourceId === 'bigint' ? Number(resourceId) : resourceId
     try {
-      setPresence({ resourceType: { tag: resourceType }, resourceId: BigInt(id) })
+      setPresence({ resourceType: { tag: 'Page' } as any, resourceId: BigInt(pageId) })
     } catch {}
 
-    // Heartbeat every 30s
     const interval = setInterval(() => {
       try {
-        setPresence({ resourceType: { tag: resourceType }, resourceId: BigInt(id) })
+        setPresence({ resourceType: { tag: 'Page' } as any, resourceId: BigInt(pageId) })
       } catch {}
     }, 30_000)
 
@@ -44,19 +57,17 @@ export function useResourcePresence(resourceType: ResourceType, resourceId: bigi
       clearInterval(interval)
       try { clearPresence({}) } catch {}
     }
-  }, [resourceType, resourceId, identity])
+  }, [pagePath, pageId, identity])
 
-  // Get other users present on this resource
+  // Get other users on this page
   const presentUsers = useMemo(() => {
-    if (!resourceId) return []
-    const id = typeof resourceId === 'bigint' ? Number(resourceId) : resourceId
+    if (!pageId) return []
     const now = Date.now()
     return allPresence
       .filter((p) => {
-        if (p.resourceType.tag !== resourceType) return false
-        if (Number(p.resourceId) !== id) return false
+        if (p.resourceType.tag !== 'Page') return false
+        if (Number(p.resourceId) !== pageId) return false
         if (p.userId.toHexString() === myHex) return false
-        // Only show users seen in last 60 seconds
         try {
           const lastSeen = p.lastSeenAt.toDate?.()?.getTime() ?? 0
           if (now - lastSeen > 60_000) return false
@@ -72,7 +83,7 @@ export function useResourcePresence(resourceType: ResourceType, resourceId: bigi
           avatarUrl: emp?.avatarUrl ?? null,
         }
       })
-  }, [allPresence, resourceType, resourceId, myHex, employeeMap])
+  }, [allPresence, pageId, myHex, employeeMap])
 
-  return { presentUsers }
+  return { presentUsers, pageId }
 }

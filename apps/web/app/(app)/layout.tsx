@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
 import { PresenceBar } from "@/components/presence-bar"
+import { PagePresence } from "@/components/page-presence"
 import { NotificationPrompt } from "@/components/notification-prompt"
 import { CommandPalette } from "@/components/command-palette"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
@@ -37,6 +38,7 @@ const routeNames: Record<string, string> = {
   "/tickets": "Tickets",
   "/canvas": "Canvas",
   "/profile": "Profile",
+  "/analytics": "Analytics",
 }
 
 const fullScreenRoutes = ["/messages", "/tickets", "/canvas"]
@@ -77,7 +79,9 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-                <div className="ml-auto hidden md:block">
+                <div className="ml-auto hidden md:flex items-center gap-3">
+                  <PagePresence />
+                  <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
                   <PresenceBar />
                 </div>
               </header>

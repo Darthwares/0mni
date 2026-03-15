@@ -102,8 +102,10 @@ import {
   Check,
   GanttChart,
   ArrowLeft,
+  Download,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
+import { exportCSV } from '@/lib/csv-export'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -351,6 +353,44 @@ export default function TicketsPage() {
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#8b5cf6')
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
+
+  // List view sort
+  const [listSortField, setListSortField] = useState<'title' | 'status' | 'priority' | 'created' | 'sp' | null>(null)
+  const [listSortDir, setListSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const toggleListSort = useCallback((field: typeof listSortField) => {
+    if (listSortField === field) {
+      setListSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setListSortField(field)
+      setListSortDir('desc')
+    }
+  }, [listSortField])
+
+  const sortedFilteredTasks = useMemo(() => {
+    if (!listSortField) return filteredTasks
+    const priorityOrder = ['Urgent', 'High', 'Medium', 'Low']
+    const statusOrder = ['Blocked', 'Escalated', 'InProgress', 'SelfChecking', 'NeedsReview', 'Claimed', 'Unclaimed', 'Completed', 'Cancelled']
+    return [...filteredTasks].sort((a, b) => {
+      let cmp = 0
+      switch (listSortField) {
+        case 'title': cmp = a.title.localeCompare(b.title); break
+        case 'priority': cmp = priorityOrder.indexOf(a.priority.tag) - priorityOrder.indexOf(b.priority.tag); break
+        case 'status': cmp = statusOrder.indexOf(a.status.tag) - statusOrder.indexOf(b.status.tag); break
+        case 'created': {
+          try { cmp = a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime() } catch { cmp = 0 }
+          break
+        }
+        case 'sp': {
+          const spA = extensionMap.get(a.id.toString())?.storyPoints ?? 0
+          const spB = extensionMap.get(b.id.toString())?.storyPoints ?? 0
+          cmp = spA - spB
+          break
+        }
+      }
+      return listSortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filteredTasks, listSortField, listSortDir, extensionMap])
 
   // Create form state
   const [createStep, setCreateStep] = useState<'template' | 'form'>('template')
@@ -1214,28 +1254,69 @@ export default function TicketsPage() {
         {viewMode === 'list' && (
           <ScrollArea className="h-full">
             <div className="p-4 max-w-5xl mx-auto">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {sortedFilteredTasks.length} ticket{sortedFilteredTasks.length !== 1 ? 's' : ''}
+                </span>
+                {sortedFilteredTasks.length > 0 && (
+                  <button
+                    onClick={() => exportCSV('tickets', [
+                      { header: 'ID', accessor: (t: typeof sortedFilteredTasks[0]) => `T-${t.id}` },
+                      { header: 'Title', accessor: (t: typeof sortedFilteredTasks[0]) => t.title },
+                      { header: 'Status', accessor: (t: typeof sortedFilteredTasks[0]) => t.status?.tag ?? '' },
+                      { header: 'Priority', accessor: (t: typeof sortedFilteredTasks[0]) => t.priority?.tag ?? '' },
+                      { header: 'Type', accessor: (t: typeof sortedFilteredTasks[0]) => t.taskType?.tag ?? '' },
+                      { header: 'Assignee', accessor: (t: typeof sortedFilteredTasks[0]) => t.assignee ? (employeeMap.get(t.assignee.toHexString())?.name ?? 'Unknown') : 'Unassigned' },
+                      { header: 'Story Points', accessor: (t: typeof sortedFilteredTasks[0]) => extensionMap.get(t.id.toString())?.storyPoints ?? '' },
+                      { header: 'Created', accessor: (t: typeof sortedFilteredTasks[0]) => { try { return t.createdAt.toDate().toLocaleDateString() } catch { return '' } } },
+                      { header: 'Due', accessor: (t: typeof sortedFilteredTasks[0]) => { try { return t.dueAt?.toDate()?.toLocaleDateString() ?? '' } catch { return '' } } },
+                    ], sortedFilteredTasks)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Download className="size-3.5" />
+                    Export
+                  </button>
+                )}
+              </div>
               <div className="rounded-xl border overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
                       <th className="px-3 py-2.5 w-10">
                         <CheckboxUI
-                          checked={selectedTaskIds.size === filteredTasks.length && filteredTasks.length > 0}
+                          checked={selectedTaskIds.size === sortedFilteredTasks.length && sortedFilteredTasks.length > 0}
                           onCheckedChange={toggleAllSelection}
                           aria-label="Select all"
                         />
                       </th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Task</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-12">SP</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Epic</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Status</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Priority</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-28">Assignee</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Created</th>
+                      {[
+                        { key: 'title' as const, label: 'Task', width: '' },
+                        { key: 'sp' as const, label: 'SP', width: 'w-12' },
+                        { key: null, label: 'Epic', width: 'w-24' },
+                        { key: 'status' as const, label: 'Status', width: 'w-24' },
+                        { key: 'priority' as const, label: 'Priority', width: 'w-24' },
+                        { key: null, label: 'Assignee', width: 'w-28' },
+                        { key: 'created' as const, label: 'Created', width: 'w-24' },
+                      ].map(({ key, label, width }) => (
+                        <th
+                          key={label}
+                          className={`text-left px-4 py-2.5 font-medium text-muted-foreground ${width} ${key ? 'cursor-pointer hover:text-foreground select-none transition-colors' : ''}`}
+                          onClick={key ? () => toggleListSort(key) : undefined}
+                        >
+                          <span className="flex items-center gap-1">
+                            {label}
+                            {key && listSortField === key && (
+                              listSortDir === 'asc'
+                                ? <ChevronUp className="size-3" />
+                                : <ChevronDown className="size-3" />
+                            )}
+                          </span>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTasks.map((task) => {
+                    {sortedFilteredTasks.map((task) => {
                       const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
                       const isSelected = selectedTaskIds.has(task.id)
                       const ext = extensionMap.get(task.id.toString())

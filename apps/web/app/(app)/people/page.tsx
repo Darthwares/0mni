@@ -15,6 +15,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import { exportCSV } from '@/lib/csv-export'
+import { Button } from '@/components/ui/button'
 import {
   Users,
   Search,
@@ -27,6 +29,8 @@ import {
   Sparkles,
   Mail,
   ChevronRight,
+  Download,
+  ArrowUpDown,
 } from 'lucide-react'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -52,6 +56,8 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
 }
 
 type FilterTab = 'all' | 'humans' | 'ai'
+type StatusFilter = 'all' | 'Online' | 'Busy' | 'InCall' | 'Offline'
+type SortField = 'status' | 'name' | 'department' | 'role'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -292,7 +298,10 @@ export default function PeoplePage() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
   const [deptFilter, setDeptFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortField, setSortField] = useState<SortField>('status')
+  const [sortAsc, setSortAsc] = useState(true)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -331,11 +340,17 @@ export default function PeoplePage() {
     [tabFiltered, deptFilter]
   )
 
+  // Apply status filter
+  const statusFiltered = useMemo(
+    () => (statusFilter === 'all' ? deptFiltered : deptFiltered.filter((e) => e.status.tag === statusFilter)),
+    [deptFiltered, statusFilter]
+  )
+
   // Apply search
   const filtered = useMemo(() => {
-    if (!search.trim()) return deptFiltered
+    if (!search.trim()) return statusFiltered
     const q = search.toLowerCase()
-    return deptFiltered.filter((e) => {
+    return statusFiltered.filter((e) => {
       const skills: string[] = e.skills ?? []
       return (
         e.name.toLowerCase().includes(q) ||
@@ -345,18 +360,74 @@ export default function PeoplePage() {
         skills.some((s) => s.toLowerCase().includes(q))
       )
     })
-  }, [deptFiltered, search])
+  }, [statusFiltered, search])
 
-  // Sort: online first, then by name
+  // Sort with configurable field
   const sorted = useMemo(() => {
     const statusOrder: Record<string, number> = { Online: 0, Busy: 1, InCall: 2, Offline: 3 }
+    const dir = sortAsc ? 1 : -1
     return [...filtered].sort((a, b) => {
-      const sa = statusOrder[a.status.tag] ?? 3
-      const sb = statusOrder[b.status.tag] ?? 3
-      if (sa !== sb) return sa - sb
-      return a.name.localeCompare(b.name)
+      let cmp = 0
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'department':
+          cmp = a.department.tag.localeCompare(b.department.tag) || a.name.localeCompare(b.name)
+          break
+        case 'role':
+          cmp = a.role.localeCompare(b.role) || a.name.localeCompare(b.name)
+          break
+        case 'status':
+        default:
+          cmp = (statusOrder[a.status.tag] ?? 3) - (statusOrder[b.status.tag] ?? 3) || a.name.localeCompare(b.name)
+          break
+      }
+      return cmp * dir
     })
-  }, [filtered])
+  }, [filtered, sortField, sortAsc])
+
+  // Status counts for filter pills
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { Online: 0, Busy: 0, InCall: 0, Offline: 0 }
+    for (const e of deptFiltered) counts[e.status.tag] = (counts[e.status.tag] ?? 0) + 1
+    return counts
+  }, [deptFiltered])
+
+  // Department distribution for bar
+  const deptDistribution = useMemo(() => {
+    const DEPT_BAR_COLORS: Record<string, string> = {
+      Engineering: 'bg-blue-500', Sales: 'bg-emerald-500', Marketing: 'bg-purple-500',
+      Support: 'bg-amber-500', Design: 'bg-pink-500', HR: 'bg-teal-500',
+      Operations: 'bg-orange-500', Finance: 'bg-cyan-500', Legal: 'bg-rose-500',
+      Executive: 'bg-indigo-500',
+    }
+    return deptCounts.map(([dept, count]) => ({
+      dept, count, color: DEPT_BAR_COLORS[dept] ?? 'bg-neutral-400',
+      pct: totalCount > 0 ? (count / totalCount) * 100 : 0,
+    }))
+  }, [deptCounts, totalCount])
+
+  const handleExportCSV = () => {
+    exportCSV(
+      'people',
+      ['Name', 'Role', 'Email', 'Department', 'Status', 'Type', 'Skills'],
+      sorted.map((e) => [
+        e.name,
+        e.role,
+        e.email ?? '',
+        e.department.tag,
+        e.status.tag,
+        e.employeeType.tag === 'AiAgent' ? 'AI Agent' : 'Human',
+        (e.skills ?? []).join('; '),
+      ])
+    )
+  }
+
+  const handleSortToggle = (field: SortField) => {
+    if (sortField === field) setSortAsc(!sortAsc)
+    else { setSortField(field); setSortAsc(true) }
+  }
 
   // Stats
   const totalCount = orgEmployees.length
@@ -492,6 +563,24 @@ export default function PeoplePage() {
             />
           </div>
 
+          {/* Sort dropdown */}
+          <div className="relative group/sort shrink-0">
+            <button className="flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 h-9 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:border-neutral-300 transition-colors">
+              <ArrowUpDown className="size-3.5" />
+              {sortField === 'status' ? 'Status' : sortField === 'name' ? 'Name' : sortField === 'department' ? 'Dept' : 'Role'}
+              <span className="text-[10px] text-neutral-400">{sortAsc ? '↑' : '↓'}</span>
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg py-1 z-20 hidden group-hover/sort:block">
+              {([['status', 'Status'], ['name', 'Name'], ['department', 'Department'], ['role', 'Role']] as [SortField, string][]).map(([f, label]) => (
+                <button key={f} onClick={() => handleSortToggle(f)}
+                  className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${sortField === f ? 'text-teal-600 dark:text-teal-400 bg-teal-500/5' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}
+                >
+                  {label} {sortField === f && (sortAsc ? '↑' : '↓')}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* View toggle */}
           <div className="flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0.5 shrink-0">
             <button
@@ -515,6 +604,12 @@ export default function PeoplePage() {
               <List className="size-4" />
             </button>
           </div>
+
+          {/* CSV Export */}
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="shrink-0 h-9 gap-1.5 text-xs">
+            <Download className="size-3.5" />
+            Export
+          </Button>
         </div>
 
         {/* ── Filter Tabs ── */}
@@ -541,8 +636,27 @@ export default function PeoplePage() {
             ))}
           </div>
 
+          {/* Status filter pills */}
+          <div className="flex items-center gap-1">
+            {([['all', 'All', ''], ['Online', 'Online', 'bg-emerald-500'], ['Busy', 'Busy', 'bg-amber-500'], ['InCall', 'In Call', 'bg-blue-500'], ['Offline', 'Offline', 'bg-neutral-400']] as [StatusFilter, string, string][]).map(([key, label, dot]) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  statusFilter === key
+                    ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 border border-transparent'
+                }`}
+              >
+                {dot && <span className={`size-1.5 rounded-full ${dot}`} />}
+                {label}
+                {key !== 'all' && <span className="text-[10px] opacity-60">{statusCounts[key] ?? 0}</span>}
+              </button>
+            ))}
+          </div>
+
           {/* Result count */}
-          <span className="text-xs text-neutral-400 tabular-nums">
+          <span className="text-xs text-neutral-400 tabular-nums ml-auto">
             {sorted.length} {sorted.length === 1 ? 'person' : 'people'}
           </span>
         </div>
@@ -574,6 +688,25 @@ export default function PeoplePage() {
                 <span className="text-[10px] opacity-60">{count}</span>
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ── Department Distribution Bar ── */}
+        {deptDistribution.length > 1 && (
+          <div className="space-y-1.5">
+            <div className="flex h-2 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+              {deptDistribution.map(({ dept, pct, color }) => (
+                <div key={dept} className={`${color} transition-all`} style={{ width: `${Math.max(pct, 1)}%` }} title={`${dept}: ${pct.toFixed(0)}%`} />
+              ))}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              {deptDistribution.map(({ dept, count, color }) => (
+                <span key={dept} className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
+                  <span className={`size-2 rounded-full ${color}`} />
+                  {dept} ({count})
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

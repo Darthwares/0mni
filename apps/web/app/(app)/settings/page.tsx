@@ -48,6 +48,7 @@ import { useSpacetimeDB } from 'spacetimedb/react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 
 export default function SettingsPage() {
   const auth = useAuth()
@@ -268,7 +269,7 @@ export default function SettingsPage() {
               Settings
             </GradientText>
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your account and platform preferences</p>
+          <BlurText text="Manage your account and platform preferences" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
         </div>
       </div>
 

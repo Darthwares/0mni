@@ -13,6 +13,7 @@ import { PresenceBar } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import {
   Users,
   Search,
@@ -576,9 +577,7 @@ export default function OrgChartPage() {
               </GradientText>
             </h1>
           </div>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Visual hierarchy of your organization structure
-          </p>
+          <BlurText text="Visual hierarchy of your organization structure" delay={35} animateBy="words" className="text-sm text-neutral-500 dark:text-neutral-400" />
         </div>
 
         {/* Stats Row */}

@@ -82,6 +82,7 @@ import {
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import BlurText from '@/components/reactbits/BlurText'
 import { extractPreviewText, scrollToBlock, type HeadingItem } from '@/components/block-editor'
 
 // Dynamic imports for heavy editors
@@ -1174,6 +1175,7 @@ export default function CanvasPage() {
           <Badge variant="secondary" className="text-xs">
             {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
           </Badge>
+          <BlurText text="Collaborative documents and whiteboards" delay={35} animateBy="words" className="text-xs text-muted-foreground hidden lg:block" />
         </div>
 
         <div className="ml-auto flex items-center gap-2">

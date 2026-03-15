@@ -26,6 +26,7 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import ShinyText from '@/components/reactbits/ShinyText'
+import BlurText from '@/components/reactbits/BlurText'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -332,6 +333,7 @@ export default function TimeTrackingPage() {
                 Time Tracking
               </GradientText>
             </h1>
+            <BlurText text="Track hours and manage time entries" delay={35} animateBy="words" className="text-xs text-muted-foreground" />
           </div>
         </div>
         <div className="ml-auto">

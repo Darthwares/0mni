@@ -48,6 +48,7 @@ import AssignTicketReducer from "./assign_ticket_reducer";
 import CancelRequestReducer from "./cancel_request_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
+import CompleteInterviewReducer from "./complete_interview_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateAgentConfigReducer from "./create_agent_config_reducer";
 import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
@@ -66,6 +67,7 @@ import CreateEpicReducer from "./create_epic_reducer";
 import CreateExpenseReducer from "./create_expense_reducer";
 import CreateFormReducer from "./create_form_reducer";
 import CreateInvoiceReducer from "./create_invoice_reducer";
+import CreateJobPostingReducer from "./create_job_posting_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
@@ -83,6 +85,7 @@ import DeleteAgentConfigReducer from "./delete_agent_config_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
+import DeleteCandidateReducer from "./delete_candidate_reducer";
 import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
@@ -90,7 +93,9 @@ import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
+import DeleteInterviewReducer from "./delete_interview_reducer";
 import DeleteInvoiceReducer from "./delete_invoice_reducer";
+import DeleteJobPostingReducer from "./delete_job_posting_reducer";
 import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
@@ -141,6 +146,7 @@ import RequestCallReducer from "./request_call_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
 import SaveDocumentVersionReducer from "./save_document_version_reducer";
+import ScheduleInterviewReducer from "./schedule_interview_reducer";
 import SelectOrgReducer from "./select_org_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
@@ -172,6 +178,8 @@ import UnshareDocumentReducer from "./unshare_document_reducer";
 import UnwatchTaskReducer from "./unwatch_task_reducer";
 import UpdateAgentConfigReducer from "./update_agent_config_reducer";
 import UpdateCalEventReducer from "./update_cal_event_reducer";
+import UpdateCandidateReducer from "./update_candidate_reducer";
+import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
@@ -183,6 +191,7 @@ import UpdateFormReducer from "./update_form_reducer";
 import UpdateFormQuestionReducer from "./update_form_question_reducer";
 import UpdateFormStatusReducer from "./update_form_status_reducer";
 import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
+import UpdateJobPostingStatusReducer from "./update_job_posting_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
@@ -1046,6 +1055,7 @@ const reducersSchema = __reducers(
   __reducerSchema("cancel_request", CancelRequestReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
+  __reducerSchema("complete_interview", CompleteInterviewReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_agent_config", CreateAgentConfigReducer),
   __reducerSchema("create_agent_deployment", CreateAgentDeploymentReducer),
@@ -1064,6 +1074,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_expense", CreateExpenseReducer),
   __reducerSchema("create_form", CreateFormReducer),
   __reducerSchema("create_invoice", CreateInvoiceReducer),
+  __reducerSchema("create_job_posting", CreateJobPostingReducer),
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
@@ -1081,6 +1092,7 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
+  __reducerSchema("delete_candidate", DeleteCandidateReducer),
   __reducerSchema("delete_canned_response", DeleteCannedResponseReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
@@ -1088,7 +1100,9 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
+  __reducerSchema("delete_interview", DeleteInterviewReducer),
   __reducerSchema("delete_invoice", DeleteInvoiceReducer),
+  __reducerSchema("delete_job_posting", DeleteJobPostingReducer),
   __reducerSchema("delete_kb_article", DeleteKbArticleReducer),
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
@@ -1139,6 +1153,7 @@ const reducersSchema = __reducers(
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
   __reducerSchema("save_document_version", SaveDocumentVersionReducer),
+  __reducerSchema("schedule_interview", ScheduleInterviewReducer),
   __reducerSchema("select_org", SelectOrgReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
   __reducerSchema("send_message", SendMessageReducer),
@@ -1170,6 +1185,8 @@ const reducersSchema = __reducers(
   __reducerSchema("unwatch_task", UnwatchTaskReducer),
   __reducerSchema("update_agent_config", UpdateAgentConfigReducer),
   __reducerSchema("update_cal_event", UpdateCalEventReducer),
+  __reducerSchema("update_candidate", UpdateCandidateReducer),
+  __reducerSchema("update_candidate_status", UpdateCandidateStatusReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
@@ -1181,6 +1198,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_form_question", UpdateFormQuestionReducer),
   __reducerSchema("update_form_status", UpdateFormStatusReducer),
   __reducerSchema("update_invoice_status", UpdateInvoiceStatusReducer),
+  __reducerSchema("update_job_posting_status", UpdateJobPostingStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),

@@ -4292,6 +4292,205 @@ pub fn create_candidate(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_candidate_status(
+    ctx: &ReducerContext,
+    candidate_id: u64,
+    new_status: CandidateStatus,
+) -> Result<(), String> {
+    let candidate = ctx.db.candidate().id().find(&candidate_id)
+        .ok_or("Candidate not found")?;
+    require_org_access(ctx, candidate.org_id)?;
+    ctx.db.candidate().id().update(Candidate {
+        status: new_status,
+        ..candidate
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_candidate(
+    ctx: &ReducerContext,
+    candidate_id: u64,
+    name: String,
+    email: String,
+    phone: Option<String>,
+    linkedin_url: Option<String>,
+    github_url: Option<String>,
+    resume_url: Option<String>,
+    current_company: Option<String>,
+    current_title: Option<String>,
+    skills: Vec<String>,
+    experience_years: Option<f32>,
+) -> Result<(), String> {
+    let candidate = ctx.db.candidate().id().find(&candidate_id)
+        .ok_or("Candidate not found")?;
+    require_org_access(ctx, candidate.org_id)?;
+    ctx.db.candidate().id().update(Candidate {
+        name,
+        email,
+        phone,
+        linkedin_url,
+        github_url,
+        resume_url,
+        current_company,
+        current_title,
+        skills,
+        experience_years,
+        ..candidate
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_candidate(
+    ctx: &ReducerContext,
+    candidate_id: u64,
+) -> Result<(), String> {
+    let candidate = ctx.db.candidate().id().find(&candidate_id)
+        .ok_or("Candidate not found")?;
+    require_org_access(ctx, candidate.org_id)?;
+    // Delete associated interviews
+    let interview_ids: Vec<u64> = ctx.db.interview().iter()
+        .filter(|i| i.candidate_id == candidate_id)
+        .map(|i| i.id)
+        .collect();
+    for iid in interview_ids {
+        ctx.db.interview().id().delete(&iid);
+    }
+    ctx.db.candidate().id().delete(&candidate_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn create_job_posting(
+    ctx: &ReducerContext,
+    org_id: u64,
+    title: String,
+    description: String,
+    department: Department,
+    location: Option<String>,
+    requirements: Vec<String>,
+    nice_to_have: Vec<String>,
+    ai_sourcing_enabled: bool,
+    ideal_candidate_profile: Option<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    if title.trim().is_empty() {
+        return Err("Job title cannot be empty".to_string());
+    }
+    ctx.db.job_posting().insert(JobPosting {
+        id: 0,
+        org_id,
+        title,
+        description,
+        department,
+        location,
+        requirements,
+        nice_to_have,
+        status: JobStatus::Draft,
+        ai_sourcing_enabled,
+        ideal_candidate_profile,
+        posted_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_job_posting_status(
+    ctx: &ReducerContext,
+    job_id: u64,
+    new_status: JobStatus,
+) -> Result<(), String> {
+    let job = ctx.db.job_posting().id().find(&job_id)
+        .ok_or("Job posting not found")?;
+    require_org_access(ctx, job.org_id)?;
+    ctx.db.job_posting().id().update(JobPosting {
+        status: new_status,
+        ..job
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_job_posting(
+    ctx: &ReducerContext,
+    job_id: u64,
+) -> Result<(), String> {
+    let job = ctx.db.job_posting().id().find(&job_id)
+        .ok_or("Job posting not found")?;
+    require_org_access(ctx, job.org_id)?;
+    ctx.db.job_posting().id().delete(&job_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn schedule_interview(
+    ctx: &ReducerContext,
+    org_id: u64,
+    candidate_id: u64,
+    job_posting_id: u64,
+    interview_type: InterviewType,
+    scheduled_at: Timestamp,
+    duration_minutes: u32,
+    interviewers: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    // Verify candidate and job exist
+    ctx.db.candidate().id().find(&candidate_id)
+        .ok_or("Candidate not found")?;
+    ctx.db.job_posting().id().find(&job_posting_id)
+        .ok_or("Job posting not found")?;
+    ctx.db.interview().insert(Interview {
+        id: 0,
+        org_id,
+        candidate_id,
+        job_posting_id,
+        interview_type,
+        scheduled_at,
+        duration_minutes,
+        interviewers,
+        meeting_id: None,
+        completed: false,
+        notes: None,
+        ai_transcript: None,
+        ai_summary: None,
+        recommendation: None,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn complete_interview(
+    ctx: &ReducerContext,
+    interview_id: u64,
+    notes: Option<String>,
+    recommendation: Option<Recommendation>,
+) -> Result<(), String> {
+    let interview = ctx.db.interview().id().find(&interview_id)
+        .ok_or("Interview not found")?;
+    require_org_access(ctx, interview.org_id)?;
+    ctx.db.interview().id().update(Interview {
+        completed: true,
+        notes,
+        recommendation,
+        ..interview
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_interview(
+    ctx: &ReducerContext,
+    interview_id: u64,
+) -> Result<(), String> {
+    let interview = ctx.db.interview().id().find(&interview_id)
+        .ok_or("Interview not found")?;
+    require_org_access(ctx, interview.org_id)?;
+    ctx.db.interview().id().delete(&interview_id);
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - DOCUMENT VERSIONS
 // ============================================================================

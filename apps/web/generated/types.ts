@@ -599,6 +599,46 @@ export const EventCategory = __t.enum("EventCategory", {
 });
 export type EventCategory = __Infer<typeof EventCategory>;
 
+export const Expense = __t.object("Expense", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  description: __t.string(),
+  amountCents: __t.u64(),
+  get category() {
+    return ExpenseCategory;
+  },
+  get status() {
+    return ExpenseStatus;
+  },
+  expenseDate: __t.timestamp(),
+  hasReceipt: __t.bool(),
+  submitter: __t.identity(),
+  notes: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type Expense = __Infer<typeof Expense>;
+
+// The tagged union or sum type for the algebraic type `ExpenseCategory`.
+export const ExpenseCategory = __t.enum("ExpenseCategory", {
+  Travel: __t.unit(),
+  Meals: __t.unit(),
+  Software: __t.unit(),
+  Office: __t.unit(),
+  Equipment: __t.unit(),
+  Training: __t.unit(),
+  Other: __t.unit(),
+});
+export type ExpenseCategory = __Infer<typeof ExpenseCategory>;
+
+// The tagged union or sum type for the algebraic type `ExpenseStatus`.
+export const ExpenseStatus = __t.enum("ExpenseStatus", {
+  Pending: __t.unit(),
+  Approved: __t.unit(),
+  Rejected: __t.unit(),
+  Reimbursed: __t.unit(),
+});
+export type ExpenseStatus = __Infer<typeof ExpenseStatus>;
+
 export const FormAnswer = __t.object("FormAnswer", {
   id: __t.u64(),
   responseId: __t.u64(),

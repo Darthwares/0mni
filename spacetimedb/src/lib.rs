@@ -1145,6 +1145,29 @@ pub enum DocumentVisibility {
 }
 
 // ============================================================================
+// DOCUMENT STATUS (lifecycle workflow)
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum DocLifecycleStatus {
+    Draft,
+    InReview,
+    Published,
+    Archived,
+}
+
+#[spacetimedb::table(accessor = document_lifecycle, public)]
+#[derive(Clone)]
+pub struct DocumentLifecycle {
+    #[primary_key]
+    pub document_id: u64,
+    pub org_id: u64,
+    pub status: DocLifecycleStatus,
+    pub changed_by: Identity,
+    pub changed_at: Timestamp,
+}
+
+// ============================================================================
 // TASK WATCHERS (follow/watch)
 // ============================================================================
 
@@ -5255,6 +5278,39 @@ pub fn resolve_document_comment(ctx: &ReducerContext, comment_id: u64) -> Result
         updated_at: ctx.timestamp,
         ..comment
     });
+    Ok(())
+}
+
+// ============================================================================
+// REDUCERS - DOCUMENT LIFECYCLE
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn set_document_lifecycle(
+    ctx: &ReducerContext, document_id: u64, status: DocLifecycleStatus,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    require_org_access(ctx, doc.org_id)?;
+    let who = ctx.sender();
+    let now = ctx.timestamp;
+
+    if let Some(existing) = ctx.db.document_lifecycle().document_id().find(&document_id) {
+        ctx.db.document_lifecycle().document_id().update(DocumentLifecycle {
+            status,
+            changed_by: who,
+            changed_at: now,
+            ..existing
+        });
+    } else {
+        ctx.db.document_lifecycle().insert(DocumentLifecycle {
+            document_id,
+            org_id: doc.org_id,
+            status,
+            changed_by: who,
+            changed_at: now,
+        });
+    }
     Ok(())
 }
 

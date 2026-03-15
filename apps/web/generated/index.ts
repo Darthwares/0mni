@@ -181,6 +181,7 @@ import SendAudioFrameReducer from "./send_audio_frame_reducer";
 import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
+import SetDocumentLifecycleReducer from "./set_document_lifecycle_reducer";
 import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
 import SetEmailLabelReducer from "./set_email_label_reducer";
 import SetResourcePresenceReducer from "./set_resource_presence_reducer";
@@ -278,6 +279,7 @@ import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
 import DocumentCommentRow from "./document_comment_table";
 import DocumentFavoriteRow from "./document_favorite_table";
+import DocumentLifecycleRow from "./document_lifecycle_table";
 import DocumentPinRow from "./document_pin_table";
 import DocumentTagRow from "./document_tag_table";
 import DocumentVersionRow from "./document_version_table";
@@ -584,6 +586,17 @@ const tablesSchema = __schema({
       { name: 'document_favorite_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentFavoriteRow),
+  document_lifecycle: __table({
+    name: 'document_lifecycle',
+    indexes: [
+      { name: 'document_id', algorithm: 'btree', columns: [
+        'documentId',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_lifecycle_document_id_key', constraint: 'unique', columns: ['documentId'] },
+    ],
+  }, DocumentLifecycleRow),
   document_pin: __table({
     name: 'document_pin',
     indexes: [
@@ -1326,6 +1339,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_message", SendMessageReducer),
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
+  __reducerSchema("set_document_lifecycle", SetDocumentLifecycleReducer),
   __reducerSchema("set_document_visibility", SetDocumentVisibilityReducer),
   __reducerSchema("set_email_label", SetEmailLabelReducer),
   __reducerSchema("set_resource_presence", SetResourcePresenceReducer),

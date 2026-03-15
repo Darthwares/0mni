@@ -85,6 +85,8 @@ import {
   CopyPlus,
   Tag,
   X,
+  Archive,
+  CircleDot,
   type LucideIcon,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
@@ -377,6 +379,7 @@ export default function CanvasPage() {
   const allDocTags = useTable(tables.document_tag) ?? []
   const allDocPins = useTable(tables.document_pin) ?? []
   const allDocComments = useTable(tables.document_comment) ?? []
+  const [allDocLifecycles] = useTable(tables.document_lifecycle)
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -399,6 +402,7 @@ export default function CanvasPage() {
   const editDocumentComment = useReducer(reducers.editDocumentComment)
   const deleteDocumentComment = useReducer(reducers.deleteDocumentComment)
   const resolveDocumentComment = useReducer(reducers.resolveDocumentComment)
+  const setDocumentLifecycle = useReducer(reducers.setDocumentLifecycle)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -425,6 +429,7 @@ export default function CanvasPage() {
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareDocId, setShareDocId] = useState<bigint | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'documents' | 'whiteboards' | 'starred'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'inReview' | 'published' | 'archived'>('all')
   const [showToc, setShowToc] = useState(false)
   const [headings, setHeadings] = useState<HeadingItem[]>([])
   const [fullWidth, setFullWidth] = useState(false)
@@ -483,6 +488,19 @@ export default function CanvasPage() {
     return map
   }, [allDocTags])
 
+  // Document lifecycle status map
+  const docLifecycleMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const lc of allDocLifecycles) {
+      map.set(lc.documentId.toString(), lc.status.tag)
+    }
+    return map
+  }, [allDocLifecycles])
+
+  const getDocStatus = useCallback((docId: bigint) => {
+    return docLifecycleMap.get(docId.toString()) ?? 'Draft'
+  }, [docLifecycleMap])
+
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
 
@@ -534,7 +552,7 @@ export default function CanvasPage() {
     let items = canvasDocuments.filter((d) => parentIdMatches(d.parentId, currentFolderId))
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
-      items = items.filter((d) => d.title.toLowerCase().includes(q))
+      items = items.filter((d) => d.title.toLowerCase().includes(q) || extractPreviewText(d.content, 500).toLowerCase().includes(q))
     }
     // Sort: folders first, then by updatedAt descending
     return items.sort((a, b) => {
@@ -593,6 +611,12 @@ export default function CanvasPage() {
     if (listFilter === 'documents') items = items.filter((d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Folder')
     else if (listFilter === 'whiteboards') items = items.filter((d) => d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder')
     else if (listFilter === 'starred') items = items.filter((d) => starredIds.has(d.id))
+    // Status filter
+    if (statusFilter !== 'all') {
+      const statusMap: Record<string, string> = { draft: 'Draft', inReview: 'InReview', published: 'Published', archived: 'Archived' }
+      const target = statusMap[statusFilter]
+      items = items.filter((d) => d.docType.tag === 'Folder' || getDocStatus(d.id) === target)
+    }
     // Sort: pinned first, then by updated_at desc
     return [...items].sort((a, b) => {
       const aPin = pinnedIds.has(a.id) ? 0 : 1
@@ -600,7 +624,7 @@ export default function CanvasPage() {
       if (aPin !== bPin) return aPin - bPin
       return 0 // preserve existing sort
     })
-  }, [filteredDocuments, listFilter, starredIds, pinnedIds])
+  }, [filteredDocuments, listFilter, statusFilter, starredIds, pinnedIds, getDocStatus])
 
   // Last edited by name
   const lastEditedByName = useMemo(() => {
@@ -908,6 +932,42 @@ export default function CanvasPage() {
             <Badge variant="outline" className="text-[10px] shrink-0">
               {isWhiteboard ? 'Whiteboard' : 'Document'}
             </Badge>
+            {!isWhiteboard && (() => {
+              const status = getDocStatus(activeDoc.id)
+              const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
+                Draft: { label: 'Draft', color: 'text-zinc-500', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20' },
+                InReview: { label: 'In Review', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                Published: { label: 'Published', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+                Archived: { label: 'Archived', color: 'text-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/20' },
+              }
+              const cfg = statusConfig[status] ?? statusConfig.Draft
+              return (
+                <div className="relative group/status">
+                  <button className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all hover:ring-1 hover:ring-primary/20 ${cfg.color} ${cfg.bg} ${cfg.border}`}>
+                    <CircleDot className="size-2.5" />
+                    {cfg.label}
+                  </button>
+                  <div className="absolute top-full left-0 mt-1 z-50 hidden group-hover/status:block">
+                    <div className="bg-popover border rounded-lg shadow-lg p-1 min-w-[120px]">
+                      {(['Draft', 'InReview', 'Published', 'Archived'] as const).map((s) => {
+                        const sc = statusConfig[s]
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => setDocumentLifecycle({ documentId: activeDoc.id, status: { tag: s } as any })}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors ${status === s ? 'bg-muted' : ''}`}
+                          >
+                            <CircleDot className={`size-3 ${sc.color}`} />
+                            <span>{sc.label}</span>
+                            {status === s && <Check className="size-3 ml-auto text-primary" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <PresenceAvatars users={canvasPresence} size="sm" label="Also here:" />
@@ -1483,7 +1543,7 @@ export default function CanvasPage() {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search canvases..."
+              placeholder="Search titles &amp; content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8 w-52 text-sm"
@@ -1608,6 +1668,27 @@ export default function CanvasPage() {
                   )}
                 </button>
               ))}
+              <Separator orientation="vertical" className="h-4 mx-1" />
+              {([
+                { id: 'all' as const, label: 'All Status' },
+                { id: 'draft' as const, label: 'Draft', color: 'text-zinc-500' },
+                { id: 'inReview' as const, label: 'In Review', color: 'text-amber-500' },
+                { id: 'published' as const, label: 'Published', color: 'text-emerald-500' },
+                { id: 'archived' as const, label: 'Archived', color: 'text-slate-400' },
+              ]).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setStatusFilter(f.id)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${
+                    statusFilter === f.id
+                      ? 'bg-violet-500/15 text-violet-400 ring-1 ring-violet-500/30'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {f.id !== 'all' && <CircleDot className={`size-2.5 ${f.color}`} />}
+                  {f.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -1653,6 +1734,7 @@ export default function CanvasPage() {
                   starred={starredIds.has(doc.id)}
                   pinned={pinnedIds.has(doc.id)}
                   tags={docTagsMap.get(doc.id.toString()) ?? []}
+                  status={getDocStatus(doc.id)}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
@@ -1685,6 +1767,7 @@ export default function CanvasPage() {
                   starred={starredIds.has(doc.id)}
                   pinned={pinnedIds.has(doc.id)}
                   tags={docTagsMap.get(doc.id.toString()) ?? []}
+                  status={getDocStatus(doc.id)}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType.tag === 'Folder') {
@@ -1975,6 +2058,7 @@ function CanvasCard({
   starred,
   pinned,
   tags,
+  status,
   onToggleStar,
   onOpen,
   onDelete,
@@ -1988,6 +2072,7 @@ function CanvasCard({
   starred: boolean
   pinned: boolean
   tags: string[]
+  status: string
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
@@ -2076,6 +2161,19 @@ function CanvasCard({
         {starred && <Star className="size-3.5 text-amber-400 fill-amber-400" />}
         {pinned && <Pin className="size-3.5 text-blue-500" />}
       </div>
+
+      {/* Status badge */}
+      {!isFolder && status !== 'Draft' && (
+        <div className={`absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border backdrop-blur-sm ${
+          status === 'InReview' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' :
+          status === 'Published' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' :
+          status === 'Archived' ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
+          'text-zinc-500 bg-zinc-500/10 border-zinc-500/20'
+        }`}>
+          <CircleDot className="size-2" />
+          {status === 'InReview' ? 'Review' : status}
+        </div>
+      )}
 
       {/* Tags */}
       {tags.length > 0 && (
@@ -2173,6 +2271,7 @@ function CanvasListItem({
   starred,
   pinned,
   tags,
+  status,
   onToggleStar,
   onOpen,
   onDelete,
@@ -2186,6 +2285,7 @@ function CanvasListItem({
   starred: boolean
   pinned: boolean
   tags: string[]
+  status: string
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
@@ -2223,6 +2323,17 @@ function CanvasListItem({
           <h3 className="text-sm font-semibold truncate">{doc.title}</h3>
           {isFolder && (
             <ChevronRight className="size-3.5 text-muted-foreground" />
+          )}
+          {!isFolder && status !== 'Draft' && (
+            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium border shrink-0 ${
+              status === 'InReview' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' :
+              status === 'Published' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' :
+              status === 'Archived' ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
+              'text-zinc-500 bg-zinc-500/10 border-zinc-500/20'
+            }`}>
+              <CircleDot className="size-2" />
+              {status === 'InReview' ? 'Review' : status}
+            </span>
           )}
         </div>
         <p className="text-[11px] text-muted-foreground">

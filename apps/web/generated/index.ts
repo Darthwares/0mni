@@ -35,14 +35,18 @@ import {
 
 // Import all reducer arg schemas
 import AcceptCallReducer from "./accept_call_reducer";
+import AddApprovalCommentReducer from "./add_approval_comment_reducer";
 import AddFormQuestionReducer from "./add_form_question_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ApproveMembershipReducer from "./approve_membership_reducer";
+import ApproveRequestReducer from "./approve_request_reducer";
 import ArchiveEmailReducer from "./archive_email_reducer";
+import CancelRequestReducer from "./cancel_request_reducer";
 import ClaimTaskReducer from "./claim_task_reducer";
 import ClearResourcePresenceReducer from "./clear_resource_presence_reducer";
 import CompleteTaskWithVerificationReducer from "./complete_task_with_verification_reducer";
 import CreateAgentDeploymentReducer from "./create_agent_deployment_reducer";
+import CreateApprovalRequestReducer from "./create_approval_request_reducer";
 import CreateCalEventReducer from "./create_cal_event_reducer";
 import CreateCandidateReducer from "./create_candidate_reducer";
 import CreateChannelReducer from "./create_channel_reducer";
@@ -63,6 +67,7 @@ import CreateSprintReducer from "./create_sprint_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
+import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
 import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
@@ -98,6 +103,7 @@ import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinMessageReducer from "./pin_message_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
+import RejectRequestReducer from "./reject_request_reducer";
 import RemoveFormQuestionReducer from "./remove_form_question_reducer";
 import RemoveReactionReducer from "./remove_reaction_reducer";
 import RequestCallReducer from "./request_call_reducer";
@@ -154,6 +160,8 @@ import WatchTaskReducer from "./watch_task_reducer";
 import ActivityLogRow from "./activity_log_table";
 import AgentThoughtEventRow from "./agent_thought_event_table";
 import AiAgentDeploymentRow from "./ai_agent_deployment_table";
+import ApprovalCommentRow from "./approval_comment_table";
+import ApprovalRequestRow from "./approval_request_table";
 import AudioFrameEventRow from "./audio_frame_event_table";
 import BugRow from "./bug_table";
 import CalEventRow from "./cal_event_table";
@@ -239,6 +247,28 @@ const tablesSchema = __schema({
       { name: 'ai_agent_deployment_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, AiAgentDeploymentRow),
+  approval_comment: __table({
+    name: 'approval_comment',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'approval_comment_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ApprovalCommentRow),
+  approval_request: __table({
+    name: 'approval_request',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'approval_request_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ApprovalRequestRow),
   audio_frame_event: __table({
     name: 'audio_frame_event',
     indexes: [
@@ -788,14 +818,18 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_call", AcceptCallReducer),
+  __reducerSchema("add_approval_comment", AddApprovalCommentReducer),
   __reducerSchema("add_form_question", AddFormQuestionReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("approve_membership", ApproveMembershipReducer),
+  __reducerSchema("approve_request", ApproveRequestReducer),
   __reducerSchema("archive_email", ArchiveEmailReducer),
+  __reducerSchema("cancel_request", CancelRequestReducer),
   __reducerSchema("claim_task", ClaimTaskReducer),
   __reducerSchema("clear_resource_presence", ClearResourcePresenceReducer),
   __reducerSchema("complete_task_with_verification", CompleteTaskWithVerificationReducer),
   __reducerSchema("create_agent_deployment", CreateAgentDeploymentReducer),
+  __reducerSchema("create_approval_request", CreateApprovalRequestReducer),
   __reducerSchema("create_cal_event", CreateCalEventReducer),
   __reducerSchema("create_candidate", CreateCandidateReducer),
   __reducerSchema("create_channel", CreateChannelReducer),
@@ -816,6 +850,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
+  __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
   __reducerSchema("delete_cal_event", DeleteCalEventReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
@@ -851,6 +886,7 @@ const reducersSchema = __reducers(
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
+  __reducerSchema("reject_request", RejectRequestReducer),
   __reducerSchema("remove_form_question", RemoveFormQuestionReducer),
   __reducerSchema("remove_reaction", RemoveReactionReducer),
   __reducerSchema("request_call", RequestCallReducer),

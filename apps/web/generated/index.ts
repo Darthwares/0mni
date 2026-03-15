@@ -131,6 +131,7 @@ import DuplicateWorkflowReducer from "./duplicate_workflow_reducer";
 import EditMessageReducer from "./edit_message_reducer";
 import EndCallReducer from "./end_call_reducer";
 import EscalateTaskReducer from "./escalate_task_reducer";
+import EscalateTicketReducer from "./escalate_ticket_reducer";
 import FavoriteDocumentReducer from "./favorite_document_reducer";
 import GenerateInviteLinkReducer from "./generate_invite_link_reducer";
 import IncrementKbArticleViewsReducer from "./increment_kb_article_views_reducer";
@@ -201,6 +202,7 @@ import UpdateCandidateReducer from "./update_candidate_reducer";
 import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
+import UpdateCustomerReducer from "./update_customer_reducer";
 import UpdateDealStageReducer from "./update_deal_stage_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
@@ -1197,6 +1199,7 @@ const reducersSchema = __reducers(
   __reducerSchema("edit_message", EditMessageReducer),
   __reducerSchema("end_call", EndCallReducer),
   __reducerSchema("escalate_task", EscalateTaskReducer),
+  __reducerSchema("escalate_ticket", EscalateTicketReducer),
   __reducerSchema("favorite_document", FavoriteDocumentReducer),
   __reducerSchema("generate_invite_link", GenerateInviteLinkReducer),
   __reducerSchema("increment_kb_article_views", IncrementKbArticleViewsReducer),
@@ -1267,6 +1270,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_candidate_status", UpdateCandidateStatusReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),
+  __reducerSchema("update_customer", UpdateCustomerReducer),
   __reducerSchema("update_deal_stage", UpdateDealStageReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),

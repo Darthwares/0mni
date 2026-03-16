@@ -135,6 +135,7 @@ function MeetingStatusBadge({ tag }: { tag: string }) {
 // ---- Channels Tab ----
 
 function ChannelsTab() {
+  const { currentOrgId } = useOrg()
   const [allChannels] = useTable(tables.channel)
   const [allMessages] = useTable(tables.message)
   const [selectedChannelId, setSelectedChannelId] = useState<bigint | null>(null)
@@ -142,9 +143,14 @@ function ChannelsTab() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sendMessage = useSpacetimeReducer(reducers.sendMessage)
 
+  const orgChannels = useMemo(
+    () => allChannels.filter(c => Number(c.orgId) === currentOrgId),
+    [allChannels, currentOrgId]
+  )
+
   const channels = useMemo(
-    () => [...allChannels].sort((a, b) => a.name.localeCompare(b.name)),
-    [allChannels]
+    () => [...orgChannels].sort((a, b) => a.name.localeCompare(b.name)),
+    [orgChannels]
   )
 
   const selectedChannel = useMemo(
@@ -367,13 +373,19 @@ function ChannelsTab() {
 // ---- Documents Tab ----
 
 function DocumentsTab() {
+  const { currentOrgId } = useOrg()
   const [allDocuments] = useTable(tables.document)
   const [docSearch, setDocSearch] = useState('')
   const [docTypeFilter, setDocTypeFilter] = useState<string>('all')
 
+  const orgDocuments = useMemo(
+    () => allDocuments.filter(d => Number(d.orgId) === currentOrgId),
+    [allDocuments, currentOrgId]
+  )
+
   const documents = useMemo(
-    () => [...allDocuments].sort((a, b) => Number(b.updatedAt.toMillis()) - Number(a.updatedAt.toMillis())),
-    [allDocuments]
+    () => [...orgDocuments].sort((a, b) => Number(b.updatedAt.toMillis()) - Number(a.updatedAt.toMillis())),
+    [orgDocuments]
   )
 
   const filteredDocs = useMemo(() => {

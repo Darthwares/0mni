@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -28,6 +28,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -42,6 +47,10 @@ import {
   Check,
   X,
   HelpCircle,
+  Search,
+  Download,
+  AlertTriangle,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -50,6 +59,7 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import { exportCSV } from '@/lib/csv-export'
 
 // ── Types ──────────────────────────────────────
 type EventCategoryKey = 'Meeting' | 'Deadline' | 'Interview' | 'Standup' | 'Review' | 'Personal' | 'Other'
@@ -135,6 +145,70 @@ function dateToTimestamp(d: Date): bigint {
   return BigInt(d.getTime()) * 1000n
 }
 
+/** Check if two time ranges overlap */
+function hasTimeConflict(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+  return aStart < bEnd && aEnd > bStart
+}
+
+/** Get event position in a time grid (top % and height %) */
+function getEventGridPosition(event: { start: Date; end: Date }, dayStart: Date) {
+  const dayMs = 24 * 60 * 60 * 1000
+  const startMs = Math.max(0, event.start.getTime() - dayStart.getTime())
+  const endMs = Math.min(dayMs, event.end.getTime() - dayStart.getTime())
+  const top = (startMs / dayMs) * 100
+  const height = Math.max(((endMs - startMs) / dayMs) * 100, 2) // min 2% for visibility
+  return { top, height }
+}
+
+/** Resolve overlapping events into columns */
+function resolveOverlaps<T extends { start: Date; end: Date }>(events: T[]): (T & { column: number; totalColumns: number })[] {
+  if (events.length === 0) return []
+  const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime())
+  const groups: T[][] = []
+  let currentGroup: T[] = [sorted[0]]
+  let groupEnd = sorted[0].end.getTime()
+
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].start.getTime() < groupEnd) {
+      currentGroup.push(sorted[i])
+      groupEnd = Math.max(groupEnd, sorted[i].end.getTime())
+    } else {
+      groups.push(currentGroup)
+      currentGroup = [sorted[i]]
+      groupEnd = sorted[i].end.getTime()
+    }
+  }
+  groups.push(currentGroup)
+
+  const result: (T & { column: number; totalColumns: number })[] = []
+  for (const group of groups) {
+    const columns: Date[][] = []
+    for (const evt of group) {
+      let placed = false
+      for (let c = 0; c < columns.length; c++) {
+        const lastEnd = columns[c][columns[c].length - 1]
+        if (evt.start.getTime() >= lastEnd.getTime()) {
+          columns[c].push(evt.end)
+          result.push({ ...evt, column: c, totalColumns: 0 })
+          placed = true
+          break
+        }
+      }
+      if (!placed) {
+        columns.push([evt.end])
+        result.push({ ...evt, column: columns.length - 1, totalColumns: 0 })
+      }
+    }
+    const totalCols = columns.length
+    for (const r of result) {
+      if (group.includes(r as any)) {
+        r.totalColumns = totalCols
+      }
+    }
+  }
+  return result
+}
+
 // ── Component ──────────────────────────────────
 export default function CalendarPage() {
   const { currentOrgId } = useOrg()
@@ -169,6 +243,7 @@ export default function CalendarPage() {
   const [view, setView] = useState<CalendarView>('month')
   const [selectedEventId, setSelectedEventId] = useState<bigint | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [activeCategories, setActiveCategories] = useState<Set<EventCategoryKey>>(
     new Set(Object.keys(CATEGORY_CONFIG) as EventCategoryKey[])
   )
@@ -200,6 +275,18 @@ export default function CalendarPage() {
   // Attendee invite state
   const [attendeeSearch, setAttendeeSearch] = useState('')
 
+  // Refs
+  const weekScrollRef = useRef<HTMLDivElement>(null)
+  const dayScrollRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to 8am on view change
+  useEffect(() => {
+    const HOUR_HEIGHT = 56
+    const scrollTo = 8 * HOUR_HEIGHT
+    weekScrollRef.current?.scrollTo({ top: scrollTo, behavior: 'smooth' })
+    dayScrollRef.current?.scrollTo({ top: scrollTo, behavior: 'smooth' })
+  }, [view])
+
   // Helper: get attendees for an event
   const getEventAttendees = useCallback((eventId: bigint) => {
     return allAttendees.filter(a => a.eventId === eventId)
@@ -225,10 +312,20 @@ export default function CalendarPage() {
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate])
   const hours = useMemo(() => getHours(), [])
 
-  const filteredEvents = useMemo(
-    () => events.filter(e => activeCategories.has(e.cat)),
-    [events, activeCategories]
-  )
+  // Filtered by category + search
+  const filteredEvents = useMemo(() => {
+    let filtered = events.filter(e => activeCategories.has(e.cat))
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        e =>
+          e.title.toLowerCase().includes(q) ||
+          (e.description?.toLowerCase().includes(q) ?? false) ||
+          (e.location?.toLowerCase().includes(q) ?? false)
+      )
+    }
+    return filtered
+  }, [events, activeCategories, searchQuery])
 
   const eventsForDay = useCallback(
     (date: Date) => filteredEvents.filter(e => isSameDay(e.start, date)),
@@ -245,7 +342,56 @@ export default function CalendarPage() {
     return filteredEvents.filter(e => e.start >= weekStart && e.start < weekEnd)
   }, [filteredEvents])
 
+  // Upcoming events (next 7 days, excluding today)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date()
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const weekOut = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 8)
+    return filteredEvents
+      .filter(e => e.start >= tomorrow && e.start < weekOut)
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+      .slice(0, 8)
+  }, [filteredEvents])
+
+  // Conflict detection for create/edit forms
+  const createConflicts = useMemo(() => {
+    if (!newDate || newAllDay) return []
+    const [y, m, d] = newDate.split('-').map(Number)
+    const [sh, sm] = newStartTime.split(':').map(Number)
+    const [eh, em] = newEndTime.split(':').map(Number)
+    const start = new Date(y, m - 1, d, sh, sm)
+    const end = new Date(y, m - 1, d, eh, em)
+    return events.filter(e => !e.allDay && hasTimeConflict(start, end, e.start, e.end))
+  }, [newDate, newStartTime, newEndTime, newAllDay, events])
+
+  const editConflicts = useMemo(() => {
+    if (!editDate || editAllDay || editId === null) return []
+    const [y, m, d] = editDate.split('-').map(Number)
+    const [sh, sm] = editStartTime.split(':').map(Number)
+    const [eh, em] = editEndTime.split(':').map(Number)
+    const start = new Date(y, m - 1, d, sh, sm)
+    const end = new Date(y, m - 1, d, eh, em)
+    return events.filter(e => e.id !== editId && !e.allDay && hasTimeConflict(start, end, e.start, e.end))
+  }, [editDate, editStartTime, editEndTime, editAllDay, editId, events])
+
   const selectedEvent = selectedEventId !== null ? events.find(e => e.id === selectedEventId) ?? null : null
+
+  // Stats
+  const stats = useMemo(() => {
+    const meetings = todaysEvents.filter(e => e.cat === 'Meeting').length
+    const deadlines = filteredEvents.filter(e => {
+      const now = new Date()
+      const weekOut = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)
+      return e.cat === 'Deadline' && e.start >= now && e.start < weekOut
+    }).length
+    const virtualCount = thisWeekEvents.filter(e => e.isVirtual).length
+    return [
+      { label: "Today's Events", value: todaysEvents.length, color: '#3b82f6' },
+      { label: 'Meetings Today', value: meetings, color: '#8b5cf6' },
+      { label: 'Upcoming Deadlines', value: deadlines, color: '#ef4444' },
+      { label: 'Virtual This Week', value: virtualCount, color: '#22c55e' },
+    ]
+  }, [todaysEvents, filteredEvents, thisWeekEvents])
 
   const navigate = (direction: -1 | 1) => {
     const next = new Date(currentDate)
@@ -359,12 +505,21 @@ export default function CalendarPage() {
     setShowCreateDialog(true)
   }
 
-  // ── Stats ────────────────────────────────────
-  const stats = [
-    { label: "Today's Events", value: todaysEvents.length, color: '#3b82f6' },
-    { label: 'This Week', value: thisWeekEvents.length, color: '#8b5cf6' },
-    { label: 'Total Events', value: events.length, color: '#22c55e' },
-  ]
+  const handleExportCSV = useCallback(() => {
+    exportCSV('calendar-events', [
+      { header: 'Title', accessor: (e: typeof filteredEvents[number]) => e.title },
+      { header: 'Category', accessor: (e: typeof filteredEvents[number]) => e.cat },
+      { header: 'Date', accessor: (e: typeof filteredEvents[number]) => e.start.toLocaleDateString() },
+      { header: 'Start', accessor: (e: typeof filteredEvents[number]) => e.allDay ? 'All Day' : formatTime(e.start) },
+      { header: 'End', accessor: (e: typeof filteredEvents[number]) => e.allDay ? 'All Day' : formatTime(e.end) },
+      { header: 'Location', accessor: (e: typeof filteredEvents[number]) => e.location ?? '' },
+      { header: 'Virtual', accessor: (e: typeof filteredEvents[number]) => e.isVirtual ? 'Yes' : 'No' },
+      { header: 'Description', accessor: (e: typeof filteredEvents[number]) => e.description ?? '' },
+    ], filteredEvents)
+  }, [filteredEvents])
+
+  // ── Render ───────────────────────────────────
+  const HOUR_HEIGHT = 56 // px per hour for time-grid views
 
   return (
     <div className="flex flex-col h-full">
@@ -400,21 +555,27 @@ export default function CalendarPage() {
               />
             </div>
           </div>
-          <Button
-            onClick={() => {
-              const today = new Date()
-              const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-              setNewDate(iso)
-              setShowCreateDialog(true)
-            }}
-          >
-            <Plus className="mr-2 size-4" />
-            New Event
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="mr-1.5 size-3.5" />
+              Export
+            </Button>
+            <Button
+              onClick={() => {
+                const today = new Date()
+                const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+                setNewDate(iso)
+                setShowCreateDialog(true)
+              }}
+            >
+              <Plus className="mr-2 size-4" />
+              New Event
+            </Button>
+          </div>
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {stats.map(stat => (
             <SpotlightCard key={stat.label} spotlightColor={stat.color} className="p-4">
               <div className="flex items-center justify-between">
@@ -433,7 +594,7 @@ export default function CalendarPage() {
             {/* Navigation Bar */}
             <Card>
               <CardContent className="py-3 px-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
                       <ChevronLeft className="size-4" />
@@ -450,13 +611,24 @@ export default function CalendarPage() {
                         : `${MONTHS[month]} ${year}`}
                     </h2>
                   </div>
-                  <Tabs value={view} onValueChange={v => setView(v as CalendarView)}>
-                    <TabsList>
-                      <TabsTrigger value="month">Month</TabsTrigger>
-                      <TabsTrigger value="week">Week</TabsTrigger>
-                      <TabsTrigger value="day">Day</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Search events..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="pl-8 h-8 w-48 text-sm"
+                      />
+                    </div>
+                    <Tabs value={view} onValueChange={v => setView(v as CalendarView)}>
+                      <TabsList>
+                        <TabsTrigger value="month">Month</TabsTrigger>
+                        <TabsTrigger value="week">Week</TabsTrigger>
+                        <TabsTrigger value="day">Day</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -534,74 +706,136 @@ export default function CalendarPage() {
               </Card>
             )}
 
-            {/* Week View */}
+            {/* Week View — Time Grid with proper event spans */}
             {view === 'week' && (
               <Card>
-                <CardContent className="p-0 overflow-auto max-h-[calc(100vh-320px)]">
-                  <div className="grid grid-cols-[60px_repeat(7,1fr)] min-w-[700px]">
-                    <div className="border-b border-r p-2" />
-                    {weekDays.map((day, i) => (
-                      <div
-                        key={i}
-                        className={`border-b border-r p-2 text-center cursor-pointer hover:bg-accent/50 ${
-                          isSameDay(day, selectedDate) ? 'bg-accent' : ''
-                        }`}
-                        onClick={() => setSelectedDate(day)}
-                      >
-                        <p className="text-xs text-muted-foreground">{DAYS[day.getDay()]}</p>
-                        <p
-                          className={`text-sm font-medium mt-0.5 ${
-                            isToday(day) ? 'bg-primary text-primary-foreground rounded-full size-7 inline-flex items-center justify-center' : ''
-                          }`}
-                        >
-                          {day.getDate()}
-                        </p>
+                <CardContent className="p-0">
+                  {/* All-day events row */}
+                  {(() => {
+                    const allDayByDay = weekDays.map(day => eventsForDay(day).filter(e => e.allDay))
+                    const hasAnyAllDay = allDayByDay.some(d => d.length > 0)
+                    if (!hasAnyAllDay) return null
+                    return (
+                      <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/20">
+                        <div className="border-r px-2 py-1.5 text-[10px] text-muted-foreground text-right">all day</div>
+                        {weekDays.map((day, di) => (
+                          <div key={di} className="border-r p-1 min-h-[28px]">
+                            {allDayByDay[di].map(event => {
+                              const cfg = CATEGORY_CONFIG[event.cat]
+                              return (
+                                <button
+                                  key={event.id.toString()}
+                                  className={`w-full text-left text-[10px] leading-tight truncate rounded px-1.5 py-0.5 border mb-0.5 ${cfg.bgClass} ${cfg.textClass}`}
+                                  onClick={() => setSelectedEventId(event.id)}
+                                >
+                                  {event.title}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )
+                  })()}
 
-                    {hours.map(hour => (
-                      <div key={`row-${hour}`} className="contents">
-                        <div className="border-b border-r px-2 py-3 text-[10px] text-muted-foreground text-right">
-                          {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                  <div ref={weekScrollRef} className="overflow-auto max-h-[calc(100vh-380px)]">
+                    <div className="grid grid-cols-[60px_repeat(7,1fr)] min-w-[700px]">
+                      {/* Column headers */}
+                      <div className="border-b border-r p-2 sticky top-0 bg-background z-10" />
+                      {weekDays.map((day, i) => (
+                        <div
+                          key={i}
+                          className={`border-b border-r p-2 text-center cursor-pointer hover:bg-accent/50 sticky top-0 bg-background z-10 ${
+                            isSameDay(day, selectedDate) ? 'bg-accent' : ''
+                          }`}
+                          onClick={() => {
+                            setSelectedDate(day)
+                            setView('day')
+                          }}
+                        >
+                          <p className="text-xs text-muted-foreground">{DAYS[day.getDay()]}</p>
+                          <p
+                            className={`text-sm font-medium mt-0.5 ${
+                              isToday(day) ? 'bg-primary text-primary-foreground rounded-full size-7 inline-flex items-center justify-center' : ''
+                            }`}
+                          >
+                            {day.getDate()}
+                          </p>
                         </div>
-                        {weekDays.map((day, di) => {
-                          const cellEvents = eventsForDay(day).filter(e => !e.allDay && e.start.getHours() === hour)
-                          return (
-                            <div
-                              key={`cell-${hour}-${di}`}
-                              className="border-b border-r min-h-[48px] p-0.5 relative hover:bg-accent/30 cursor-pointer"
-                              onDoubleClick={() => openCreateForDate(day)}
-                            >
-                              {cellEvents.map(event => {
-                                const cfg = CATEGORY_CONFIG[event.cat]
-                                return (
-                                  <button
-                                    key={event.id.toString()}
-                                    className={`w-full text-left text-[10px] leading-tight truncate rounded px-1.5 py-1 border mb-0.5 ${cfg.bgClass} ${cfg.textClass}`}
-                                    onClick={() => setSelectedEventId(event.id)}
-                                  >
-                                    <span className="font-medium">{event.title}</span>
-                                    <br />
-                                    {formatTimeRange(event.start, event.end)}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
+                      ))}
+
+                      {/* Time grid rows */}
+                      {hours.map(hour => (
+                        <div key={`row-${hour}`} className="contents">
+                          <div className="border-b border-r px-2 text-[10px] text-muted-foreground text-right" style={{ height: HOUR_HEIGHT }}>
+                            <span className="relative -top-2">
+                              {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                            </span>
+                          </div>
+                          {weekDays.map((day, di) => {
+                            // Only render events in the first hour cell; actual positioning is absolute
+                            return (
+                              <div
+                                key={`cell-${hour}-${di}`}
+                                className="border-b border-r relative hover:bg-accent/20 cursor-pointer"
+                                style={{ height: HOUR_HEIGHT }}
+                                onDoubleClick={() => {
+                                  const d = new Date(day)
+                                  d.setHours(hour, 0, 0, 0)
+                                  setNewStartTime(`${String(hour).padStart(2, '0')}:00`)
+                                  setNewEndTime(`${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00`)
+                                  openCreateForDate(d)
+                                }}
+                              >
+                                {hour === 0 && (() => {
+                                  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+                                  const dayNonAllDay = eventsForDay(day).filter(e => !e.allDay)
+                                  const positioned = resolveOverlaps(dayNonAllDay)
+                                  return positioned.map(event => {
+                                    const { top, height } = getEventGridPosition(event, dayStart)
+                                    const cfg = CATEGORY_CONFIG[event.cat]
+                                    const colWidth = event.totalColumns > 1 ? `${100 / event.totalColumns}%` : '100%'
+                                    const colLeft = event.totalColumns > 1 ? `${(event.column / event.totalColumns) * 100}%` : '0'
+                                    return (
+                                      <button
+                                        key={event.id.toString()}
+                                        className={`absolute rounded px-1.5 py-0.5 border text-left overflow-hidden transition-opacity hover:opacity-80 z-[5] ${cfg.bgClass} ${cfg.textClass}`}
+                                        style={{
+                                          top: `${top}%`,
+                                          height: `${height}%`,
+                                          left: colLeft,
+                                          width: `calc(${colWidth} - 2px)`,
+                                          minHeight: 20,
+                                        }}
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          setSelectedEventId(event.id)
+                                        }}
+                                      >
+                                        <span className="text-[10px] font-medium leading-tight block truncate">{event.title}</span>
+                                        <span className="text-[9px] opacity-70 block truncate">{formatTimeRange(event.start, event.end)}</span>
+                                      </button>
+                                    )
+                                  })
+                                })()}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Day View */}
+            {/* Day View — Time Grid with proper event spans */}
             {view === 'day' && (
               <Card>
-                <CardContent className="p-0 overflow-auto max-h-[calc(100vh-320px)]">
+                <CardContent className="p-0">
+                  {/* All-day section */}
                   {selectedDayEvents.filter(e => e.allDay).length > 0 && (
-                    <div className="p-3 border-b bg-muted/30">
+                    <div className="p-3 border-b bg-muted/20">
                       <p className="text-xs font-medium text-muted-foreground mb-2">All Day</p>
                       <div className="flex flex-wrap gap-2">
                         {selectedDayEvents
@@ -611,7 +845,7 @@ export default function CalendarPage() {
                             return (
                               <button
                                 key={event.id.toString()}
-                                className={`text-xs px-2.5 py-1.5 rounded border ${cfg.bgClass} ${cfg.textClass}`}
+                                className={`text-xs px-2.5 py-1.5 rounded border ${cfg.bgClass} ${cfg.textClass} hover:opacity-80 transition-opacity`}
                                 onClick={() => setSelectedEventId(event.id)}
                               >
                                 {event.title}
@@ -622,54 +856,93 @@ export default function CalendarPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-[60px_1fr]">
-                    {hours.map(hour => {
-                      const hourEvents = selectedDayEvents.filter(e => !e.allDay && e.start.getHours() === hour)
-                      return (
+                  <div ref={dayScrollRef} className="overflow-auto max-h-[calc(100vh-380px)]">
+                    <div className="grid grid-cols-[60px_1fr] relative">
+                      {/* Current time indicator */}
+                      {isToday(selectedDate) && (() => {
+                        const now = new Date()
+                        const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes()
+                        const topPx = (minutesSinceMidnight / 60) * HOUR_HEIGHT
+                        return (
+                          <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: topPx }}>
+                            <div className="flex items-center">
+                              <div className="size-2 rounded-full bg-red-500 -ml-1" />
+                              <div className="flex-1 h-px bg-red-500" />
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {hours.map(hour => (
                         <div key={hour} className="contents">
-                          <div className="border-b border-r px-2 py-3 text-[10px] text-muted-foreground text-right">
-                            {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                          <div className="border-b border-r px-2 text-[10px] text-muted-foreground text-right" style={{ height: HOUR_HEIGHT }}>
+                            <span className="relative -top-2">
+                              {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                            </span>
                           </div>
                           <div
-                            className="border-b min-h-[56px] p-1 hover:bg-accent/30 cursor-pointer"
-                            onDoubleClick={() => openCreateForDate(selectedDate)}
+                            className="border-b relative hover:bg-accent/20 cursor-pointer"
+                            style={{ height: HOUR_HEIGHT }}
+                            onDoubleClick={() => {
+                              setNewStartTime(`${String(hour).padStart(2, '0')}:00`)
+                              setNewEndTime(`${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00`)
+                              openCreateForDate(selectedDate)
+                            }}
                           >
-                            {hourEvents.map(event => {
-                              const cfg = CATEGORY_CONFIG[event.cat]
-                              return (
-                                <button
-                                  key={event.id.toString()}
-                                  className={`w-full text-left rounded px-3 py-2 border mb-1 ${cfg.bgClass} ${cfg.textClass}`}
-                                  onClick={() => setSelectedEventId(event.id)}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">{event.title}</span>
-                                    <span className="text-xs opacity-70">{formatTimeRange(event.start, event.end)}</span>
-                                  </div>
-                                  {event.description && (
-                                    <p className="text-xs opacity-60 mt-0.5 truncate">{event.description}</p>
-                                  )}
-                                  <div className="flex items-center gap-3 mt-1.5 text-[10px] opacity-60">
-                                    {event.location && (
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="size-3" />
-                                        {event.location}
-                                      </span>
+                            {hour === 0 && (() => {
+                              const dayStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+                              const dayNonAllDay = selectedDayEvents.filter(e => !e.allDay)
+                              const positioned = resolveOverlaps(dayNonAllDay)
+                              return positioned.map(event => {
+                                const { top, height } = getEventGridPosition(event, dayStart)
+                                const cfg = CATEGORY_CONFIG[event.cat]
+                                const colWidth = event.totalColumns > 1 ? `${100 / event.totalColumns}%` : '100%'
+                                const colLeft = event.totalColumns > 1 ? `${(event.column / event.totalColumns) * 100}%` : '0'
+                                return (
+                                  <button
+                                    key={event.id.toString()}
+                                    className={`absolute rounded-lg px-3 py-2 border text-left overflow-hidden transition-opacity hover:opacity-80 z-[5] ${cfg.bgClass} ${cfg.textClass}`}
+                                    style={{
+                                      top: `${top}%`,
+                                      height: `${height}%`,
+                                      left: colLeft,
+                                      width: `calc(${colWidth} - 4px)`,
+                                      minHeight: 28,
+                                    }}
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setSelectedEventId(event.id)
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium truncate">{event.title}</span>
+                                      <span className="text-xs opacity-70 shrink-0 ml-2">{formatTimeRange(event.start, event.end)}</span>
+                                    </div>
+                                    {event.description && (
+                                      <p className="text-xs opacity-60 mt-0.5 truncate">{event.description}</p>
                                     )}
-                                    {event.isVirtual && (
-                                      <span className="flex items-center gap-1">
-                                        <Video className="size-3" />
-                                        Virtual
-                                      </span>
-                                    )}
-                                  </div>
-                                </button>
-                              )
-                            })}
+                                    <div className="flex items-center gap-3 mt-1 text-[10px] opacity-60">
+                                      {event.location && (
+                                        <span className="flex items-center gap-1">
+                                          <MapPin className="size-3" />
+                                          {event.location}
+                                        </span>
+                                      )}
+                                      {event.isVirtual && (
+                                        <span className="flex items-center gap-1">
+                                          <Video className="size-3" />
+                                          Virtual
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                )
+                              })
+                            })()}
                           </div>
                         </div>
-                      )
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -785,7 +1058,11 @@ export default function CalendarPage() {
                 ) : (
                   <div className="space-y-2">
                     {selectedDayEvents
-                      .sort((a, b) => a.start.getTime() - b.start.getTime())
+                      .sort((a, b) => {
+                        if (a.allDay && !b.allDay) return -1
+                        if (!a.allDay && b.allDay) return 1
+                        return a.start.getTime() - b.start.getTime()
+                      })
                       .map(event => {
                         const cfg = CATEGORY_CONFIG[event.cat]
                         return (
@@ -799,6 +1076,12 @@ export default function CalendarPage() {
                               <Clock className="size-3" />
                               {event.allDay ? 'All day' : formatTimeRange(event.start, event.end)}
                             </div>
+                            {event.location && (
+                              <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
+                                <MapPin className="size-3" />
+                                <span className="truncate">{event.location}</span>
+                              </div>
+                            )}
                           </button>
                         )
                       })}
@@ -806,6 +1089,45 @@ export default function CalendarPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Upcoming Events */}
+            {upcomingEvents.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2 pt-3 px-3">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <ArrowRight className="size-3" />
+                    Upcoming (7 days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-3">
+                  <div className="space-y-1.5">
+                    {upcomingEvents.map(event => {
+                      const cfg = CATEGORY_CONFIG[event.cat]
+                      const dayLabel = event.start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                      return (
+                        <button
+                          key={event.id.toString()}
+                          className="w-full text-left rounded-md px-2 py-1.5 hover:bg-accent transition-colors group"
+                          onClick={() => {
+                            setSelectedDate(event.start)
+                            setCurrentDate(event.start)
+                            setSelectedEventId(event.id)
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
+                            <span className="text-xs font-medium truncate flex-1">{event.title}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground ml-4">
+                            {dayLabel} {!event.allDay && `· ${formatTime(event.start)}`}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -903,16 +1225,26 @@ export default function CalendarPage() {
                                     {getInitials(name)}
                                   </div>
                                   <span className="text-sm flex-1 truncate">{name}</span>
-                                  <span className={`flex items-center gap-1 text-xs ${rCfg.color}`}>
-                                    <RsvpIcon className="size-3" />
-                                    {rsvpTag}
-                                  </span>
-                                  <button
-                                    onClick={() => removeEventAttendee({ attendeeId: att.id })}
-                                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
-                                  >
-                                    <X className="size-3" />
-                                  </button>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className={`flex items-center gap-1 text-xs ${rCfg.color}`}>
+                                        <RsvpIcon className="size-3" />
+                                        {rsvpTag}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>RSVP: {rsvpTag}</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <button
+                                        onClick={() => removeEventAttendee({ attendeeId: att.id })}
+                                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
+                                      >
+                                        <X className="size-3" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Remove attendee</TooltipContent>
+                                  </Tooltip>
                                 </div>
                               )
                             })}
@@ -1081,6 +1413,20 @@ export default function CalendarPage() {
                 </div>
               </div>
             )}
+
+            {/* Time conflict warning */}
+            {createConflicts.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 p-3">
+                <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Time Conflict</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Overlaps with: {createConflicts.map(c => c.title).join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Location</Label>
               <Input
@@ -1173,6 +1519,20 @@ export default function CalendarPage() {
                 </div>
               </div>
             )}
+
+            {/* Time conflict warning */}
+            {editConflicts.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 p-3">
+                <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Time Conflict</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Overlaps with: {editConflicts.map(c => c.title).join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Location</Label>
               <Input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="Room, address, or link" className="mt-1" />

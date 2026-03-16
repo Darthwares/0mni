@@ -142,6 +142,7 @@ export default function DrivePage() {
   const [uploadType, setUploadType] = useState<FileType>('Document')
   const [uploadSize, setUploadSize] = useState('')
   const [typeFilter, setTypeFilter] = useState<FileType | 'all'>('all')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
 
   // ── Org-scoped items ─────────────────────────
   const items = useMemo(() => {
@@ -153,7 +154,9 @@ export default function DrivePage() {
   const breadcrumbs = useMemo(() => {
     const path: { id: number; name: string }[] = [{ id: 0, name: 'My Drive' }]
     let folderId = currentFolderId
-    while (folderId > 0) {
+    const visited = new Set<number>()
+    while (folderId > 0 && !visited.has(folderId)) {
+      visited.add(folderId)
       const folder = items.find(i => Number(i.id) === folderId)
       if (folder) {
         path.splice(1, 0, { id: Number(folder.id), name: folder.name })
@@ -208,6 +211,16 @@ export default function DrivePage() {
 
     return result
   }, [items, searchQuery, currentFolderId, filterTab, sortField, sortDirection])
+
+  // ── Precompute folder child counts ───────────
+  const folderChildCounts = useMemo(() => {
+    const counts: Record<number, number> = {}
+    for (const i of items) {
+      const pid = Number(i.parentId)
+      counts[pid] = (counts[pid] ?? 0) + 1
+    }
+    return counts
+  }, [items])
 
   // ── Stats ────────────────────────────────────
   const totalFiles = items.filter(i => getTag(i.itemType) !== 'Folder').length
@@ -520,7 +533,7 @@ export default function DrivePage() {
                       <button onClick={e => { e.stopPropagation(); setRenameId(item._id); setRenameName(item.name) }}>
                         <Pencil className="size-3.5 text-muted-foreground hover:text-foreground" />
                       </button>
-                      <button onClick={e => { e.stopPropagation(); deleteDriveItem({ itemId: BigInt(item._id) }) }}>
+                      <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(item._id) }}>
                         <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
                       </button>
                     </div>
@@ -546,7 +559,7 @@ export default function DrivePage() {
                         )}
                         {item._type === 'Folder' && (
                           <span className="inline-flex items-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium">
-                            {items.filter(i => Number(i.parentId) === item._id).length} items
+                            {folderChildCounts[item._id] ?? 0} items
                           </span>
                         )}
                         {item.starred && (
@@ -647,7 +660,7 @@ export default function DrivePage() {
                             <button onClick={e => { e.stopPropagation(); setRenameId(item._id); setRenameName(item.name) }}>
                               <Pencil className="size-3.5 text-muted-foreground hover:text-foreground" />
                             </button>
-                            <button onClick={e => { e.stopPropagation(); deleteDriveItem({ itemId: BigInt(item._id) }) }}>
+                            <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(item._id) }}>
                               <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
                             </button>
                           </div>
@@ -776,6 +789,39 @@ export default function DrivePage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => { setRenameId(null); setRenameName('') }}>Cancel</Button>
               <Button onClick={handleRename} disabled={!renameName.trim()}>Rename</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmId !== null} onOpenChange={open => { if (!open) setDeleteConfirmId(null) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="flex items-center justify-center size-8 rounded-full bg-red-500/10">
+                  <Trash2 className="size-4 text-red-500" />
+                </div>
+                Delete Item
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground py-2">
+              {filteredItems.find(i => i._id === deleteConfirmId)?._type === 'Folder'
+                ? 'This will delete the folder and all its contents. This action cannot be undone.'
+                : 'This will permanently delete the file. This action cannot be undone.'}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (deleteConfirmId !== null) {
+                    deleteDriveItem({ itemId: BigInt(deleteConfirmId) })
+                    setDeleteConfirmId(null)
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white border-0"
+              >
+                Delete
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

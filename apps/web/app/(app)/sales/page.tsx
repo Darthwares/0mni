@@ -73,6 +73,18 @@ import {
   CalendarDays,
   Activity,
 } from 'lucide-react'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -560,6 +572,47 @@ export default function SalesPage() {
     }
   }, [deals, orgLeads])
 
+  // Chart: lead status distribution
+  const LEAD_STATUS_COLORS: Record<string, string> = { New: '#3b82f6', Contacted: '#f59e0b', Qualified: '#22c55e', Converted: '#10b981', Lost: '#ef4444' }
+  const leadStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const l of orgLeads) {
+      const s = l.status?.tag ?? 'New'
+      counts[s] = (counts[s] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      color: LEAD_STATUS_COLORS[name] ?? '#737373',
+    }))
+  }, [orgLeads])
+
+  // Chart: deal stage value bar
+  const STAGE_CHART_COLORS: Record<string, string> = {
+    Discovery: '#3b82f6', Demo: '#6366f1', Proposal: '#8b5cf6',
+    Negotiation: '#f59e0b', ClosedWon: '#10b981', ClosedLost: '#ef4444',
+  }
+  const stageValueData = useMemo(() => {
+    return forecast.funnel.map(f => ({
+      name: stageLabel(f.stage),
+      value: Math.round(f.value / 1000),
+      count: f.count,
+      fill: STAGE_CHART_COLORS[f.stage] ?? '#737373',
+    }))
+  }, [forecast.funnel])
+
+  // Chart: source conversion bar
+  const SOURCE_COLORS: Record<string, string> = { Inbound: '#3b82f6', Outbound: '#f97316', Referral: '#10b981', AIProspecting: '#8b5cf6', Event: '#ec4899', Partner: '#14b8a6' }
+  const sourceBarData = useMemo(() => {
+    return forecast.sourceBreakdown.map(s => ({
+      name: s.source === 'AIProspecting' ? 'AI' : s.source,
+      leads: s.count,
+      converted: s.converted,
+      rate: s.rate,
+      fill: SOURCE_COLORS[s.source] ?? '#737373',
+    }))
+  }, [forecast.sourceBreakdown])
+
   // ── Active filter pills
   const STATUS_PILLS: { label: string; value: string; dot: string }[] = [
     { label: 'All', value: 'all', dot: '' },
@@ -778,6 +831,115 @@ export default function SalesPage() {
           </p>
         </SpotlightCard>
       </div>
+
+      {/* ── Insights Charts */}
+      {(orgLeads.length > 0 || deals.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Lead status donut */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Lead Status</h3>
+            {leadStatusPieData.length > 0 ? (
+              <>
+                <div className="h-[140px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={leadStatusPieData} cx="50%" cy="50%" innerRadius={34} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
+                        {leadStatusPieData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        formatter={(value: number, name: string) => [`${value} lead${value !== 1 ? 's' : ''}`, name]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                  {leadStatusPieData.map((d) => (
+                    <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span className="size-2 rounded-full" style={{ background: d.color }} />
+                      {d.name} ({d.value})
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[160px]">
+                <p className="text-xs text-muted-foreground">No leads yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Deal pipeline value by stage */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pipeline by Stage ($K)</h3>
+            {stageValueData.some(d => d.value > 0) ? (
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stageValueData} barSize={22} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} interval={0} angle={-20} textAnchor="end" height={35} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} unit="K" />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string, props: any) => [`$${value}K (${props.payload.count} deals)`, 'Value']}
+                    />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {stageValueData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[160px]">
+                <p className="text-xs text-muted-foreground">No deals yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Source conversion bar */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Lead Sources</h3>
+            {sourceBarData.length > 0 ? (
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sourceBarData} barSize={20} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string, props: any) => {
+                        if (name === 'leads') return [`${value} leads (${props.payload.rate}% conv)`, 'Total']
+                        return [`${value} converted`, 'Won']
+                      }}
+                    />
+                    <Bar dataKey="leads" radius={[6, 6, 0, 0]}>
+                      {sourceBarData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} opacity={0.4} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="converted" radius={[6, 6, 0, 0]}>
+                      {sourceBarData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[160px]">
+                <p className="text-xs text-muted-foreground">No source data</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Tabs */}
       <Tabs defaultValue="leads">

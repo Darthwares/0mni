@@ -337,6 +337,9 @@ export default function TicketsPage() {
   const removeLabelFromTask = useReducer(reducers.removeLabelFromTask)
   const setTaskParent = useReducer(reducers.setTaskParent)
   const removeTaskParent = useReducer(reducers.removeTaskParent)
+  const [allTaskLinks] = useTable(tables.task_link)
+  const createTaskLink = useReducer(reducers.createTaskLink)
+  const deleteTaskLink = useReducer(reducers.deleteTaskLink)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [searchQuery, setSearchQuery] = useState('')
@@ -353,6 +356,7 @@ export default function TicketsPage() {
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#8b5cf6')
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<bigint>>(new Set())
+  const [boardGroupBy, setBoardGroupBy] = useState<'none' | 'assignee' | 'epic'>('none')
 
   // List view sort
   const [listSortField, setListSortField] = useState<'title' | 'status' | 'priority' | 'created' | 'sp' | null>(null)
@@ -456,6 +460,28 @@ export default function TicketsPage() {
     })
     return map
   }, [allTaskParents])
+
+  // Task links lookup: taskId -> array of links involving this task
+  const taskLinksMap = useMemo(() => {
+    const map = new Map<string, any[]>()
+    allTaskLinks.forEach((link) => {
+      if (link.sourceTaskId == null || link.targetTaskId == null) return
+      const srcKey = link.sourceTaskId.toString()
+      const tgtKey = link.targetTaskId.toString()
+      if (!map.has(srcKey)) map.set(srcKey, [])
+      if (!map.has(tgtKey)) map.set(tgtKey, [])
+      map.get(srcKey)!.push(link)
+      map.get(tgtKey)!.push(link)
+    })
+    return map
+  }, [allTaskLinks])
+
+  // Quick task lookup by ID for resolving linked task names
+  const taskByIdMap = useMemo(() => {
+    const map = new Map<string, any>()
+    allTasks.forEach((t) => { if (t.id != null) map.set(t.id.toString(), t) })
+    return map
+  }, [allTasks])
 
   const orgSprints = useMemo(() => {
     if (currentOrgId === null) return [...allSprints]
@@ -964,6 +990,20 @@ export default function TicketsPage() {
             </Tooltip>
           </div>
 
+          {viewMode === 'board' && (
+            <Select value={boardGroupBy} onValueChange={(v) => setBoardGroupBy(v as any)}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <Layers className="size-3 mr-1" />
+                <SelectValue placeholder="Group by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No grouping</SelectItem>
+                <SelectItem value="assignee">By Assignee</SelectItem>
+                <SelectItem value="epic">By Epic</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           <PresenceBar />
 
           <div className="flex items-center gap-1">
@@ -1050,11 +1090,68 @@ export default function TicketsPage() {
 
       {/* Board / List / Sprint View */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === 'board' && (
-          <KanbanBoardProvider>
+        {viewMode === 'board' && (() => {
+          // Compute swimlane groups
+          const swimlaneGroups = (() => {
+            if (boardGroupBy === 'none') return [{ key: '__all', label: '', tasks: filteredTasks }]
+            if (boardGroupBy === 'assignee') {
+              const groups = new Map<string, { label: string; tasks: any[] }>()
+              groups.set('__unassigned', { label: 'Unassigned', tasks: [] })
+              filteredTasks.forEach((t) => {
+                if (!t.assignee) {
+                  groups.get('__unassigned')!.tasks.push(t)
+                } else {
+                  const hex = t.assignee.toHexString()
+                  const emp = employeeMap.get(hex)
+                  const name = emp?.name || 'Unknown'
+                  if (!groups.has(hex)) groups.set(hex, { label: name, tasks: [] })
+                  groups.get(hex)!.tasks.push(t)
+                }
+              })
+              return [...groups.entries()].map(([key, v]) => ({ key, label: v.label, tasks: v.tasks }))
+                .filter((g) => g.tasks.length > 0)
+                .sort((a, b) => a.key === '__unassigned' ? 1 : b.key === '__unassigned' ? -1 : a.label.localeCompare(b.label))
+            }
+            if (boardGroupBy === 'epic') {
+              const groups = new Map<string, { label: string; color: string; tasks: any[] }>()
+              groups.set('__none', { label: 'No Epic', color: '#71717a', tasks: [] })
+              filteredTasks.forEach((t) => {
+                const ext = extensionMap.get(t.id.toString())
+                const eid = ext?.epicId?.toString()
+                if (!eid) {
+                  groups.get('__none')!.tasks.push(t)
+                } else {
+                  const epic = epicMap.get(eid)
+                  if (!groups.has(eid)) groups.set(eid, { label: epic?.name || 'Unknown', color: epic?.color || '#71717a', tasks: [] })
+                  groups.get(eid)!.tasks.push(t)
+                }
+              })
+              return [...groups.entries()].map(([key, v]) => ({ key, label: v.label, color: (v as any).color, tasks: v.tasks }))
+                .filter((g) => g.tasks.length > 0)
+                .sort((a, b) => a.key === '__none' ? 1 : b.key === '__none' ? -1 : a.label.localeCompare(b.label))
+            }
+            return [{ key: '__all', label: '', tasks: filteredTasks }]
+          })()
+
+          const renderBoard = (boardTasks: any[], groupKey: string) => {
+            const boardColumnTasks = new Map<string, any[]>()
+            COLUMNS.forEach((col) => {
+              boardColumnTasks.set(
+                col.id,
+                boardTasks
+                  .filter((t) => col.statusTags.includes(t.status?.tag))
+                  .sort((a, b) => {
+                    const pOrder = ['Urgent', 'High', 'Medium', 'Low']
+                    return pOrder.indexOf(a.priority?.tag) - pOrder.indexOf(b.priority?.tag)
+                  })
+              )
+            })
+
+            return (
+            <KanbanBoardProvider key={groupKey}>
             <KanbanBoard className="p-4 h-full">
               {COLUMNS.map((col) => {
-                const tasks = columnTasks.get(col.id) || []
+                const tasks = boardColumnTasks.get(col.id) || []
                 return (
                   <KanbanBoardColumn
                     key={col.id}
@@ -1182,15 +1279,55 @@ export default function TicketsPage() {
                               ) : null
                             })()}
 
-                            {/* Subtask count */}
+                            {/* Subtask count + Dependency indicator */}
                             {(() => {
                               const children = childTasksMap.get(task.id.toString())
-                              return children && children.length > 0 ? (
-                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground w-full">
-                                  <GitBranch className="size-3" />
-                                  {children.length} subtask{children.length !== 1 ? 's' : ''}
+                              const links = taskLinksMap.get(task.id.toString())
+                              const hasChildren = children && children.length > 0
+                              const hasLinks = links && links.length > 0
+                              return (hasChildren || hasLinks) ? (
+                                <div className="flex items-center gap-2.5 text-[10px] text-muted-foreground w-full">
+                                  {hasChildren && (
+                                    <span className="flex items-center gap-1">
+                                      <GitBranch className="size-3" />
+                                      {children!.length} subtask{children!.length !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                  {hasLinks && (
+                                    <span className="flex items-center gap-1">
+                                      <Link2 className="size-3" />
+                                      {links!.length} link{links!.length !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
                                 </div>
                               ) : null
+                            })()}
+
+                            {/* SLA due indicator */}
+                            {task.slaDue && (() => {
+                              try {
+                                const due = task.slaDue.toDate()
+                                const now = new Date()
+                                const diffMs = due.getTime() - now.getTime()
+                                const diffHrs = Math.round(diffMs / 3600000)
+                                if (diffMs < 0) {
+                                  return (
+                                    <div className="flex items-center gap-1 text-[10px] text-red-500 font-medium w-full">
+                                      <Flame className="size-3" />
+                                      SLA breached
+                                    </div>
+                                  )
+                                }
+                                if (diffHrs < 4) {
+                                  return (
+                                    <div className="flex items-center gap-1 text-[10px] text-amber-500 font-medium w-full">
+                                      <Clock className="size-3" />
+                                      SLA in {diffHrs}h
+                                    </div>
+                                  )
+                                }
+                                return null
+                              } catch { return null }
                             })()}
 
                             {/* Bottom: Assignee + Time */}
@@ -1247,7 +1384,37 @@ export default function TicketsPage() {
               <KanbanBoardExtraMargin />
             </KanbanBoard>
           </KanbanBoardProvider>
-        )}
+            )
+          }
+
+          return boardGroupBy === 'none' ? (
+            renderBoard(filteredTasks, '__all')
+          ) : (
+            <ScrollArea className="h-full">
+              <div className="space-y-1">
+                {swimlaneGroups.map((group) => (
+                  <div key={group.key}>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-muted/40 border-b border-t sticky top-0 z-10">
+                      {boardGroupBy === 'epic' && (group as any).color && (
+                        <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: (group as any).color }} />
+                      )}
+                      {boardGroupBy === 'assignee' && group.key !== '__unassigned' && (
+                        <Avatar className="size-5">
+                          <AvatarFallback className={`${nameToColor(group.label)} text-[8px] text-white`}>
+                            {getInitials(group.label)}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <span className="text-xs font-semibold">{group.label}</span>
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">{group.tasks.length}</Badge>
+                    </div>
+                    {renderBoard(group.tasks, group.key)}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )
+        })()}
         {viewMode === 'list' && (
           <ScrollArea className="h-full">
             <div className="p-4 max-w-5xl mx-auto">
@@ -1958,6 +2125,15 @@ export default function TicketsPage() {
           onRemoveLabelFromTask={async (taskId, labelId) => {
             await removeLabelFromTask({ taskId, labelId })
           }}
+          taskLinksForDetail={taskLinksMap.get(selectedTask.id.toString()) || []}
+          taskByIdMap={taskByIdMap}
+          onCreateTaskLink={async (sourceTaskId, targetTaskId, linkTypeTag) => {
+            await createTaskLink({ sourceTaskId, targetTaskId, linkTypeTag })
+          }}
+          onDeleteTaskLink={async (linkId) => {
+            await deleteTaskLink({ linkId })
+          }}
+          filteredTasks={filteredTasks}
           onCreateSubtask={async (parentTaskId, title) => {
             if (currentOrgId === null) return
             await createTask({
@@ -2377,6 +2553,11 @@ function TaskDetailPanel({
   onAssignLabelToTask,
   onRemoveLabelFromTask,
   onCreateSubtask,
+  taskLinksForDetail,
+  taskByIdMap,
+  onCreateTaskLink,
+  onDeleteTaskLink,
+  filteredTasks,
 }: {
   task: any
   employeeMap: Map<string, any>
@@ -2404,6 +2585,11 @@ function TaskDetailPanel({
   onAssignLabelToTask: (taskId: bigint, labelId: bigint) => Promise<any>
   onRemoveLabelFromTask: (taskId: bigint, labelId: bigint) => Promise<any>
   onCreateSubtask: (parentTaskId: bigint, title: string) => Promise<any>
+  taskLinksForDetail: any[]
+  taskByIdMap: Map<string, any>
+  onCreateTaskLink: (sourceTaskId: bigint, targetTaskId: bigint, linkTypeTag: string) => Promise<any>
+  onDeleteTaskLink: (linkId: bigint) => Promise<any>
+  filteredTasks: any[]
 }) {
   const assignee = task.assignee ? employeeMap.get(task.assignee.toHexString()) : null
   const [isEditing, setIsEditing] = useState(false)
@@ -2418,6 +2604,50 @@ function TaskDetailPanel({
   const [replyText, setReplyText] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
   const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments')
+  const [showAddLink, setShowAddLink] = useState(false)
+  const [linkSearchQuery, setLinkSearchQuery] = useState('')
+  const [newLinkType, setNewLinkType] = useState('Blocks')
+
+  // Grouped task links for this task
+  const groupedLinks = useMemo(() => {
+    const groups: Record<string, { link: any; linkedTask: any; label: string }[]> = {
+      blocks: [],
+      blockedBy: [],
+      relatesTo: [],
+      duplicates: [],
+      duplicatedBy: [],
+    }
+    const taskIdStr = task.id.toString()
+    ;(taskLinksForDetail || []).forEach((link: any) => {
+      const isSource = link.sourceTaskId?.toString() === taskIdStr
+      const linkedTaskId = isSource ? link.targetTaskId : link.sourceTaskId
+      const linkedTask = taskByIdMap.get(linkedTaskId?.toString())
+      const typeTag = link.linkType?.tag
+      if (typeTag === 'Blocks' && isSource) groups.blocks.push({ link, linkedTask, label: 'blocks' })
+      else if (typeTag === 'Blocks' && !isSource) groups.blockedBy.push({ link, linkedTask, label: 'blocked by' })
+      else if (typeTag === 'BlockedBy' && isSource) groups.blockedBy.push({ link, linkedTask, label: 'blocked by' })
+      else if (typeTag === 'BlockedBy' && !isSource) groups.blocks.push({ link, linkedTask, label: 'blocks' })
+      else if (typeTag === 'Duplicates' && isSource) groups.duplicates.push({ link, linkedTask, label: 'duplicates' })
+      else if (typeTag === 'DuplicatedBy' && isSource) groups.duplicatedBy.push({ link, linkedTask, label: 'duplicated by' })
+      else if (typeTag === 'Duplicates' && !isSource) groups.duplicatedBy.push({ link, linkedTask, label: 'duplicated by' })
+      else if (typeTag === 'DuplicatedBy' && !isSource) groups.duplicates.push({ link, linkedTask, label: 'duplicates' })
+      else if (typeTag === 'RelatesTo') groups.relatesTo.push({ link, linkedTask, label: 'relates to' })
+    })
+    return groups
+  }, [taskLinksForDetail, task.id, taskByIdMap])
+
+  const totalLinks = Object.values(groupedLinks).reduce((sum, arr) => sum + arr.length, 0)
+
+  // Tasks available for linking (exclude self and already-linked)
+  const linkableSearchResults = useMemo(() => {
+    if (!linkSearchQuery.trim()) return []
+    const q = linkSearchQuery.toLowerCase()
+    const linkedIds = new Set((taskLinksForDetail || []).flatMap((l: any) => [l.sourceTaskId?.toString(), l.targetTaskId?.toString()]))
+    return filteredTasks
+      .filter((t) => t.id.toString() !== task.id.toString() && !linkedIds.has(t.id.toString()))
+      .filter((t) => t.title.toLowerCase().includes(q) || `T-${t.id}`.toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [filteredTasks, linkSearchQuery, task.id, taskLinksForDetail])
 
   // Filter messages for this task
   const taskMessages = useMemo(() => {
@@ -2953,6 +3183,162 @@ function TaskDetailPanel({
                   }}
                 />
               </div>
+            </div>
+
+            {/* Dependencies / Links */}
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Link2 className="size-3.5 text-cyan-400" />
+                  Dependencies
+                  {totalLinks > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{totalLinks}</Badge>
+                  )}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowAddLink(!showAddLink)}
+                >
+                  {showAddLink ? <X className="size-3" /> : <Plus className="size-3" />}
+                  {showAddLink ? 'Cancel' : 'Add link'}
+                </Button>
+              </div>
+
+              {/* Add link form */}
+              {showAddLink && (
+                <div className="rounded-lg border border-dashed p-3 space-y-2.5 bg-muted/30">
+                  <div className="flex gap-2">
+                    <Select value={newLinkType} onValueChange={setNewLinkType}>
+                      <SelectTrigger className="h-7 w-[130px] text-[11px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Blocks">Blocks</SelectItem>
+                        <SelectItem value="BlockedBy">Blocked by</SelectItem>
+                        <SelectItem value="RelatesTo">Relates to</SelectItem>
+                        <SelectItem value="Duplicates">Duplicates</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={linkSearchQuery}
+                      onChange={(e) => setLinkSearchQuery(e.target.value)}
+                      placeholder="Search tasks..."
+                      className="h-7 text-xs flex-1"
+                    />
+                  </div>
+                  {linkableSearchResults.length > 0 && (
+                    <div className="max-h-[160px] overflow-y-auto space-y-1 rounded-md border bg-background p-1">
+                      {linkableSearchResults.map((t: any) => (
+                        <button
+                          key={t.id.toString()}
+                          onClick={async () => {
+                            await onCreateTaskLink(task.id, t.id, newLinkType)
+                            setLinkSearchQuery('')
+                            setShowAddLink(false)
+                          }}
+                          className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors text-left"
+                        >
+                          <span className="text-muted-foreground font-mono shrink-0">T-{t.id.toString()}</span>
+                          <span className="truncate">{t.title}</span>
+                          <StatusBadge tag={t.status?.tag} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {linkSearchQuery.trim() && linkableSearchResults.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground px-1">No matching tasks found</p>
+                  )}
+                </div>
+              )}
+
+              {/* Existing links grouped by type */}
+              {totalLinks > 0 ? (
+                <div className="space-y-2">
+                  {groupedLinks.blocks.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wider">Blocks</p>
+                      {groupedLinks.blocks.map(({ link, linkedTask }) => (
+                        <div key={link.id.toString()} className="group flex items-center gap-2 rounded-md bg-red-500/5 border border-red-500/10 px-2.5 py-1.5">
+                          <AlertCircle className="size-3 text-red-400 shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T-{linkedTask?.id?.toString() ?? '?'}</span>
+                          <span className="text-xs truncate flex-1">{linkedTask?.title ?? 'Unknown task'}</span>
+                          <button onClick={() => onDeleteTaskLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400">
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {groupedLinks.blockedBy.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Blocked by</p>
+                      {groupedLinks.blockedBy.map(({ link, linkedTask }) => (
+                        <div key={link.id.toString()} className="group flex items-center gap-2 rounded-md bg-amber-500/5 border border-amber-500/10 px-2.5 py-1.5">
+                          <Flag className="size-3 text-amber-400 shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T-{linkedTask?.id?.toString() ?? '?'}</span>
+                          <span className="text-xs truncate flex-1">{linkedTask?.title ?? 'Unknown task'}</span>
+                          <button onClick={() => onDeleteTaskLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400">
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {groupedLinks.relatesTo.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">Related</p>
+                      {groupedLinks.relatesTo.map(({ link, linkedTask }) => (
+                        <div key={link.id.toString()} className="group flex items-center gap-2 rounded-md bg-blue-500/5 border border-blue-500/10 px-2.5 py-1.5">
+                          <Link2 className="size-3 text-blue-400 shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T-{linkedTask?.id?.toString() ?? '?'}</span>
+                          <span className="text-xs truncate flex-1">{linkedTask?.title ?? 'Unknown task'}</span>
+                          <button onClick={() => onDeleteTaskLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400">
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {groupedLinks.duplicates.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Duplicates</p>
+                      {groupedLinks.duplicates.map(({ link, linkedTask }) => (
+                        <div key={link.id.toString()} className="group flex items-center gap-2 rounded-md bg-violet-500/5 border border-violet-500/10 px-2.5 py-1.5">
+                          <Hash className="size-3 text-violet-400 shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T-{linkedTask?.id?.toString() ?? '?'}</span>
+                          <span className="text-xs truncate flex-1">{linkedTask?.title ?? 'Unknown task'}</span>
+                          <button onClick={() => onDeleteTaskLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400">
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {groupedLinks.duplicatedBy.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Duplicated by</p>
+                      {groupedLinks.duplicatedBy.map(({ link, linkedTask }) => (
+                        <div key={link.id.toString()} className="group flex items-center gap-2 rounded-md bg-violet-500/5 border border-violet-500/10 px-2.5 py-1.5">
+                          <Hash className="size-3 text-violet-400 shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T-{linkedTask?.id?.toString() ?? '?'}</span>
+                          <span className="text-xs truncate flex-1">{linkedTask?.title ?? 'Unknown task'}</span>
+                          <button onClick={() => onDeleteTaskLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400">
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : !showAddLink && (
+                <div className="rounded-lg border border-dashed p-3 text-center">
+                  <Link2 className="size-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-[11px] text-muted-foreground">No dependencies yet</p>
+                </div>
+              )}
             </div>
 
             {/* AI Section */}

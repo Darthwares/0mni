@@ -25,6 +25,17 @@ import {
   Receipt,
   Ban,
 } from 'lucide-react'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -251,6 +262,55 @@ export default function InvoicingPage() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     }).length
     return { paidTotal: Math.round(paidTotal / 100), outstanding: Math.round(outstanding / 100), overdueAmt: Math.round(overdueAmt / 100), thisMonth }
+  }, [invoices, allLineItems])
+
+  // Chart: status distribution
+  const STATUS_CHART_COLORS: Record<string, string> = { Draft: '#a3a3a3', Sent: '#3b82f6', Paid: '#22c55e', Overdue: '#ef4444', Cancelled: '#737373' }
+  const statusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const inv of invoices) {
+      const s = getTag(inv.status) || 'Draft'
+      counts[s] = (counts[s] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      color: STATUS_CHART_COLORS[name] ?? '#737373',
+    }))
+  }, [invoices])
+
+  // Chart: revenue by status (dollars)
+  const revenueByStatus = useMemo(() => {
+    const totals: Record<string, number> = {}
+    for (const inv of invoices) {
+      const s = getTag(inv.status) || 'Draft'
+      const total = Math.round(invoiceTotal(inv) / 100)
+      totals[s] = (totals[s] ?? 0) + total
+    }
+    return Object.entries(totals)
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({
+        name,
+        value,
+        fill: STATUS_CHART_COLORS[name] ?? '#737373',
+      }))
+  }, [invoices, allLineItems])
+
+  // Chart: top clients by revenue
+  const topClients = useMemo(() => {
+    const clientTotals: Record<string, number> = {}
+    for (const inv of invoices) {
+      const name = inv.clientName || 'Unknown'
+      const total = Math.round(invoiceTotal(inv) / 100)
+      clientTotals[name] = (clientTotals[name] ?? 0) + total
+    }
+    return Object.entries(clientTotals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, value]) => ({
+        name: name.length > 16 ? name.slice(0, 14) + '…' : name,
+        value,
+      }))
   }, [invoices, allLineItems])
 
   // Selected invoice
@@ -878,6 +938,94 @@ export default function InvoicingPage() {
             </p>
           </SpotlightCard>
         </div>
+
+        {/* Insights charts */}
+        {invoices.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Status distribution donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Invoice Status</h3>
+              <div className="h-[130px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={3} dataKey="value" stroke="none">
+                      {statusPieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [`${value} invoice${value !== 1 ? 's' : ''}`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                {statusPieData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className="size-2 rounded-full" style={{ background: d.color }} />
+                    {d.name} ({d.value})
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Revenue by status bar */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Revenue by Status</h3>
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueByStatus} barSize={28} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                    />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {revenueByStatus.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Top clients */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Top Clients</h3>
+              {topClients.length > 0 ? (
+                <div className="h-[150px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topClients} layout="vertical" barSize={14} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
+                      <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
+                      <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={80} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                      <RechartsTooltip
+                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                      />
+                      <Bar dataKey="value" radius={[0, 6, 6, 0]} fill="url(#invoiceClientGrad)" />
+                      <defs>
+                        <linearGradient id="invoiceClientGrad" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#34d399" />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[150px]">
+                  <p className="text-xs text-muted-foreground">No client data</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Filter tabs */}
         <div className="flex items-center gap-2 flex-wrap">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -272,6 +273,31 @@ export default function FormsPage() {
       )
     : 0
 
+  // ── Chart Data ──
+  const FORM_STATUS_COLORS: Record<string, string> = { Draft: '#737373', Active: '#10b981', Closed: '#ef4444' }
+
+  const formStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    forms.forEach(f => { const s = f.status?.tag ?? 'Draft'; counts[s] = (counts[s] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: FORM_STATUS_COLORS[k] ?? '#737373' }))
+  }, [forms])
+
+  const QTYPE_COLORS: Record<string, string> = { Text: '#3b82f6', MultipleChoice: '#8b5cf6', Checkbox: '#10b981', Rating: '#f59e0b', Scale: '#f97316', Dropdown: '#ec4899', Date: '#14b8a6' }
+
+  const questionTypePieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allQuestions.forEach(q => { const t = q.questionType?.tag ?? 'Text'; counts[t] = (counts[t] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ name: k === 'MultipleChoice' ? 'Multi' : k, value: v, fill: QTYPE_COLORS[k] ?? '#737373' }))
+  }, [allQuestions])
+
+  const topFormsByResponses = useMemo(() => {
+    return [...forms]
+      .map(f => ({ name: f.title.length > 16 ? f.title.slice(0, 16) + '…' : f.title, responses: responseCountByForm.get(f.id) ?? 0 }))
+      .filter(f => f.responses > 0)
+      .sort((a, b) => b.responses - a.responses)
+      .slice(0, 5)
+  }, [forms, responseCountByForm])
+
   // Filtered list
   const filtered = useMemo(() => {
     return forms.filter(f => {
@@ -475,6 +501,78 @@ export default function FormsPage() {
               </div>
             </SpotlightCard>
           </div>
+
+          {/* ── Recharts Insight Grid ── */}
+          {forms.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Form Status Donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Form Status</h3>
+                <ResponsiveContainer width="100%" height={160}>
+                  <RechartsPie>
+                    <Pie data={formStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                      {formStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {formStatusPieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Question Type Donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Question Types</h3>
+                <ResponsiveContainer width="100%" height={160}>
+                  <RechartsPie>
+                    <Pie data={questionTypePieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                      {questionTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {questionTypePieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Forms by Responses Bar */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Top Forms</h3>
+                {topFormsByResponses.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={topFormsByResponses} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                      <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} width={70} />
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <Bar dataKey="responses" radius={[0, 6, 6, 0]} barSize={14} fill="url(#formsBarGrad)" />
+                      <defs>
+                        <linearGradient id="formsBarGrad" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#ec4899" />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No responses yet</div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Search + Filter tabs */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

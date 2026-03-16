@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -33,7 +33,8 @@ import { exportCSV } from '@/lib/csv-export'
 import {
   Zap, Play, Pause, GitBranch, Clock, Sparkles, Plus, ArrowLeft,
   Trash2, Activity, CheckCircle2, LayoutGrid, ChevronDown, Copy, ArrowRight,
-  Search, Download, Filter, GripVertical,
+  Search, Download, Filter, GripVertical, ZoomIn, ZoomOut, Maximize2,
+  History, X, MousePointer2, Undo2,
 } from 'lucide-react'
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -171,10 +172,16 @@ export default function WorkflowsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilterWf, setStatusFilterWf] = useState<'all' | StatusTag>('all')
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [panOffset, setPanOffset] = useState({ x: 40, y: 20 })
+  const [drawingConn, setDrawingConn] = useState<{ fromId: string; toPos: { x: number; y: number } } | null>(null)
+  const [selectedConnIdx, setSelectedConnIdx] = useState<number | null>(null)
+  const [showMinimap, setShowMinimap] = useState(true)
 
   // Drag state for node repositioning
   const dragRef = useRef<{ nodeId: string; startX: number; startY: number; origX: number; origY: number } | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
 
   // Parse DB workflows into local format
   const workflows: LocalWorkflow[] = useMemo(() => {
@@ -364,8 +371,8 @@ export default function WorkflowsPage() {
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!dragRef.current) return
-      const dx = ev.clientX - dragRef.current.startX
-      const dy = ev.clientY - dragRef.current.startY
+      const dx = (ev.clientX - dragRef.current.startX) / zoom
+      const dy = (ev.clientY - dragRef.current.startY) / zoom
       const newX = Math.max(0, dragRef.current.origX + dx)
       const newY = Math.max(0, dragRef.current.origY + dy)
       setEditState(prev => {
@@ -386,6 +393,135 @@ export default function WorkflowsPage() {
 
   const selectedNode = currentNodes.find(n => n.id === selectedNodeId) ?? null
 
+  // ── zoom / pan / connection drawing ────────────────────────────────────
+
+  const handleCanvasWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault()
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    const delta = e.deltaY > 0 ? -0.08 : 0.08
+    setZoom(prev => {
+      const next = Math.min(2.5, Math.max(0.2, prev + delta))
+      const scale = next / prev
+      setPanOffset(p => ({
+        x: mouseX - (mouseX - p.x) * scale,
+        y: mouseY - (mouseY - p.y) * scale,
+      }))
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el || editingId === null) return
+    el.addEventListener('wheel', handleCanvasWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleCanvasWheel)
+  }, [handleCanvasWheel, editingId])
+
+  const handleCanvasPanStart = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('[data-node]') || target.closest('[data-port]') || target.closest('button')) return
+    e.preventDefault()
+    panStartRef.current = { x: e.clientX, y: e.clientY, offsetX: panOffset.x, offsetY: panOffset.y }
+    const onMove = (ev: MouseEvent) => {
+      setPanOffset({
+        x: panStartRef.current.offsetX + (ev.clientX - panStartRef.current.x),
+        y: panStartRef.current.offsetY + (ev.clientY - panStartRef.current.y),
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [panOffset])
+
+  const fitToView = useCallback(() => {
+    if (!editState || editState.nodes.length === 0 || !canvasRef.current) return
+    const ns = editState.nodes
+    const minX = Math.min(...ns.map(n => n.position.x))
+    const minY = Math.min(...ns.map(n => n.position.y))
+    const maxX = Math.max(...ns.map(n => n.position.x)) + 240
+    const maxY = Math.max(...ns.map(n => n.position.y)) + 120
+    const { width, height } = canvasRef.current.getBoundingClientRect()
+    const padded = 80
+    const scaleX = (width - padded) / (maxX - minX || 1)
+    const scaleY = (height - padded) / (maxY - minY || 1)
+    const newZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5)
+    setZoom(newZoom)
+    setPanOffset({
+      x: (width / 2) - ((minX + maxX) / 2) * newZoom,
+      y: (height / 2) - ((minY + maxY) / 2) * newZoom,
+    })
+  }, [editState])
+
+  const deleteSelectedConnection = useCallback(() => {
+    if (selectedConnIdx === null || !editState) return
+    setEditState({
+      ...editState,
+      connections: editState.connections.filter((_, i) => i !== selectedConnIdx),
+    })
+    setSelectedConnIdx(null)
+  }, [selectedConnIdx, editState])
+
+  const onOutputPortDrag = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const toCanvas = (cx: number, cy: number) => ({
+      x: (cx - rect.left - panOffset.x) / zoom,
+      y: (cy - rect.top - panOffset.y) / zoom,
+    })
+    setDrawingConn({ fromId: nodeId, toPos: toCanvas(e.clientX, e.clientY) })
+
+    const onMove = (ev: MouseEvent) => {
+      setDrawingConn(prev => prev ? { ...prev, toPos: toCanvas(ev.clientX, ev.clientY) } : null)
+    }
+    const onUp = (ev: MouseEvent) => {
+      setDrawingConn(null)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      const target = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement
+      const inputPort = target?.closest('[data-input-port]')
+      if (inputPort) {
+        const targetId = inputPort.getAttribute('data-input-port')
+        if (targetId && targetId !== nodeId) {
+          setEditState(prev => {
+            if (!prev) return prev
+            if (prev.connections.some(c => c.from === nodeId && c.to === targetId)) return prev
+            return { ...prev, connections: [...prev.connections, { from: nodeId, to: targetId }] }
+          })
+        }
+      }
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [zoom, panOffset])
+
+  // Keyboard shortcuts for editor
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (editingId === null) return
+      const active = document.activeElement?.tagName
+      if (active === 'INPUT' || active === 'TEXTAREA' || active === 'SELECT') return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedConnIdx !== null) deleteSelectedConnection()
+        else if (selectedNodeId) deleteNode(selectedNodeId)
+      }
+      if (e.key === 'Escape') {
+        setSelectedNodeId(null)
+        setSelectedConnIdx(null)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editingId, selectedNodeId, selectedConnIdx, deleteNode, deleteSelectedConnection])
+
   // ── editor view ─────────────────────────────────────────────────────────
 
   if (editingId !== null && editState) {
@@ -403,6 +539,12 @@ export default function WorkflowsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground hidden sm:inline-flex items-center gap-1.5">
+              <kbd className="px-1 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 font-mono text-[9px]">Del</kbd> delete
+              <kbd className="px-1 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 font-mono text-[9px]">Esc</kbd> deselect
+              <kbd className="px-1 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 font-mono text-[9px]">Scroll</kbd> zoom
+            </span>
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
             <Badge className={`${statusStyles[wfStatus] || statusStyles.Draft} border text-xs`}>{wfStatus}</Badge>
             <Button size="sm" variant="outline" onClick={() => toggleStatus(editingId, wfStatus)} disabled={wfStatus === 'Draft' || wfStatus === 'Error'}>
               {wfStatus === 'Active' ? <Pause className="size-3.5 mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
@@ -426,22 +568,66 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div ref={canvasRef} className="flex-1 overflow-auto relative bg-[radial-gradient(circle_at_1px_1px,_rgb(0_0_0_/_0.06)_1px,_transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,_rgb(255_255_255_/_0.04)_1px,_transparent_0)] bg-[length:24px_24px]">
-            <div className="relative" style={{ minWidth: currentNodes.length * 300 + 200, minHeight: 400 }}>
-              <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
-                <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" className="fill-neutral-400 dark:fill-neutral-500" /></marker></defs>
+          <div
+            ref={canvasRef}
+            className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing bg-[radial-gradient(circle_at_1px_1px,_rgb(0_0_0_/_0.06)_1px,_transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,_rgb(255_255_255_/_0.04)_1px,_transparent_0)] bg-[length:24px_24px]"
+            onMouseDown={handleCanvasPanStart}
+            onClick={() => { setSelectedNodeId(null); setSelectedConnIdx(null) }}
+          >
+            <style>{`
+              @keyframes flowDash { to { stroke-dashoffset: -20; } }
+              .conn-flow { animation: flowDash 0.8s linear infinite; }
+              @keyframes flowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+              .conn-pulse { animation: flowPulse 2s ease-in-out infinite; }
+            `}</style>
+            <div
+              className="absolute origin-top-left will-change-transform"
+              style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}
+            >
+              <svg className="absolute pointer-events-none" style={{ width: 8000, height: 4000, left: -500, top: -500 }}>
+                <defs>
+                  <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" className="fill-neutral-400 dark:fill-neutral-500" /></marker>
+                  <marker id="arrowhead-sel" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" className="fill-blue-500" /></marker>
+                  <linearGradient id="conn-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="rgb(163 163 163)" stopOpacity="0.3" />
+                    <stop offset="50%" stopColor="rgb(163 163 163)" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="rgb(163 163 163)" stopOpacity="0.3" />
+                  </linearGradient>
+                </defs>
                 {currentConnections.map((conn, i) => {
                   const fromNode = currentNodes.find(n => n.id === conn.from)
                   const toNode = currentNodes.find(n => n.id === conn.to)
                   if (!fromNode || !toNode) return null
-                  const x1 = fromNode.position.x + 230, y1 = fromNode.position.y + 40
-                  const x2 = toNode.position.x, y2 = toNode.position.y + 40
+                  const x1 = fromNode.position.x + 236, y1 = fromNode.position.y + 44
+                  const x2 = toNode.position.x - 6, y2 = toNode.position.y + 44
+                  const cx1 = x1 + Math.abs(x2 - x1) * 0.4, cx2 = x2 - Math.abs(x2 - x1) * 0.4
+                  const d = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`
+                  const isSel = selectedConnIdx === i
                   return (
-                    <path key={`conn-${i}`} d={`M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`}
-                      fill="none" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth={2}
-                      strokeDasharray={fromNode.type === 'condition' ? '6 3' : 'none'} markerEnd="url(#arrowhead)" />
+                    <g key={`conn-${i}`}>
+                      <path d={d} fill="none" stroke="transparent" strokeWidth={16} className="pointer-events-auto cursor-pointer"
+                        onClick={e => { e.stopPropagation(); setSelectedConnIdx(isSel ? null : i); setSelectedNodeId(null) }} />
+                      <path d={d} fill="none"
+                        className={isSel ? 'stroke-blue-500' : 'stroke-neutral-300 dark:stroke-neutral-600'}
+                        strokeWidth={isSel ? 2.5 : 1.5}
+                        strokeDasharray={fromNode.type === 'condition' ? '6 3' : 'none'}
+                        markerEnd={isSel ? 'url(#arrowhead-sel)' : 'url(#arrowhead)'} />
+                      {!isSel && (
+                        <path d={d} fill="none" className="stroke-neutral-400/40 dark:stroke-neutral-500/40 conn-flow"
+                          strokeWidth={1.5} strokeDasharray="4 16" strokeLinecap="round" />
+                      )}
+                    </g>
                   )
                 })}
+                {drawingConn && (() => {
+                  const fromNode = currentNodes.find(n => n.id === drawingConn.fromId)
+                  if (!fromNode) return null
+                  const x1 = fromNode.position.x + 236, y1 = fromNode.position.y + 44
+                  const x2 = drawingConn.toPos.x, y2 = drawingConn.toPos.y
+                  const cx1 = x1 + Math.abs(x2 - x1) * 0.4, cx2 = x2 - Math.abs(x2 - x1) * 0.4
+                  return <path d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`}
+                    fill="none" className="stroke-blue-400 conn-pulse" strokeWidth={2} strokeDasharray="6 4" />
+                })()}
               </svg>
 
               {currentNodes.map(node => {
@@ -449,8 +635,18 @@ export default function WorkflowsPage() {
                 const Icon = cfg.icon
                 const isSelected = node.id === selectedNodeId
                 return (
-                  <div key={node.id} className={`absolute transition-all duration-150 ${isSelected ? 'scale-[1.02] z-10' : 'hover:scale-[1.01]'}`}
-                    style={{ left: node.position.x, top: node.position.y, width: 230 }} onClick={() => setSelectedNodeId(node.id)}>
+                  <div key={node.id} data-node className={`absolute group/node transition-all duration-150 ${isSelected ? 'scale-[1.02] z-10' : 'hover:scale-[1.01]'}`}
+                    style={{ left: node.position.x, top: node.position.y, width: 230 }}
+                    onClick={e => { e.stopPropagation(); setSelectedNodeId(node.id); setSelectedConnIdx(null) }}>
+                    <div data-input-port={node.id}
+                      className="absolute -left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full border-2 border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 opacity-0 group-hover/node:opacity-100 transition-opacity cursor-crosshair z-20 flex items-center justify-center hover:border-blue-500 hover:scale-125">
+                      <div className="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" />
+                    </div>
+                    <div data-port
+                      className="absolute -right-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full border-2 border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 opacity-0 group-hover/node:opacity-100 transition-opacity cursor-crosshair z-20 flex items-center justify-center hover:border-emerald-500 hover:scale-125"
+                      onMouseDown={e => onOutputPortDrag(e, node.id)}>
+                      <div className="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" />
+                    </div>
                     <div className={`rounded-xl border-l-4 ${cfg.border} border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500/50 shadow-lg' : ''} transition-shadow duration-150`}>
                       <div className="p-3.5">
                         <div className="flex items-center gap-2.5 mb-1.5">
@@ -476,18 +672,13 @@ export default function WorkflowsPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center justify-between px-3 py-1.5 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 rounded-b-xl">
-                        <div className="size-2 rounded-full bg-neutral-300 dark:bg-neutral-600" />
-                        <ArrowRight className="size-3 text-neutral-400" />
-                        <div className="size-2 rounded-full bg-neutral-300 dark:bg-neutral-600" />
-                      </div>
                     </div>
                   </div>
                 )
               })}
 
               {currentNodes.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div style={{ position: 'absolute', left: 200, top: 100, width: 300 }}>
                   <div className="text-center">
                     <div className="flex items-center justify-center size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mx-auto mb-3"><Plus className="size-6 text-neutral-400" /></div>
                     <p className="text-sm font-medium text-muted-foreground">Add a trigger to get started</p>
@@ -496,6 +687,74 @@ export default function WorkflowsPage() {
                 </div>
               )}
             </div>
+
+            {/* Zoom controls */}
+            <div className="absolute bottom-4 left-4 flex items-center gap-0.5 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 rounded-lg p-1 shadow-sm z-20">
+              <button className="flex items-center justify-center size-7 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                onClick={() => setZoom(z => Math.max(0.2, z - 0.15))}><ZoomOut className="size-3.5" /></button>
+              <span className="text-[11px] font-medium text-muted-foreground w-10 text-center tabular-nums select-none">{Math.round(zoom * 100)}%</span>
+              <button className="flex items-center justify-center size-7 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                onClick={() => setZoom(z => Math.min(2.5, z + 0.15))}><ZoomIn className="size-3.5" /></button>
+              <Separator orientation="vertical" className="h-4 mx-0.5" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="flex items-center justify-center size-7 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                    onClick={fitToView}><Maximize2 className="size-3.5" /></button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Fit to view</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className={`flex items-center justify-center size-7 rounded-md transition-colors ${showMinimap ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
+                    onClick={() => setShowMinimap(m => !m)}><MousePointer2 className="size-3.5" /></button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Toggle minimap</TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Selected connection hint */}
+            {selectedConnIdx !== null && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-medium px-3 py-1.5 rounded-full z-20 backdrop-blur-sm">
+                <span>Connection selected</span>
+                <Separator orientation="vertical" className="h-3" />
+                <button className="hover:text-red-500 transition-colors" onClick={deleteSelectedConnection}>Press Delete to remove</button>
+              </div>
+            )}
+
+            {/* Minimap */}
+            {showMinimap && currentNodes.length > 0 && (() => {
+              const mmW = 160, mmH = 100
+              const ns = currentNodes
+              const minX = Math.min(...ns.map(n => n.position.x)) - 20
+              const minY = Math.min(...ns.map(n => n.position.y)) - 20
+              const maxX = Math.max(...ns.map(n => n.position.x)) + 260
+              const maxY = Math.max(...ns.map(n => n.position.y)) + 140
+              const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
+              const scale = Math.min(mmW / rangeX, mmH / rangeY)
+              return (
+                <div className="absolute bottom-4 right-4 z-20 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm shadow-sm overflow-hidden" style={{ width: mmW, height: mmH }}>
+                  <svg width={mmW} height={mmH}>
+                    {currentConnections.map((conn, i) => {
+                      const from = ns.find(n => n.id === conn.from)
+                      const to = ns.find(n => n.id === conn.to)
+                      if (!from || !to) return null
+                      return <line key={`mm-${i}`}
+                        x1={(from.position.x + 115 - minX) * scale} y1={(from.position.y + 44 - minY) * scale}
+                        x2={(to.position.x + 115 - minX) * scale} y2={(to.position.y + 44 - minY) * scale}
+                        className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth={1} />
+                    })}
+                    {ns.map(node => {
+                      const cfg = nodeTypeConfig[node.type]
+                      return <rect key={`mm-${node.id}`}
+                        x={(node.position.x - minX) * scale} y={(node.position.y - minY) * scale}
+                        width={230 * scale} height={80 * scale} rx={3}
+                        className={`${node.id === selectedNodeId ? 'fill-blue-400/60' : 'fill-neutral-400/40 dark:fill-neutral-500/40'} stroke-neutral-400/60`}
+                        strokeWidth={0.5} />
+                    })}
+                  </svg>
+                </div>
+              )
+            })()}
           </div>
 
           {selectedNode && (

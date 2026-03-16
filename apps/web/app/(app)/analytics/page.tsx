@@ -224,7 +224,7 @@ export default function AnalyticsPage() {
   const orgActivities = useMemo(() => allActivityLogs.filter(a => Number(a.orgId) === currentOrgId), [allActivityLogs, currentOrgId])
   const orgChannels = useMemo(() => allChannels.filter(c => Number(c.orgId) === currentOrgId), [allChannels, currentOrgId])
   const orgChannelIds = useMemo(() => new Set(orgChannels.map(c => c.id)), [orgChannels])
-  const orgMessages = useMemo(() => allMessages.filter(m => m.contextType.tag === 'Channel' && orgChannelIds.has(m.contextId)), [allMessages, orgChannelIds])
+  const orgMessages = useMemo(() => allMessages.filter(m => m.contextType?.tag === 'Channel' && orgChannelIds.has(m.contextId)), [allMessages, orgChannelIds])
   const orgTimeEntries = useMemo(() => allTimeEntries.filter(t => Number(t.orgId) === currentOrgId), [allTimeEntries, currentOrgId])
 
   // ── Period-filtered counts with trend comparison ─────────────────────────
@@ -244,15 +244,15 @@ export default function AnalyticsPage() {
   const kpis = useMemo(() => {
     const tasksCreated = orgTasks.filter(t => inRange(t.createdAt)).length
     const tasksPrev = orgTasks.filter(t => inPrevRange(t.createdAt)).length
-    const tasksCompleted = orgTasks.filter(t => t.status.tag === 'Completed' && t.completedAt && inRange(t.completedAt)).length
-    const tasksCompletedPrev = orgTasks.filter(t => t.status.tag === 'Completed' && t.completedAt && inPrevRange(t.completedAt)).length
-    const ticketsResolved = orgTickets.filter(t => (t.status.tag === 'Resolved' || t.status.tag === 'Closed') && inRange(t.createdAt)).length
-    const ticketsResolvedPrev = orgTickets.filter(t => (t.status.tag === 'Resolved' || t.status.tag === 'Closed') && inPrevRange(t.createdAt)).length
+    const tasksCompleted = orgTasks.filter(t => t.status?.tag === 'Completed' && t.completedAt && inRange(t.completedAt)).length
+    const tasksCompletedPrev = orgTasks.filter(t => t.status?.tag === 'Completed' && t.completedAt && inPrevRange(t.completedAt)).length
+    const ticketsResolved = orgTickets.filter(t => (t.status?.tag === 'Resolved' || t.status?.tag === 'Closed') && inRange(t.createdAt)).length
+    const ticketsResolvedPrev = orgTickets.filter(t => (t.status?.tag === 'Resolved' || t.status?.tag === 'Closed') && inPrevRange(t.createdAt)).length
     const docsCreated = orgDocs.filter(d => inRange(d.createdAt)).length
     const docsCreatedPrev = orgDocs.filter(d => inPrevRange(d.createdAt)).length
     const msgsSent = orgMessages.filter(m => inRange(m.sentAt)).length
     const msgsSentPrev = orgMessages.filter(m => inPrevRange(m.sentAt)).length
-    const activeTasks = orgTasks.filter(t => t.status.tag !== 'Completed' && t.status.tag !== 'Cancelled').length
+    const activeTasks = orgTasks.filter(t => t.status?.tag !== 'Completed' && t.status?.tag !== 'Cancelled').length
 
     return {
       tasksCreated, tasksPrev, tasksCompleted, tasksCompletedPrev,
@@ -319,11 +319,11 @@ export default function AnalyticsPage() {
   // ════════════════════════════════════════════════════════════════════════════
   const taskPipeline = useMemo(() => {
     const total = orgTasks.length
-    const completed = orgTasks.filter(t => t.status.tag === 'Completed').length
-    const inProgress = orgTasks.filter(t => t.status.tag === 'InProgress' || t.status.tag === 'Claimed').length
-    const needsReview = orgTasks.filter(t => t.status.tag === 'NeedsReview' || t.status.tag === 'SelfChecking').length
-    const unclaimed = orgTasks.filter(t => t.status.tag === 'Unclaimed').length
-    const escalated = orgTasks.filter(t => t.status.tag === 'Escalated').length
+    const completed = orgTasks.filter(t => t.status?.tag === 'Completed').length
+    const inProgress = orgTasks.filter(t => t.status?.tag === 'InProgress' || t.status?.tag === 'Claimed').length
+    const needsReview = orgTasks.filter(t => t.status?.tag === 'NeedsReview' || t.status?.tag === 'SelfChecking').length
+    const unclaimed = orgTasks.filter(t => t.status?.tag === 'Unclaimed').length
+    const escalated = orgTasks.filter(t => t.status?.tag === 'Escalated').length
     return { total, completed, inProgress, needsReview, unclaimed, escalated }
   }, [orgTasks])
 
@@ -341,7 +341,7 @@ export default function AnalyticsPage() {
         ? d.toLocaleDateString('en-US', { weekday: 'short' })
         : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       const count = orgTasks.filter(t => {
-        if (t.status.tag !== 'Completed' || !t.completedAt) return false
+        if (t.status?.tag !== 'Completed' || !t.completedAt) return false
         const ms = tsToMs(t.completedAt)
         return ms >= dayStart && ms < dayEnd
       }).length
@@ -357,16 +357,16 @@ export default function AnalyticsPage() {
   // ════════════════════════════════════════════════════════════════════════════
   const supportMetrics = useMemo(() => {
     const total = orgTickets.length
-    const open = orgTickets.filter(t => t.status.tag === 'New' || t.status.tag === 'Open' || t.status.tag === 'Pending').length
-    const resolved = orgTickets.filter(t => t.status.tag === 'Resolved').length
-    const closed = orgTickets.filter(t => t.status.tag === 'Closed').length
+    const open = orgTickets.filter(t => t.status?.tag === 'New' || t.status?.tag === 'Open' || t.status?.tag === 'Pending').length
+    const resolved = orgTickets.filter(t => t.status?.tag === 'Resolved').length
+    const closed = orgTickets.filter(t => t.status?.tag === 'Closed').length
     const resolutionRate = total > 0 ? Math.round(((resolved + closed) / total) * 100) : 0
     const aiResolved = orgTickets.filter(t => t.aiAutoResolved).length
     // Priority breakdown
-    const critical = orgTickets.filter(t => t.priority.tag === 'Critical').length
-    const high = orgTickets.filter(t => t.priority.tag === 'High').length
-    const medium = orgTickets.filter(t => t.priority.tag === 'Medium').length
-    const low = orgTickets.filter(t => t.priority.tag === 'Low').length
+    const critical = orgTickets.filter(t => t.priority?.tag === 'Critical').length
+    const high = orgTickets.filter(t => t.priority?.tag === 'High').length
+    const medium = orgTickets.filter(t => t.priority?.tag === 'Medium').length
+    const low = orgTickets.filter(t => t.priority?.tag === 'Low').length
     return { total, open, resolved, closed, resolutionRate, aiResolved, critical, high, medium, low }
   }, [orgTickets])
 
@@ -375,9 +375,9 @@ export default function AnalyticsPage() {
   // ════════════════════════════════════════════════════════════════════════════
   const salesPipeline = useMemo(() => {
     const total = orgLeads.length
-    const active = orgLeads.filter(l => l.status.tag !== 'Converted' && l.status.tag !== 'Lost').length
-    const converted = orgLeads.filter(l => l.status.tag === 'Converted').length
-    const lost = orgLeads.filter(l => l.status.tag === 'Lost').length
+    const active = orgLeads.filter(l => l.status?.tag !== 'Converted' && l.status?.tag !== 'Lost').length
+    const converted = orgLeads.filter(l => l.status?.tag === 'Converted').length
+    const lost = orgLeads.filter(l => l.status?.tag === 'Lost').length
     const conversionRate = total > 0 ? Math.round((converted / total) * 100) : 0
     return { total, active, converted, lost, conversionRate }
   }, [orgLeads])
@@ -389,17 +389,17 @@ export default function AnalyticsPage() {
     const stages = ['Discovery', 'Demo', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost'] as const
     const funnel = stages.map(stage => ({
       stage,
-      count: orgDeals.filter(d => d.stage.tag === stage).length,
-      value: orgDeals.filter(d => d.stage.tag === stage).reduce((s, d) => s + d.value, 0),
+      count: orgDeals.filter(d => d.stage?.tag === stage).length,
+      value: orgDeals.filter(d => d.stage?.tag === stage).reduce((s, d) => s + d.value, 0),
     }))
-    const totalPipeline = orgDeals.filter(d => d.stage.tag !== 'ClosedWon' && d.stage.tag !== 'ClosedLost')
+    const totalPipeline = orgDeals.filter(d => d.stage?.tag !== 'ClosedWon' && d.stage?.tag !== 'ClosedLost')
       .reduce((s, d) => s + d.value, 0)
-    const wonValue = orgDeals.filter(d => d.stage.tag === 'ClosedWon').reduce((s, d) => s + d.value, 0)
-    const lostValue = orgDeals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + d.value, 0)
+    const wonValue = orgDeals.filter(d => d.stage?.tag === 'ClosedWon').reduce((s, d) => s + d.value, 0)
+    const lostValue = orgDeals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + d.value, 0)
     const avgDealSize = orgDeals.length > 0 ? orgDeals.reduce((s, d) => s + d.value, 0) / orgDeals.length : 0
     const winRate = (() => {
-      const closed = orgDeals.filter(d => d.stage.tag === 'ClosedWon' || d.stage.tag === 'ClosedLost').length
-      const won = orgDeals.filter(d => d.stage.tag === 'ClosedWon').length
+      const closed = orgDeals.filter(d => d.stage?.tag === 'ClosedWon' || d.stage?.tag === 'ClosedLost').length
+      const won = orgDeals.filter(d => d.stage?.tag === 'ClosedWon').length
       return closed > 0 ? Math.round((won / closed) * 100) : 0
     })()
     return { funnel, totalPipeline, wonValue, lostValue, avgDealSize, winRate, total: orgDeals.length }
@@ -411,14 +411,15 @@ export default function AnalyticsPage() {
   const invoiceMetrics = useMemo(() => {
     const lineItemMap = new Map<string, number>()
     for (const li of allInvoiceLineItems) {
+      if (!li.invoiceId) continue
       const key = li.invoiceId.toString()
       lineItemMap.set(key, (lineItemMap.get(key) ?? 0) + Number(li.unitPriceCents) * li.quantity)
     }
-    const totalRevenue = orgInvoices.reduce((s, inv) => s + (lineItemMap.get(inv.id.toString()) ?? 0), 0)
-    const paid = orgInvoices.filter(i => i.status.tag === 'Paid')
-    const paidRevenue = paid.reduce((s, inv) => s + (lineItemMap.get(inv.id.toString()) ?? 0), 0)
-    const overdue = orgInvoices.filter(i => i.status.tag === 'Overdue').length
-    const pending = orgInvoices.filter(i => i.status.tag === 'Draft' || i.status.tag === 'Sent').length
+    const totalRevenue = orgInvoices.reduce((s, inv) => s + (inv.id ? (lineItemMap.get(inv.id.toString()) ?? 0) : 0), 0)
+    const paid = orgInvoices.filter(i => i.status?.tag === 'Paid')
+    const paidRevenue = paid.reduce((s, inv) => s + (inv.id ? (lineItemMap.get(inv.id.toString()) ?? 0) : 0), 0)
+    const overdue = orgInvoices.filter(i => i.status?.tag === 'Overdue').length
+    const pending = orgInvoices.filter(i => i.status?.tag === 'Draft' || i.status?.tag === 'Sent').length
     return { total: orgInvoices.length, totalRevenue, paidRevenue, overdue, pending }
   }, [orgInvoices, allInvoiceLineItems])
 
@@ -427,13 +428,13 @@ export default function AnalyticsPage() {
   // ════════════════════════════════════════════════════════════════════════════
   const expenseMetrics = useMemo(() => {
     const totalSpent = orgExpenses.reduce((s, e) => s + Number(e.amountCents), 0)
-    const approved = orgExpenses.filter(e => e.status.tag === 'Approved' || e.status.tag === 'Reimbursed')
+    const approved = orgExpenses.filter(e => e.status?.tag === 'Approved' || e.status?.tag === 'Reimbursed')
     const approvedTotal = approved.reduce((s, e) => s + Number(e.amountCents), 0)
-    const pending = orgExpenses.filter(e => e.status.tag === 'Pending').length
+    const pending = orgExpenses.filter(e => e.status?.tag === 'Pending').length
     // By category
     const byCategory = new Map<string, number>()
     for (const e of orgExpenses) {
-      const cat = e.category.tag
+      const cat = e.category?.tag
       byCategory.set(cat, (byCategory.get(cat) ?? 0) + Number(e.amountCents))
     }
     const categories = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
@@ -445,9 +446,9 @@ export default function AnalyticsPage() {
   // ════════════════════════════════════════════════════════════════════════════
   const recruitPipeline = useMemo(() => {
     const total = orgCandidates.length
-    const inPipeline = orgCandidates.filter(c => c.status.tag !== 'Hired' && c.status.tag !== 'Rejected').length
-    const hired = orgCandidates.filter(c => c.status.tag === 'Hired').length
-    const rejected = orgCandidates.filter(c => c.status.tag === 'Rejected').length
+    const inPipeline = orgCandidates.filter(c => c.status?.tag !== 'Hired' && c.status?.tag !== 'Rejected').length
+    const hired = orgCandidates.filter(c => c.status?.tag === 'Hired').length
+    const rejected = orgCandidates.filter(c => c.status?.tag === 'Rejected').length
     const hireRate = total > 0 ? Math.round((hired / total) * 100) : 0
     return { total, inPipeline, hired, rejected, hireRate }
   }, [orgCandidates])
@@ -508,9 +509,9 @@ export default function AnalyticsPage() {
     const agentCount = agents.length
     const totalEmp = orgEmployees.length
     const aiRatio = totalEmp > 0 ? Math.round((agentCount / totalEmp) * 100) : 0
-    const agentHexes = new Set(agents.map(a => a.id.toHexString()))
+    const agentHexes = new Set(agents.filter(a => a.id).map(a => a.id.toHexString()))
     const aiTasksCompleted = orgTasks.filter(t =>
-      t.status.tag === 'Completed' && t.assignee && agentHexes.has(t.assignee.toHexString()),
+      t.status?.tag === 'Completed' && t.assignee && agentHexes.has(t.assignee.toHexString()),
     ).length
     const aiTotalTasks = orgTasks.filter(t =>
       t.assignee && agentHexes.has(t.assignee.toHexString()),
@@ -991,7 +992,7 @@ export default function AnalyticsPage() {
                     ]
                     const data = priorities.map(p => ({
                       ...p,
-                      count: orgTasks.filter(t => t.priority.tag === p.tag).length,
+                      count: orgTasks.filter(t => t.priority?.tag === p.tag).length,
                     }))
                     return (
                       <div className="flex items-center gap-6">

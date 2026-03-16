@@ -104,6 +104,7 @@ import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import { extractPreviewText, scrollToBlock, type HeadingItem, type DocumentStats } from '@/components/block-editor'
+import { AIWritingPanel } from '@/components/ai-writing-panel'
 import {
   CommandDialog,
   CommandInput,
@@ -483,6 +484,7 @@ export default function CanvasPage() {
   const [showSidebar, setShowSidebar] = useState(true)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showAIPanel, setShowAIPanel] = useState(false)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -1151,6 +1153,11 @@ ${html}
         e.preventDefault()
         setFocusMode(f => !f)
       }
+      // Ctrl+Shift+A — toggle AI panel
+      if (mod && e.shiftKey && e.key === 'A') {
+        e.preventDefault()
+        setShowAIPanel(v => !v)
+      }
       // Escape — exit focus mode
       if (e.key === 'Escape' && focusMode) {
         setFocusMode(false)
@@ -1556,6 +1563,18 @@ ${html}
                   </>
                 )}
               </div>
+            )}
+            {!isWhiteboard && (
+              <Button
+                variant={showAIPanel ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => { setShowAIPanel(!showAIPanel); if (!showAIPanel) { setShowComments(false); setShowStatsPanel(false); setShowVersions(false) } }}
+                className={`h-7 gap-1.5 text-xs ${showAIPanel ? 'bg-violet-500/10 text-violet-500 border-violet-500/20' : ''}`}
+                title="AI Writer (Ctrl+Shift+A)"
+              >
+                <Sparkles className="size-3.5" />
+                <span className="hidden lg:inline">AI</span>
+              </Button>
             )}
             {!isWhiteboard && (
               <Button
@@ -2292,6 +2311,7 @@ ${html}
                       {[
                         { keys: 'Ctrl+S', action: 'Save version' },
                         { keys: 'Ctrl+Shift+E', action: 'Export markdown' },
+                        { keys: 'Ctrl+Shift+A', action: 'AI Writer' },
                         { keys: 'Ctrl+Shift+F', action: 'Focus mode' },
                         { keys: 'Esc', action: 'Exit focus mode' },
                         { keys: 'Ctrl+P', action: 'Quick open document' },
@@ -2308,6 +2328,74 @@ ${html}
                   </div>
                 </div>
               </ScrollArea>
+            </div>
+          )}
+
+          {/* AI Writing Panel */}
+          {showAIPanel && !isWhiteboard && (
+            <div className="w-96 border-l flex flex-col bg-background shrink-0">
+              <AIWritingPanel
+                selectedText={(() => {
+                  try {
+                    const editor = editorInstanceRef.current
+                    if (!editor) return ''
+                    const sel = editor.getSelectedText?.()
+                    return sel || ''
+                  } catch { return '' }
+                })()}
+                documentContext={(() => {
+                  try {
+                    const editor = editorInstanceRef.current
+                    if (!editor?.document) return ''
+                    const texts: string[] = []
+                    const walk = (blocks: any[]) => {
+                      for (const b of blocks) {
+                        if (b.content && Array.isArray(b.content)) {
+                          for (const c of b.content) {
+                            if (c.text) texts.push(c.text)
+                          }
+                        }
+                        if (b.children?.length) walk(b.children)
+                      }
+                    }
+                    walk(editor.document)
+                    return texts.join(' ')
+                  } catch { return '' }
+                })()}
+                onInsert={(text) => {
+                  try {
+                    const editor = editorInstanceRef.current
+                    if (!editor) return
+                    const blocks = editor.tryParseMarkdownToBlocks(text)
+                    const lastBlock = editor.document[editor.document.length - 1]
+                    if (lastBlock) {
+                      editor.insertBlocks(blocks, lastBlock, 'after')
+                    }
+                  } catch (err) {
+                    console.error('Failed to insert AI content:', err)
+                  }
+                }}
+                onReplace={(text) => {
+                  try {
+                    const editor = editorInstanceRef.current
+                    if (!editor) return
+                    const blocks = editor.tryParseMarkdownToBlocks(text)
+                    const selection = editor.getSelection?.()
+                    if (selection && selection.blocks?.length) {
+                      editor.replaceBlocks(selection.blocks.map((b: any) => b.id), blocks)
+                    } else {
+                      // No selection — insert at end
+                      const lastBlock = editor.document[editor.document.length - 1]
+                      if (lastBlock) {
+                        editor.insertBlocks(blocks, lastBlock, 'after')
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Failed to replace with AI content:', err)
+                  }
+                }}
+                onClose={() => setShowAIPanel(false)}
+              />
             </div>
           )}
         </div>

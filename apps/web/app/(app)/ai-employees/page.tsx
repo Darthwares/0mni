@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { Timestamp } from 'spacetimedb'
 import { tables, reducers } from '@/generated'
@@ -541,6 +542,29 @@ export default function AIEmployeesPage() {
     return { total, online, busy, tasksCompleted }
   }, [aiAgents])
 
+  // ── Chart Data ──
+  const AGENT_STATUS_COLORS: Record<string, string> = { Online: '#10b981', Busy: '#f59e0b', InCall: '#3b82f6', Idle: '#737373', Offline: '#a3a3a3' }
+  const DEPT_CHART_COLORS: Record<string, string> = { Engineering: '#3b82f6', Sales: '#10b981', Marketing: '#a855f7', Support: '#f59e0b', Product: '#ec4899', HR: '#14b8a6', Operations: '#6366f1', Finance: '#f97316' }
+  const TASK_STATUS_COLORS: Record<string, string> = { Completed: '#10b981', InProgress: '#3b82f6', Pending: '#f59e0b', Escalated: '#ef4444', SelfChecking: '#8b5cf6', NeedsReview: '#f97316' }
+
+  const agentStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    aiAgents.forEach(a => { const s = a.status?.tag ?? 'Offline'; counts[s] = (counts[s] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: AGENT_STATUS_COLORS[k] ?? '#737373' }))
+  }, [aiAgents])
+
+  const deptBarData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    aiAgents.forEach(a => { const d = a.department?.tag ?? 'Other'; counts[d] = (counts[d] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => ({ name: k.slice(0, 8), fullName: k, count: v, fill: DEPT_CHART_COLORS[k] ?? '#737373' }))
+  }, [aiAgents])
+
+  const taskStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    aiTasks.forEach(t => { const s = t.status?.tag ?? 'Pending'; counts[s] = (counts[s] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: TASK_STATUS_COLORS[k] ?? '#737373' }))
+  }, [aiTasks])
+
   const selectedAgent = selectedId
     ? aiAgents.find((a) => a.id.toHexString() === selectedId) ?? null
     : null
@@ -633,6 +657,80 @@ export default function AIEmployeesPage() {
             </p>
           </SpotlightCard>
         </div>
+
+        {/* ── Recharts Insight Grid ── */}
+        {aiAgents.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Agent Status Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Agent Status</h3>
+              <ResponsiveContainer width="100%" height={160}>
+                <RechartsPie>
+                  <Pie data={agentStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                    {agentStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                </RechartsPie>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-3 mt-1">
+                {agentStatusPieData.map(d => (
+                  <div key={d.name} className="flex items-center gap-1.5">
+                    <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                    <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                    <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Department Bar */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">By Department</h3>
+              {deptBarData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={deptBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={56} />
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number, _: any, p: any) => [`${v} agents`, p.payload.fullName]} />
+                    <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14}>
+                      {deptBarData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No departments</div>
+              )}
+            </div>
+
+            {/* Task Status Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Task Status</h3>
+              {taskStatusPieData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <RechartsPie>
+                      <Pie data={taskStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                        {taskStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-3 mt-1">
+                    {taskStatusPieData.map(d => (
+                      <div key={d.name} className="flex items-center gap-1.5">
+                        <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                        <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                        <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No tasks yet</div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Tabs: Agents / Task Queue / Thought Feed ── */}
         <Tabs defaultValue="agents">

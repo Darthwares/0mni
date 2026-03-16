@@ -56,6 +56,10 @@ import {
   Download,
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -290,6 +294,29 @@ export default function EngineeringPage() {
     const aiTriagedCount = bugs.filter(b => b.aiTriaged).length
     const aiTriagedPct = total > 0 ? Math.round((aiTriagedCount / total) * 100) : 0
     return { total, critical, inProgress, aiTriagedPct }
+  }, [bugs])
+
+  // PR pipeline stages
+  const prPipeline = useMemo(() => {
+    const PR_STAGE_COLORS: Record<string, string> = {
+      Open: '#3b82f6', UnderReview: '#f59e0b', ChangesRequested: '#f97316', Approved: '#22c55e', Merged: '#8b5cf6', Closed: '#737373',
+    }
+    const counts: Record<string, number> = {}
+    for (const pr of pullRequests) counts[pr.status?.tag ?? 'Open'] = (counts[pr.status?.tag ?? 'Open'] ?? 0) + 1
+    const stages = ['Open', 'UnderReview', 'ChangesRequested', 'Approved', 'Merged', 'Closed']
+    return stages
+      .filter(s => (counts[s] ?? 0) > 0)
+      .map(s => ({ name: prStatusClass(s).label, value: counts[s] ?? 0, color: PR_STAGE_COLORS[s] ?? '#737373' }))
+  }, [pullRequests])
+
+  // Bug severity distribution
+  const bugSeverityDist = useMemo(() => {
+    const SEV_COLORS: Record<string, string> = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#a3a3a3' }
+    const counts: Record<string, number> = {}
+    for (const b of bugs) counts[b.severity?.tag ?? 'Medium'] = (counts[b.severity?.tag ?? 'Medium'] ?? 0) + 1
+    return ['Critical', 'High', 'Medium', 'Low']
+      .filter(s => (counts[s] ?? 0) > 0)
+      .map(s => ({ name: s, value: counts[s] ?? 0, color: SEV_COLORS[s] ?? '#a3a3a3' }))
   }, [bugs])
 
   const filteredPRs = useMemo(() => {
@@ -571,6 +598,65 @@ export default function EngineeringPage() {
               </p>
             </SpotlightCard>
           </div>
+
+          {/* PR Pipeline + Bug Severity */}
+          {(prPipeline.length > 0 || bugSeverityDist.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* PR Pipeline Funnel */}
+              {prPipeline.length > 0 && (
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">PR Pipeline</h3>
+                    <span className="text-[10px] text-muted-foreground">{pullRequests.length} total</span>
+                  </div>
+                  {/* Stacked horizontal bar */}
+                  <div className="flex h-6 rounded-lg overflow-hidden mb-3">
+                    {prPipeline.map(s => {
+                      const pct = (s.value / pullRequests.length) * 100
+                      return (
+                        <div key={s.name} className="transition-all relative group/seg" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: s.color }} title={`${s.name}: ${s.value}`}>
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/seg:opacity-100 transition-opacity">
+                            <span className="text-[9px] font-bold text-white drop-shadow-sm">{s.value}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {prPipeline.map(s => (
+                      <div key={s.name} className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="text-[11px] text-muted-foreground">{s.name}</span>
+                        <span className="text-[11px] font-semibold tabular-nums">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bug Severity Chart */}
+              {bugSeverityDist.length > 0 && (
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">Bug Severity</h3>
+                    <span className="text-[10px] text-muted-foreground">{bugs.length} total</span>
+                  </div>
+                  <div className="h-[100px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={bugSeverityDist} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                        <XAxis type="number" hide />
+                        <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} width={60} />
+                        <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16}>
+                          {bugSeverityDist.map(d => <Cell key={d.name} fill={d.color} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* PR Search + Export */}
           <div className="flex items-center gap-3">

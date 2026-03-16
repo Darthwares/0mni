@@ -2,6 +2,7 @@
 
 import { useTable, useReducer as useSpacetimeReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
@@ -313,6 +314,31 @@ export default function SupportPage() {
   const pendingCount = sortedTickets.filter((t) => t.status?.tag === 'Pending').length
   const resolvedCount = sortedTickets.filter((t) => t.status?.tag === 'Resolved').length
   const aiResolvedCount = sortedTickets.filter((t) => t.aiAutoResolved).length
+
+  // ── Chart Data ──
+  const STATUS_PIE_COLORS: Record<string, string> = { New: '#3b82f6', Open: '#10b981', Pending: '#f59e0b', Resolved: '#737373', Closed: '#a3a3a3' }
+  const PRIORITY_BAR_COLORS: Record<string, string> = { Urgent: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#737373' }
+
+  const statusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    sortedTickets.forEach(t => { const s = t.status?.tag ?? 'New'; counts[s] = (counts[s] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: STATUS_PIE_COLORS[k] ?? '#737373' }))
+  }, [sortedTickets])
+
+  const priorityBarData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    sortedTickets.forEach(t => { const p = t.priority?.tag ?? 'Medium'; counts[p] = (counts[p] ?? 0) + 1 })
+    return ['Urgent', 'High', 'Medium', 'Low'].filter(p => (counts[p] ?? 0) > 0).map(p => ({ name: p, count: counts[p] ?? 0, fill: PRIORITY_BAR_COLORS[p] ?? '#737373' }))
+  }, [sortedTickets])
+
+  const categoryPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    sortedTickets.forEach(t => { const c = t.category?.tag ?? 'General'; counts[c] = (counts[c] ?? 0) + 1 })
+    const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#6366f1']
+    return Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({ name: k, value: v, fill: COLORS[i % COLORS.length] }))
+  }, [sortedTickets])
+
+  const [showInsights, setShowInsights] = useState(false)
 
   async function handleSendMessage() {
     if (!messageInput.trim() || !selectedTicket) return
@@ -628,6 +654,78 @@ export default function SupportPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* ── Insights Toggle + Chart Grid ── */}
+      {sortedTickets.length > 0 && (
+        <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+          <button onClick={() => setShowInsights(!showInsights)} className="w-full px-4 py-1.5 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronDown className={`size-3 transition-transform ${showInsights ? 'rotate-180' : ''}`} />
+            {showInsights ? 'Hide' : 'Show'} Insights
+          </button>
+          {showInsights && (
+            <div className="grid grid-cols-3 gap-4 px-4 pb-4">
+              {/* Status Donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Ticket Status</h3>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RechartsPie>
+                    <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                      {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {statusPieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Priority Bar */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">By Priority</h3>
+                <ResponsiveContainer width="100%" height={140}>
+                  <BarChart data={priorityBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={48} />
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14}>
+                      {priorityBarData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Category Donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">By Category</h3>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RechartsPie>
+                    <Pie data={categoryPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                      {categoryPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {categoryPieData.slice(0, 5).map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ---- 3-panel body ---- */}
       <div className="flex-1 flex min-h-0">

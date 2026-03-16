@@ -388,7 +388,7 @@ export default function TicketsPage() {
 
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>()
-    employees.forEach((e) => map.set(e.id.toHexString(), e))
+    employees.filter(e => e.id).forEach((e) => map.set(e.id.toHexString(), e))
     return map
   }, [employees])
 

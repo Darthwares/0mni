@@ -133,7 +133,7 @@ export default function SettingsPage() {
 
       // Send invite email via Resend
       const currentEmployee = allEmployees.find(
-        (e) => identity && e.id.toHexString() === identity.toHexString()
+        (e) => identity && e.id && e.id.toHexString() === identity.toHexString()
       )
       await fetch('/api/invite', {
         method: 'POST',
@@ -173,7 +173,7 @@ export default function SettingsPage() {
     setLinkEmailSending(true)
     try {
       const currentEmployee = allEmployees.find(
-        (e) => identity && e.id.toHexString() === identity.toHexString()
+        (e) => identity && e.id && e.id.toHexString() === identity.toHexString()
       )
       await fetch('/api/invite', {
         method: 'POST',
@@ -537,7 +537,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-1">
               {activeMembers.map((m) => {
                 const employee = allEmployees.find(
-                  (e) => m.identity && e.id.toHexString() === m.identity.toHexString()
+                  (e) => m.identity && e.id && e.id.toHexString() === m.identity.toHexString()
                 )
                 return (
                   <div key={m.id.toString()} className="flex items-center justify-between py-2">

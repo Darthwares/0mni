@@ -262,7 +262,7 @@ function MessagesPageInner() {
   )
 
   const employeeMap = useMemo(
-    () => new Map(allEmployees.map((e) => [e.id.toHexString(), e])),
+    () => new Map(allEmployees.filter(e => e.id).map((e) => [e.id.toHexString(), e])),
     [allEmployees],
   )
 

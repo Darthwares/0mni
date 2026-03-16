@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -270,6 +271,37 @@ export default function GoalsPage() {
     })
     return counts
   }, [quarterObjectives])
+
+  // ─── Chart Data ──────────────────────────────────────────────────────
+
+  const STATUS_CHART_COLORS: Record<string, string> = { OnTrack: '#22c55e', AtRisk: '#f59e0b', Behind: '#ef4444', Completed: '#10b981' }
+
+  const statusPieData = useMemo(() => {
+    return Object.entries(statusDistribution)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => ({ name: k === 'OnTrack' ? 'On Track' : k === 'AtRisk' ? 'At Risk' : k, value: v, fill: STATUS_CHART_COLORS[k] ?? '#737373' }))
+  }, [statusDistribution])
+
+  const DEPT_BAR_COLORS: Record<string, string> = { Engineering: '#3b82f6', Sales: '#10b981', Marketing: '#a855f7', Product: '#f59e0b', HR: '#f43f5e', Operations: '#64748b' }
+
+  const deptBarData = useMemo(() => {
+    const depts = DEPARTMENTS.filter(d => d !== 'All')
+    return depts.map(dept => {
+      const objs = quarterObjectives.filter(o => o.department === dept)
+      if (objs.length === 0) return null
+      const avg = Math.round(objs.reduce((s, o) => s + getObjectiveProgress(o.id), 0) / objs.length)
+      return { name: dept.slice(0, 6), fullName: dept, progress: avg, fill: DEPT_BAR_COLORS[dept] ?? '#737373' }
+    }).filter(Boolean) as { name: string; fullName: string; progress: number; fill: string }[]
+  }, [quarterObjectives, getObjectiveProgress])
+
+  const quarterBarData = useMemo(() => {
+    return QUARTERS.map(q => {
+      const objs = orgObjectives.filter(o => o.quarter === q)
+      if (objs.length === 0) return { name: q.replace(' 2026', ''), count: 0, avgProgress: 0 }
+      const avg = Math.round(objs.reduce((s, o) => s + getObjectiveProgress(o.id), 0) / objs.length)
+      return { name: q.replace(' 2026', ''), count: objs.length, avgProgress: avg }
+    })
+  }, [orgObjectives, getObjectiveProgress])
 
   // ─── Analytics Data ───────────────────────────────────────────────────
 
@@ -668,6 +700,82 @@ export default function GoalsPage() {
                     <span className="text-[10px] font-bold tabular-nums">{s.count}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Recharts Insight Grid ── */}
+          {totalObjectives > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status Donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Status Breakdown</h3>
+                <ResponsiveContainer width="100%" height={180}>
+                  <RechartsPie>
+                    <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value" stroke="none">
+                      {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {statusPieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Department Progress Bar */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Dept. Avg Progress</h3>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={deptBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} unit="%" />
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={48} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number, _: any, p: any) => [`${v}%`, p.payload.fullName]}
+                    />
+                    <Bar dataKey="progress" radius={[0, 6, 6, 0]} barSize={16}>
+                      {deptBarData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Quarter Comparison */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Quarter Comparison</h3>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={quarterBarData} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number, name: string) => [name === 'count' ? `${v} objectives` : `${v}%`, name === 'count' ? 'Objectives' : 'Avg Progress']}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={18} fill="url(#goalsCountGrad)" />
+                    <Bar dataKey="avgProgress" radius={[6, 6, 0, 0]} barSize={18} fill="url(#goalsProgressGrad)" />
+                    <defs>
+                      <linearGradient id="goalsCountGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" />
+                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
+                      </linearGradient>
+                      <linearGradient id="goalsProgressGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#16a34a" stopOpacity={0.6} />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-4 mt-1">
+                  <div className="flex items-center gap-1.5"><div className="size-2 rounded-full bg-amber-500" /><span className="text-[10px] text-muted-foreground">Objectives</span></div>
+                  <div className="flex items-center gap-1.5"><div className="size-2 rounded-full bg-green-500" /><span className="text-[10px] text-muted-foreground">Avg Progress %</span></div>
+                </div>
               </div>
             </div>
           )}

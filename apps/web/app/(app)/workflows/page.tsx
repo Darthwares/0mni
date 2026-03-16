@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -16,11 +16,24 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { exportCSV } from '@/lib/csv-export'
 import {
   Zap, Play, Pause, GitBranch, Clock, Sparkles, Plus, ArrowLeft,
   Trash2, Activity, CheckCircle2, LayoutGrid, ChevronDown, Copy, ArrowRight,
-  Search, Download, Filter,
+  Search, Download, Filter, GripVertical,
 } from 'lucide-react'
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -157,6 +170,11 @@ export default function WorkflowsPage() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilterWf, setStatusFilterWf] = useState<'all' | StatusTag>('all')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+
+  // Drag state for node repositioning
+  const dragRef = useRef<{ nodeId: string; startX: number; startY: number; origX: number; origY: number } | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
 
   // Parse DB workflows into local format
   const workflows: LocalWorkflow[] = useMemo(() => {
@@ -211,16 +229,16 @@ export default function WorkflowsPage() {
   }, [workflows])
 
   const handleExportWorkflows = useCallback(() => {
-    exportCSV(
-      'workflows',
-      ['Name', 'Description', 'Status', 'Nodes', 'Connections', 'Total Runs', 'Success Rate', 'Last Run'],
-      filteredWorkflows.map(w => [
-        w.name, w.description, w.status,
-        String(w.nodes.length), String(w.connections.length),
-        String(w.runsTotal), `${pct(w.runsSuccess, w.runsTotal)}%`,
-        w.lastRun > 0 ? new Date(w.lastRun).toISOString() : '',
-      ])
-    )
+    exportCSV('workflows', [
+      { header: 'Name', accessor: (w: LocalWorkflow) => w.name },
+      { header: 'Description', accessor: (w: LocalWorkflow) => w.description },
+      { header: 'Status', accessor: (w: LocalWorkflow) => w.status },
+      { header: 'Nodes', accessor: (w: LocalWorkflow) => w.nodes.length },
+      { header: 'Connections', accessor: (w: LocalWorkflow) => w.connections.length },
+      { header: 'Total Runs', accessor: (w: LocalWorkflow) => w.runsTotal },
+      { header: 'Success Rate', accessor: (w: LocalWorkflow) => `${pct(w.runsSuccess, w.runsTotal)}%` },
+      { header: 'Last Run', accessor: (w: LocalWorkflow) => w.lastRun > 0 ? new Date(w.lastRun).toISOString() : '' },
+    ], filteredWorkflows)
   }, [filteredWorkflows])
 
   const editingWorkflow = editingId !== null ? workflows.find(w => w.dbId === editingId) : null
@@ -326,6 +344,46 @@ export default function WorkflowsPage() {
     setSelectedNodeId(null)
   }, [editState])
 
+  const handleDuplicateWorkflow = useCallback((dbId: number) => {
+    duplicateWorkflow({ workflowId: BigInt(dbId) })
+  }, [duplicateWorkflow])
+
+  const handleDeleteWorkflow = useCallback((dbId: number) => {
+    deleteWorkflow({ workflowId: BigInt(dbId) })
+    setDeleteConfirmId(null)
+  }, [deleteWorkflow])
+
+  // Drag handlers for node repositioning in the editor
+  const onNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+    if (!editState) return
+    const node = editState.nodes.find(n => n.id === nodeId)
+    if (!node) return
+    e.stopPropagation()
+    e.preventDefault()
+    dragRef.current = { nodeId, startX: e.clientX, startY: e.clientY, origX: node.position.x, origY: node.position.y }
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return
+      const dx = ev.clientX - dragRef.current.startX
+      const dy = ev.clientY - dragRef.current.startY
+      const newX = Math.max(0, dragRef.current.origX + dx)
+      const newY = Math.max(0, dragRef.current.origY + dy)
+      setEditState(prev => {
+        if (!prev) return prev
+        return { ...prev, nodes: prev.nodes.map(n => n.id === dragRef.current!.nodeId ? { ...n, position: { x: newX, y: newY } } : n) }
+      })
+    }
+
+    const onMouseUp = () => {
+      dragRef.current = null
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [editState])
+
   const selectedNode = currentNodes.find(n => n.id === selectedNodeId) ?? null
 
   // ── editor view ─────────────────────────────────────────────────────────
@@ -368,7 +426,7 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 overflow-auto relative bg-[radial-gradient(circle_at_1px_1px,_rgb(0_0_0_/_0.06)_1px,_transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,_rgb(255_255_255_/_0.04)_1px,_transparent_0)] bg-[length:24px_24px]">
+          <div ref={canvasRef} className="flex-1 overflow-auto relative bg-[radial-gradient(circle_at_1px_1px,_rgb(0_0_0_/_0.06)_1px,_transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,_rgb(255_255_255_/_0.04)_1px,_transparent_0)] bg-[length:24px_24px]">
             <div className="relative" style={{ minWidth: currentNodes.length * 300 + 200, minHeight: 400 }}>
               <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
                 <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" className="fill-neutral-400 dark:fill-neutral-500" /></marker></defs>
@@ -391,11 +449,18 @@ export default function WorkflowsPage() {
                 const Icon = cfg.icon
                 const isSelected = node.id === selectedNodeId
                 return (
-                  <div key={node.id} className={`absolute cursor-pointer transition-all duration-150 ${isSelected ? 'scale-[1.02] z-10' : 'hover:scale-[1.01]'}`}
+                  <div key={node.id} className={`absolute transition-all duration-150 ${isSelected ? 'scale-[1.02] z-10' : 'hover:scale-[1.01]'}`}
                     style={{ left: node.position.x, top: node.position.y, width: 230 }} onClick={() => setSelectedNodeId(node.id)}>
                     <div className={`rounded-xl border-l-4 ${cfg.border} border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500/50 shadow-lg' : ''} transition-shadow duration-150`}>
                       <div className="p-3.5">
                         <div className="flex items-center gap-2.5 mb-1.5">
+                          <div
+                            className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                            onMouseDown={e => onNodeMouseDown(e, node.id)}
+                            title="Drag to reposition"
+                          >
+                            <GripVertical className="size-4" />
+                          </div>
                           <div className={`flex items-center justify-center size-7 rounded-lg bg-gradient-to-br ${cfg.gradient} shadow-sm`}><Icon className="size-3.5 text-white" /></div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold truncate">{node.label}</p>
@@ -598,9 +663,22 @@ export default function WorkflowsPage() {
                       {wf.status === 'Active' ? <Pause className="size-3" /> : <Play className="size-3" />}
                       {wf.status === 'Active' ? 'Pause' : 'Activate'}
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={() => deleteWorkflow({ workflowId: BigInt(wf.dbId) })}>
-                      <Trash2 className="size-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="inline-flex items-center justify-center size-7 rounded-md border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors" onClick={() => handleDuplicateWorkflow(wf.dbId)}>
+                          <Copy className="size-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Duplicate workflow</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="inline-flex items-center justify-center size-7 rounded-md text-red-500 hover:bg-red-500/10 transition-colors" onClick={() => setDeleteConfirmId(wf.dbId)}>
+                          <Trash2 className="size-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete workflow</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
@@ -624,6 +702,22 @@ export default function WorkflowsPage() {
           ))}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmId !== null} onOpenChange={open => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Workflow</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{workflows.find(w => w.dbId === deleteConfirmId)?.name}&rdquo;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteConfirmId !== null && handleDeleteWorkflow(deleteConfirmId)}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

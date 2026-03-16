@@ -13,6 +13,11 @@ import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import ShinyText from '@/components/reactbits/ShinyText'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -215,7 +220,29 @@ export default function ExpensesPage() {
     return months
   }, [expenses])
 
-  const maxMonthly = Math.max(...monthlySpending.map(m => m.amount), 1)
+  const CATEGORY_CHART_COLORS: Record<string, string> = {
+    Travel: '#3b82f6', Meals: '#f97316', Software: '#8b5cf6', Office: '#737373',
+    Equipment: '#10b981', Training: '#ec4899', Other: '#a3a3a3',
+  }
+
+  const categoryPieData = useMemo(() => {
+    return categoryBreakdown.map(({ category, amount }) => ({
+      name: category,
+      value: amount,
+      color: CATEGORY_CHART_COLORS[category] ?? '#737373',
+    }))
+  }, [categoryBreakdown])
+
+  const statusDistribution = useMemo(() => {
+    const STATUS_COLORS: Record<string, string> = { Pending: '#f59e0b', Approved: '#3b82f6', Rejected: '#ef4444', Reimbursed: '#10b981' }
+    const counts: Record<string, number> = {}
+    for (const e of expenses) counts[e.statusKey] = (counts[e.statusKey] ?? 0) + 1
+    return Object.entries(counts).map(([key, value]) => ({
+      name: key,
+      value,
+      color: STATUS_COLORS[key] ?? '#737373',
+    }))
+  }, [expenses])
 
   function toggleSort(field: SortField) {
     if (sortField === field) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
@@ -449,47 +476,99 @@ export default function ExpensesPage() {
         </div>
 
         {/* Charts row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Category Breakdown — donut + legend */}
           <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
-            <h3 className="text-sm font-semibold mb-4">Category Breakdown</h3>
-            <div className="space-y-3">
-              {categoryBreakdown.map(({ category, amount, pct }) => {
-                const meta = CATEGORY_META[category]
-                const Icon = meta.icon
-                return (
-                  <div key={category} className="flex items-center gap-3">
-                    <div className={`flex items-center justify-center size-7 rounded-lg border ${meta.color}`}><Icon className="size-3.5" /></div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-medium">{meta.label}</span>
-                        <span className="tabular-nums text-muted-foreground">{fmtCurrencyDollars(amount)}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-red-500 to-amber-500 transition-all duration-700" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
+            <h3 className="text-sm font-semibold mb-3">Category Breakdown</h3>
+            {categoryBreakdown.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No expenses yet</p>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="shrink-0 relative">
+                  <div className="size-[120px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={34} outerRadius={54} paddingAngle={3} strokeWidth={0}>
+                          {categoryPieData.map(d => <Cell key={d.name} fill={d.color} />)}
+                        </Pie>
+                        <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, '']} />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                )
-              })}
-              {categoryBreakdown.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No expenses yet</p>}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-[10px] text-muted-foreground font-medium">{categoryBreakdown.length} cats</span>
+                  </div>
+                </div>
+                <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                  {categoryBreakdown.map(({ category, amount }) => {
+                    const meta = CATEGORY_META[category]
+                    const Icon = meta.icon
+                    return (
+                      <div key={category} className="flex items-center gap-2">
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_CHART_COLORS[category] }} />
+                        <Icon className="size-3 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] truncate">{meta.label}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0">{fmtCurrencyDollars(amount)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Monthly Spending — area chart */}
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+            <h3 className="text-sm font-semibold mb-3">Monthly Spending</h3>
+            <div className="h-[160px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlySpending} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `$${v}`} />
+                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, 'Spent']} />
+                  <Area type="monotone" dataKey="amount" stroke="#f97316" strokeWidth={2} fill="url(#expenseGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Status Distribution — mini donut + stats */}
           <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
-            <h3 className="text-sm font-semibold mb-4">Monthly Spending</h3>
-            <div className="flex items-end gap-3 h-40">
-              {monthlySpending.map((m, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] tabular-nums text-muted-foreground font-medium">{m.amount > 0 ? fmtCurrencyDollars(m.amount) : '--'}</span>
-                  <div className="w-full flex items-end justify-center" style={{ height: '110px' }}>
-                    <div
-                      className="w-full max-w-10 rounded-t-md bg-gradient-to-t from-red-500 to-amber-400 transition-all duration-700"
-                      style={{ height: m.amount > 0 ? `${Math.max((m.amount / maxMonthly) * 100, 8)}%` : '4px', opacity: m.amount > 0 ? 1 : 0.2 }}
-                    />
+            <h3 className="text-sm font-semibold mb-3">Status Distribution</h3>
+            {statusDistribution.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No data</p>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative size-[110px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3} strokeWidth={0}>
+                        {statusDistribution.map(d => <Cell key={d.name} fill={d.color} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-lg font-bold tabular-nums">{expenses.length}</span>
                   </div>
-                  <span className="text-[11px] font-medium text-muted-foreground">{m.label}</span>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                  {statusDistribution.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full" style={{ backgroundColor: d.color }} />
+                      <span className="text-[11px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[11px] font-semibold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

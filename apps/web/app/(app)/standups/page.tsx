@@ -246,6 +246,54 @@ export default function StandupsPage() {
     return Object.values(weekMoodDistribution).reduce((a, b) => a + b, 0)
   }, [weekMoodDistribution])
 
+  // Daily mood distribution (for day view)
+  const dayMoodDistribution = useMemo(() => {
+    const counts: Record<MoodKey, number> = { Great: 0, Good: 0, Okay: 0, Struggling: 0 }
+    dayEntries.forEach(e => { counts[e.moodKey]++ })
+    return counts
+  }, [dayEntries])
+  const totalDayMoods = Object.values(dayMoodDistribution).reduce((a, b) => a + b, 0)
+
+  // Per-person participation streak (how many consecutive days each person has submitted)
+  const personStreaks = useMemo(() => {
+    const streaks: { name: string; streak: number; submitted: boolean }[] = []
+    for (const emp of orgEmployees) {
+      if (!emp.identity) continue
+      const hex = emp.identity.toHexString()
+      let streak = 0
+      const d = new Date(today)
+      while (true) {
+        const has = entries.some(e => {
+          const eHex = typeof e.author.toHexString === 'function' ? e.author.toHexString() : String(e.author)
+          return eHex === hex && isSameDay(e.date, d)
+        })
+        if (!has) break
+        streak++
+        d.setDate(d.getDate() - 1)
+      }
+      streaks.push({ name: emp.name, streak, submitted: todayAuthors.has(hex) })
+    }
+    return streaks.sort((a, b) => b.streak - a.streak)
+  }, [orgEmployees, entries, today, todayAuthors])
+
+  // Weekly participation heatmap (7 days x N people)
+  const weekParticipationGrid = useMemo(() => {
+    const days: Date[] = []
+    for (let i = 6; i >= 0; i--) days.push(addDays(selectedDate, -i))
+    return orgEmployees
+      .filter(emp => emp.identity)
+      .map(emp => {
+        const hex = emp.identity.toHexString()
+        const dayStatuses = days.map(d => {
+          return entries.some(e => {
+            const eHex = typeof e.author.toHexString === 'function' ? e.author.toHexString() : String(e.author)
+            return eHex === hex && isSameDay(e.date, d)
+          })
+        })
+        return { name: emp.name, days: dayStatuses }
+      })
+  }, [orgEmployees, entries, selectedDate])
+
   // Filtered day entries (when in day mode with search)
   const filteredDayEntries = useMemo(() => {
     if (!searchQuery) return dayEntries
@@ -532,6 +580,39 @@ export default function StandupsPage() {
               </span>
             </div>
 
+            {/* Day Mood Distribution */}
+            {viewMode === 'day' && totalDayMoods > 0 && (
+              <div className="rounded-xl border bg-card p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Team Mood Today</span>
+                  <span className="text-[10px] text-muted-foreground">{totalDayMoods} entries</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-muted overflow-hidden flex">
+                  {(['Great', 'Good', 'Okay', 'Struggling'] as MoodKey[]).map(mood => {
+                    const count = dayMoodDistribution[mood]
+                    if (count === 0) return null
+                    const colorMap: Record<MoodKey, string> = { Great: 'bg-green-500', Good: 'bg-blue-500', Okay: 'bg-amber-500', Struggling: 'bg-red-500' }
+                    return (
+                      <div
+                        key={mood}
+                        className={`h-full ${colorMap[mood]} transition-all duration-700`}
+                        style={{ width: `${(count / totalDayMoods) * 100}%` }}
+                        title={`${MOOD_CONFIG[mood].label}: ${count}`}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  {(['Great', 'Good', 'Okay', 'Struggling'] as MoodKey[]).filter(m => dayMoodDistribution[m] > 0).map(mood => (
+                    <div key={mood} className="flex items-center gap-1">
+                      <span className="text-xs">{MOOD_CONFIG[mood].emoji}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{dayMoodDistribution[mood]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Feed — Week View */}
             {viewMode === 'week' ? (
               <div className="flex flex-col gap-2">
@@ -682,15 +763,57 @@ export default function StandupsPage() {
                   <span className="text-xs font-semibold tabular-nums text-violet-600 dark:text-violet-400">{participationPct}%</span>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {participationList.length > 0 ? participationList.map(p => (
+                  {personStreaks.length > 0 ? personStreaks.map(p => (
                     <div key={p.name} className="flex items-center gap-2 py-1">
                       {p.submitted ? <CheckCircle2 className="size-4 text-green-500 shrink-0" /> : <XCircle className="size-4 text-neutral-300 dark:text-neutral-600 shrink-0" />}
-                      <span className={`text-sm ${p.submitted ? 'text-neutral-800 dark:text-neutral-200 font-medium' : 'text-muted-foreground'}`}>{p.name}</span>
+                      <span className={`text-sm flex-1 min-w-0 truncate ${p.submitted ? 'text-neutral-800 dark:text-neutral-200 font-medium' : 'text-muted-foreground'}`}>{p.name}</span>
+                      {p.streak > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-500 tabular-nums shrink-0" title={`${p.streak} day streak`}>
+                          <Flame className="size-2.5" />{p.streak}
+                        </span>
+                      )}
                     </div>
                   )) : (
                     <p className="text-sm text-muted-foreground text-center py-2">No team members yet</p>
                   )}
                 </div>
+
+                {/* Weekly Heatmap */}
+                {weekParticipationGrid.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">7-Day Heatmap</p>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1 ml-[72px]">
+                        {Array.from({ length: 7 }, (_, i) => {
+                          const d = addDays(selectedDate, -(6 - i))
+                          return (
+                            <span key={i} className="text-[8px] text-muted-foreground/60 w-5 text-center">
+                              {d.toLocaleDateString('en-US', { weekday: 'narrow' })}
+                            </span>
+                          )
+                        })}
+                      </div>
+                      {weekParticipationGrid.slice(0, 8).map(person => (
+                        <div key={person.name} className="flex items-center gap-1">
+                          <span className="text-[9px] text-muted-foreground truncate w-[68px] shrink-0 text-right">{person.name.split(' ')[0]}</span>
+                          {person.days.map((submitted, i) => (
+                            <div
+                              key={i}
+                              className={`size-5 rounded-sm transition-colors ${
+                                submitted
+                                  ? 'bg-violet-500/60'
+                                  : 'bg-neutral-100 dark:bg-neutral-800'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                      {weekParticipationGrid.length > 8 && (
+                        <p className="text-[9px] text-muted-foreground/50 text-center mt-0.5">+{weekParticipationGrid.length - 8} more</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

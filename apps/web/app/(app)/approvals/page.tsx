@@ -47,6 +47,17 @@ import {
   Download,
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -195,6 +206,51 @@ export default function ApprovalsPage() {
   const totalValue = requests
     .filter(r => getTag(r.status) === 'Pending' && Number(r.amountCents) > 0)
     .reduce((sum, r) => sum + Number(r.amountCents), 0)
+
+  // Chart: status distribution
+  const STATUS_CHART_COLORS: Record<string, string> = { Pending: '#f59e0b', Approved: '#10b981', Rejected: '#ef4444', Cancelled: '#737373' }
+  const statusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of requests) {
+      const s = getTag(r.status) || 'Pending'
+      counts[s] = (counts[s] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      color: STATUS_CHART_COLORS[name] ?? '#737373',
+    }))
+  }, [requests])
+
+  // Chart: type breakdown
+  const TYPE_CHART_COLORS: Record<string, string> = { Expense: '#10b981', TimeOff: '#3b82f6', Document: '#8b5cf6', Purchase: '#f59e0b', Access: '#f43f5e', Other: '#737373' }
+  const typePieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of requests) {
+      const t = getTag(r.approvalType) || 'Other'
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([key, value]) => ({
+      name: TYPE_CONFIG[key as ApprovalTypeTag]?.label ?? key,
+      value,
+      color: TYPE_CHART_COLORS[key] ?? '#737373',
+    }))
+  }, [requests])
+
+  // Chart: priority bar
+  const PRIORITY_CHART_COLORS: Record<string, string> = { Low: '#737373', Medium: '#3b82f6', High: '#f97316', Urgent: '#ef4444' }
+  const priorityBarData = useMemo(() => {
+    const counts: Record<string, number> = { Low: 0, Medium: 0, High: 0, Urgent: 0 }
+    for (const r of requests) {
+      const p = getTag(r.priority) || 'Medium'
+      counts[p] = (counts[p] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      fill: PRIORITY_CHART_COLORS[name] ?? '#737373',
+    }))
+  }, [requests])
 
   // Filtered list
   const filtered = useMemo(() => {
@@ -441,6 +497,92 @@ export default function ApprovalsPage() {
             </div>
           </SpotlightCard>
         </div>
+
+        {/* Insights charts */}
+        {requests.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Status distribution donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status Distribution</h3>
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                      {statusPieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [`${value} request${value !== 1 ? 's' : ''}`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                {statusPieData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className="size-2 rounded-full" style={{ background: d.color }} />
+                    {d.name} ({d.value})
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Request type donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">By Request Type</h3>
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={typePieData} cx="50%" cy="50%" innerRadius={36} outerRadius={58} paddingAngle={3} dataKey="value" stroke="none">
+                      {typePieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [`${value} request${value !== 1 ? 's' : ''}`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                {typePieData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className="size-2 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Priority bar chart */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Priority Breakdown</h3>
+              <div className="h-[170px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityBarData} barSize={28} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number) => [`${value} request${value !== 1 ? 's' : ''}`, 'Count']}
+                    />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {priorityBarData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search + Filter tabs */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

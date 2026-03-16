@@ -80,11 +80,10 @@ export function LiveGlobe() {
     const arcs: ArcData[] = []
 
     for (const msg of allMessages) {
-      if (msg.contextType.tag !== 'Channel') continue
-      if (!orgChannelIds.has(msg.contextId)) continue
-      if (msg.content.startsWith('[system]')) continue
-
       try {
+        if (msg.contextType?.tag !== 'Channel') continue
+        if (!orgChannelIds.has(msg.contextId)) continue
+        if (msg.content?.startsWith('[system]')) continue
         const sentTime = msg.sentAt.toDate?.().getTime() ?? 0
         if (sentTime < cutoff) continue
 
@@ -114,7 +113,7 @@ export function LiveGlobe() {
   // Marker locations from active employees — use real location when available
   const markers = useMemo(() => {
     return allEmployees
-      .filter(e => e.status.tag === 'Online' || e.status.tag === 'Busy')
+      .filter(e => e.status?.tag === 'Online' || e.status?.tag === 'Busy')
       .map(e => {
         const hex = e.id.toHexString()
         const [lat, lng] = getUserGeo(hex)

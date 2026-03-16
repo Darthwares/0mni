@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import ProtectedRoute from "@/components/protected-route"
 import { OrgProvider } from "@/components/org-context"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { PresenceBar } from "@/components/presence-bar"
 import { NotificationPrompt } from "@/components/notification-prompt"
 import { CommandPalette } from "@/components/command-palette"
@@ -105,7 +106,9 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                 ? "flex-1 overflow-hidden h-[100dvh] md:h-screen"
                 : "flex-1 overflow-auto pb-16 md:pb-0"
             }>
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </main>
           </SidebarInset>
           <MobileTabBar />

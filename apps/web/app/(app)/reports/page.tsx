@@ -14,6 +14,10 @@ import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import {
+  BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart as RechartsPieChart, Pie,
+} from 'recharts'
+import {
   FileBarChart2,
   Star,
   Clock,
@@ -81,6 +85,26 @@ const TEMPLATES: ReportTemplate[] = [
   { id: 'activity-summary', name: 'Weekly Activity Summary', description: 'Activity log entries grouped by action type', source: 'Activity', chartType: 'table', icon: Activity, color: 'cyan', spotlightColor: 'rgba(6,182,212,0.15)' },
   { id: 'recruitment-funnel', name: 'Recruitment Funnel', description: 'Candidate pipeline from sourcing through hiring', source: 'Candidates', chartType: 'funnel', icon: UserSearch, color: 'rose', spotlightColor: 'rgba(244,63,94,0.15)' },
 ]
+
+// ── chart helpers ────────────────────────────────────────────────────────────
+
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg px-3 py-2 text-xs">
+      <p className="font-medium text-muted-foreground mb-1">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-bold tabular-nums">{entry.value.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const CHART_GRID = { stroke: 'rgba(120,120,120,0.1)', strokeDasharray: '3 3' }
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
@@ -518,34 +542,38 @@ function TaskCompletionChart({ tasks, employees }: { tasks: any[]; employees: an
     return [...depts.entries()].sort((a, b) => b[1].total - a[1].total)
   }, [tasks, employees])
 
-  const maxCount = Math.max(1, ...deptData.map(([, d]) => d.total))
+  const chartData = deptData.map(([dept, d]) => ({
+    name: dept.length > 12 ? dept.slice(0, 12) + '…' : dept,
+    Completed: d.completed,
+    'In Progress': d.inProgress,
+    Other: d.total - d.completed - d.inProgress,
+  }))
 
   return (
     <div>
       <h3 className="text-sm font-semibold mb-4">Task Completion by Department</h3>
-      {deptData.length === 0 ? (
+      {chartData.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">No task data available</p>
       ) : (
-        <div className="space-y-3">
-          {deptData.map(([dept, d]) => (
-            <div key={dept} className="flex items-center gap-3">
-              <span className="text-xs font-medium w-24 shrink-0 truncate text-muted-foreground">{dept}</span>
-              <div className="flex-1 h-6 rounded-md bg-neutral-100 dark:bg-neutral-800 overflow-hidden relative">
-                <div className="absolute inset-y-0 left-0 rounded-md bg-emerald-500/80 transition-all duration-700" style={{ width: `${pct(d.completed, maxCount)}%` }} />
-                <div className="absolute inset-y-0 rounded-md bg-blue-500/60 transition-all duration-700" style={{ left: `${pct(d.completed, maxCount)}%`, width: `${pct(d.inProgress, maxCount)}%` }} />
-                <div className="absolute inset-y-0 rounded-md bg-neutral-300/40 dark:bg-neutral-600/40 transition-all duration-700" style={{ left: `${pct(d.completed + d.inProgress, maxCount)}%`, width: `${pct(d.total - d.completed - d.inProgress, maxCount)}%` }} />
-              </div>
-              <span className="text-xs font-bold tabular-nums w-10 text-right text-emerald-600 dark:text-emerald-400">{pct(d.completed, d.total)}%</span>
-              <span className="text-[10px] text-muted-foreground tabular-nums w-14 text-right">{d.completed}/{d.total}</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-emerald-500" /> Completed</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-blue-500" /> In Progress</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-neutral-300 dark:bg-neutral-600" /> Other</span>
-          </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+              <CartesianGrid {...CHART_GRID} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <RechartsTooltip content={<ChartTooltip />} />
+              <Bar dataKey="Completed" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="In Progress" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Other" stackId="a" fill="#d4d4d4" radius={[4, 4, 0, 0]} />
+            </RechartsBarChart>
+          </ResponsiveContainer>
         </div>
       )}
+      <div className="flex items-center gap-4 mt-3">
+        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-emerald-500" /> Completed</span>
+        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-blue-500" /> In Progress</span>
+        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-neutral-300 dark:bg-neutral-600" /> Other</span>
+      </div>
       <DataTable headers={['Department', 'Total', 'Completed', 'In Progress', 'Completion %']} rows={deptData.map(([dept, d]) => [dept, d.total.toString(), d.completed.toString(), d.inProgress.toString(), `${pct(d.completed, d.total)}%`])} />
     </div>
   )
@@ -554,11 +582,11 @@ function TaskCompletionChart({ tasks, employees }: { tasks: any[]; employees: an
 function TicketResolutionChart({ tickets }: { tickets: any[] }) {
   const statusData = useMemo(() => {
     const statuses = ['New', 'Open', 'Pending', 'Resolved', 'Closed'] as const
-    const colors = { New: 'bg-blue-500', Open: 'bg-amber-500', Pending: 'bg-orange-500', Resolved: 'bg-emerald-500', Closed: 'bg-neutral-400' }
+    const colors = { New: '#3b82f6', Open: '#f59e0b', Pending: '#f97316', Resolved: '#10b981', Closed: '#a3a3a3' }
     return statuses.map(s => ({
       status: s,
       count: tickets.filter(t => t.status?.tag === s).length,
-      color: colors[s],
+      hex: colors[s],
     }))
   }, [tickets])
 
@@ -583,17 +611,31 @@ function TicketResolutionChart({ tickets }: { tickets: any[] }) {
           <p className="text-xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{avgEscalation}</p>
         </div>
       </div>
-      <div className="space-y-3">
-        {statusData.map(s => (
-          <div key={s.status} className="flex items-center gap-3">
-            <span className="text-xs font-medium w-20 shrink-0 text-muted-foreground">{s.status}</span>
-            <div className="flex-1 h-3 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-              <div className={`h-full rounded-full ${s.color} transition-all duration-700`} style={{ width: `${pct(s.count, total)}%` }} />
-            </div>
-            <span className="text-xs font-bold tabular-nums w-8 text-right">{s.count}</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right">{pct(s.count, total)}%</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart data={statusData.map(s => ({ name: s.status, count: s.count, fill: s.hex }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+              <CartesianGrid {...CHART_GRID} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <RechartsTooltip content={<ChartTooltip />} />
+              <Bar dataKey="count" name="Tickets" radius={[4, 4, 0, 0]} maxBarSize={32}>
+                {statusData.map((s, i) => <Cell key={i} fill={s.hex} fillOpacity={0.85} />)}
+              </Bar>
+            </RechartsBarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPieChart>
+              <Pie data={statusData.filter(s => s.count > 0).map(s => ({ name: s.status, value: s.count }))}
+                cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value">
+                {statusData.filter(s => s.count > 0).map((s, i) => <Cell key={i} fill={s.hex} />)}
+              </Pie>
+              <RechartsTooltip content={<ChartTooltip />} />
+            </RechartsPieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
       <DataTable headers={['Status', 'Count', 'Percentage']} rows={statusData.map(s => [s.status, s.count.toString(), `${pct(s.count, total)}%`])} />
     </div>
@@ -688,23 +730,24 @@ function HeadcountChart({ employees }: { employees: any[] }) {
       {depts.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">No employee data</p>
       ) : (
-        <div className="space-y-3">
-          {depts.map(([dept, d]) => (
-            <div key={dept} className="flex items-center gap-3">
-              <span className="text-xs font-medium w-24 shrink-0 truncate text-muted-foreground">{dept}</span>
-              <div className="flex-1 h-5 rounded-md bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex">
-                <div className="h-full bg-blue-500 transition-all duration-700" style={{ width: `${pct(d.human, maxCount)}%` }} />
-                <div className="h-full bg-purple-500 transition-all duration-700" style={{ width: `${pct(d.ai, maxCount)}%` }} />
-              </div>
-              <span className="text-xs font-bold tabular-nums w-8 text-right">{d.total}</span>
-              {d.ai > 0 && <Badge className="text-[9px] py-0 h-4 bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 hover:bg-purple-500/10">{d.ai} AI</Badge>}
-            </div>
-          ))}
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+        <>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart data={depts.map(([dept, d]) => ({ name: dept.length > 10 ? dept.slice(0, 10) + '…' : dept, Human: d.human, AI: d.ai }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <RechartsTooltip content={<ChartTooltip />} />
+                <Bar dataKey="Human" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={24} fillOpacity={0.85} />
+                <Bar dataKey="AI" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={24} fillOpacity={0.75} />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center gap-4 mt-2">
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-blue-500" /> Human</span>
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="size-2.5 rounded-sm bg-purple-500" /> AI Agent</span>
           </div>
-        </div>
+        </>
       )}
       <DataTable headers={['Department', 'Total', 'Human', 'AI Agents', 'AI %']} rows={depts.map(([dept, d]) => [dept, d.total.toString(), d.human.toString(), d.ai.toString(), `${pct(d.ai, d.total)}%`])} />
     </div>
@@ -731,7 +774,7 @@ function ActivitySummaryChart({ activity }: { activity: any[] }) {
   }, [activity])
 
   const maxAction = Math.max(1, ...actionData.map(([, c]) => c))
-  const actionColors = ['bg-sky-500', 'bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-blue-500', 'bg-orange-500']
+  const actionHexColors = ['#0ea5e9', '#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4', '#3b82f6', '#f97316']
 
   return (
     <div>
@@ -749,16 +792,18 @@ function ActivitySummaryChart({ activity }: { activity: any[] }) {
       {actionData.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">No activity data</p>
       ) : (
-        <div className="space-y-2.5">
-          {actionData.map(([action, count], i) => (
-            <div key={action} className="flex items-center gap-3">
-              <span className="text-xs font-medium w-20 shrink-0 text-muted-foreground">{action}</span>
-              <div className="flex-1 h-3 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                <div className={`h-full rounded-full ${actionColors[i % actionColors.length]} transition-all duration-700`} style={{ width: `${pct(count, maxAction)}%` }} />
-              </div>
-              <span className="text-xs font-bold tabular-nums w-8 text-right">{count}</span>
-            </div>
-          ))}
+        <div className="h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart data={actionData.map(([action, count]) => ({ name: action, count }))} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
+              <CartesianGrid {...CHART_GRID} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={80} />
+              <RechartsTooltip content={<ChartTooltip />} />
+              <Bar dataKey="count" name="Events" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                {actionData.map((_, i) => <Cell key={i} fill={actionHexColors[i % actionHexColors.length]} fillOpacity={0.8} />)}
+              </Bar>
+            </RechartsBarChart>
+          </ResponsiveContainer>
         </div>
       )}
       <DataTable headers={['Action', 'Count', '% of Total']} rows={actionData.map(([action, count]) => [action, count.toString(), `${pct(count, activity.length)}%`])} />
@@ -856,7 +901,7 @@ function CustomReportChart({ report, tasks, tickets, leads, candidates, employee
         break
     }
 
-    const barColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-orange-500']
+    const barHexColors = ['#6366f1', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4', '#f97316']
     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
     const max = Math.max(...sorted.map(s => s[1]), 1)
     const totalCount = items.length
@@ -866,7 +911,7 @@ function CustomReportChart({ report, tasks, tickets, leads, candidates, employee
         name,
         count,
         pct: Math.round((count / max) * 100),
-        color: barColors[i % barColors.length],
+        hex: barHexColors[i % barHexColors.length],
       })),
       total: totalCount,
       groupLabel: label,
@@ -893,21 +938,18 @@ function CustomReportChart({ report, tasks, tickets, leads, candidates, employee
       </div>
       {/* Bar chart */}
       {bars.length > 0 && (
-        <div className="space-y-2">
-          {bars.map(bar => (
-            <div key={bar.name} className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-24 truncate text-right shrink-0">{bar.name}</span>
-              <div className="flex-1 h-7 rounded-md bg-muted/50 overflow-hidden">
-                <div
-                  className={`h-full rounded-md ${bar.color} flex items-center px-2 transition-all duration-500`}
-                  style={{ width: `${Math.max(bar.pct, 4)}%` }}
-                >
-                  <span className="text-[10px] font-bold text-white tabular-nums">{bar.count}</span>
-                </div>
-              </div>
-              <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">{pct(bar.count, total)}%</span>
-            </div>
-          ))}
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart data={bars.map(b => ({ name: b.name.length > 14 ? b.name.slice(0, 14) + '…' : b.name, count: b.count }))} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
+              <CartesianGrid {...CHART_GRID} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={90} />
+              <RechartsTooltip content={<ChartTooltip />} />
+              <Bar dataKey="count" name={groupLabel} radius={[0, 4, 4, 0]} maxBarSize={20}>
+                {bars.map((b, i) => <Cell key={i} fill={b.hex} fillOpacity={0.85} />)}
+              </Bar>
+            </RechartsBarChart>
+          </ResponsiveContainer>
         </div>
       )}
       <DataTable headers={tableHeaders} rows={tableRows} />

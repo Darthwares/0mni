@@ -31,6 +31,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -946,27 +958,25 @@ export default function DashboardPage() {
                 <TrendingUp className="size-3" />
                 Weekly Velocity
               </h3>
-              <div className="flex items-end gap-1.5 h-20">
-                {weeklyVelocity.map((day, i) => (
-                  <Tooltip key={i}>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-center gap-1">
-                        <div
-                          className={`w-full rounded-t transition-all duration-500 ${
-                            day.count > 0
-                              ? 'bg-gradient-to-t from-violet-500/60 to-violet-400/60'
-                              : 'bg-muted/30'
-                          }`}
-                          style={{ height: `${Math.max(4, (day.count / maxVelocity) * 64)}px` }}
-                        />
-                        <span className="text-[9px] text-muted-foreground">{day.label}</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      {day.count} completed
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+              <div className="h-24">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyVelocity} barSize={20} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number) => [`${value} completed`, 'Tasks']}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#velocityGrad)" />
+                    <defs>
+                      <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" />
+                        <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.6} />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -1014,29 +1024,47 @@ export default function DashboardPage() {
               <KanbanSquare className="size-3" />
               Task Distribution
             </h3>
-            <div className="space-y-2">
-              {[
-                { key: 'Unclaimed', label: 'Backlog', color: 'bg-neutral-400' },
-                { key: 'InProgress', label: 'In Progress', color: 'bg-amber-500' },
-                { key: 'NeedsReview', label: 'Review', color: 'bg-violet-500' },
-                { key: 'Completed', label: 'Done', color: 'bg-emerald-500' },
-              ].map(({ key, label, color }) => {
-                const count = statusDistribution[key as keyof typeof statusDistribution] || 0
-                const total = orgTasks.length || 1
-                return (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground w-16 text-right">{label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${color} transition-all duration-500`}
-                        style={{ width: `${(count / total) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-medium tabular-nums w-6 text-right">{count}</span>
+            {(() => {
+              const TASK_STATUS_COLORS: Record<string, string> = { Unclaimed: '#a3a3a3', Claimed: '#3b82f6', InProgress: '#f59e0b', NeedsReview: '#8b5cf6', Completed: '#10b981', Escalated: '#ef4444' }
+              const TASK_STATUS_LABELS: Record<string, string> = { Unclaimed: 'Backlog', Claimed: 'Claimed', InProgress: 'In Progress', NeedsReview: 'Review', Completed: 'Done', Escalated: 'Escalated' }
+              const pieData = Object.entries(statusDistribution)
+                .filter(([, count]) => count > 0)
+                .map(([key, count]) => ({
+                  name: TASK_STATUS_LABELS[key] ?? key,
+                  value: count,
+                  color: TASK_STATUS_COLORS[key] ?? '#737373',
+                }))
+              return pieData.length > 0 ? (
+                <>
+                  <div className="h-[120px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={3} dataKey="value" stroke="none">
+                          {pieData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip
+                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          formatter={(value: number, name: string) => [`${value} task${value !== 1 ? 's' : ''}`, name]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                )
-              })}
-            </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                    {pieData.map((d) => (
+                      <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="size-2 rounded-full" style={{ background: d.color }} />
+                        {d.name} ({d.value})
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">No tasks yet</p>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>

@@ -206,7 +206,7 @@ export default function ProfilePage() {
     Busy: 'bg-amber-500',
     Offline: 'bg-neutral-400',
     InCall: 'bg-blue-500',
-  }[me.status.tag] ?? 'bg-neutral-400'
+  }[me.status?.tag] ?? 'bg-neutral-400'
 
   return (
     <div className="flex flex-col h-full">
@@ -243,22 +243,22 @@ export default function ProfilePage() {
                   </h1>
                   <p className="text-muted-foreground">{me.role || 'Team Member'}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="secondary">{me.department.tag}</Badge>
+                    <Badge variant="secondary">{me.department?.tag}</Badge>
                     <Badge
                       variant="outline"
                       className={
-                        me.status.tag === 'Online'
+                        me.status?.tag === 'Online'
                           ? 'border-green-500/50 text-green-500'
-                          : me.status.tag === 'Busy'
+                          : me.status?.tag === 'Busy'
                           ? 'border-amber-500/50 text-amber-500'
-                          : me.status.tag === 'InCall'
+                          : me.status?.tag === 'InCall'
                           ? 'border-blue-500/50 text-blue-500'
                           : ''
                       }
                     >
-                      {me.status.tag}
+                      {me.status?.tag}
                     </Badge>
-                    {me.employeeType.tag === 'AiAgent' && (
+                    {me.employeeType?.tag === 'AiAgent' && (
                       <Badge variant="outline" className="border-purple-500/50 text-purple-500">
                         AI Agent
                       </Badge>
@@ -686,7 +686,7 @@ export default function ProfilePage() {
               },
               {
                 label: 'Active Tasks',
-                value: myTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'Claimed').length,
+                value: myTasks.filter((t) => t.status?.tag === 'InProgress' || t.status?.tag === 'Claimed').length,
                 color: '#d946ef',
               },
             ] as const).map((stat) => (
@@ -708,7 +708,7 @@ export default function ProfilePage() {
                 <p className="text-xs text-muted-foreground">Current Task</p>
                 <p className="text-sm font-medium">{currentTask.title}</p>
               </div>
-              <Badge variant="outline">{currentTask.status.tag}</Badge>
+              <Badge variant="outline">{currentTask.status?.tag}</Badge>
             </div>
           )}
         </CardContent>

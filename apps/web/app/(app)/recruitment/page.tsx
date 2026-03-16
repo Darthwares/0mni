@@ -322,10 +322,10 @@ export default function RecruitmentPage() {
   const totalCandidates = candidates.length
   const inPipeline = candidates.filter(
     (c) =>
-      c.status.tag !== 'Hired' && c.status.tag !== 'Rejected'
+      c.status?.tag !== 'Hired' && c.status?.tag !== 'Rejected'
   ).length
   const interviewsScheduled = interviews.filter((i) => !i.completed).length
-  const hired = candidates.filter((c) => c.status.tag === 'Hired').length
+  const hired = candidates.filter((c) => c.status?.tag === 'Hired').length
 
   // Filtered candidates
   const filteredCandidates = useMemo(() => {
@@ -349,7 +349,7 @@ export default function RecruitmentPage() {
       (j) =>
         j.title.toLowerCase().includes(q) ||
         (j.location ?? '').toLowerCase().includes(q) ||
-        j.department.tag.toLowerCase().includes(q)
+        j.department?.tag.toLowerCase().includes(q)
     )
   }, [jobPostings, jobSearch])
 
@@ -728,8 +728,8 @@ export default function RecruitmentPage() {
                               ) : <span className="text-muted-foreground">—</span>}
                             </TableCell>
                             <TableCell>
-                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${candidateStatusBadgeClass(candidate.status.tag)}`}>
-                                {candidate.status.tag}
+                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${candidateStatusBadgeClass(candidate.status?.tag)}`}>
+                                {candidate.status?.tag}
                               </span>
                             </TableCell>
                             <TableCell>
@@ -762,7 +762,7 @@ export default function RecruitmentPage() {
                       {/* Status pipeline */}
                       <div>
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Pipeline Stage</p>
-                        {selectedCandidate.status.tag === 'Rejected' ? (
+                        {selectedCandidate.status?.tag === 'Rejected' ? (
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium bg-red-500/10 text-red-600 border-red-500/20">
                               <XCircle className="size-3 mr-1" /> Rejected
@@ -775,7 +775,7 @@ export default function RecruitmentPage() {
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-1">
                               {statusPipeline.map((stage, i) => {
-                                const currentIdx = statusPipeline.indexOf(selectedCandidate.status.tag as CandidateStatusTag)
+                                const currentIdx = statusPipeline.indexOf(selectedCandidate.status?.tag as CandidateStatusTag)
                                 const isActive = i <= currentIdx
                                 const isCurrent = i === currentIdx
                                 return (
@@ -960,12 +960,12 @@ export default function RecruitmentPage() {
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-base leading-snug">{job.title}</CardTitle>
-                        <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${jobStatusBadgeClass(job.status.tag)}`}>
-                          {job.status.tag === 'OnHold' ? 'On Hold' : job.status.tag}
+                        <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${jobStatusBadgeClass(job.status?.tag)}`}>
+                          {job.status?.tag === 'OnHold' ? 'On Hold' : job.status?.tag}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">{departmentLabel(job.department.tag)}</Badge>
+                        <Badge variant="secondary" className="text-xs">{departmentLabel(job.department?.tag)}</Badge>
                         {job.location && (
                           <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{job.location}</span>
                         )}
@@ -992,7 +992,7 @@ export default function RecruitmentPage() {
                       )}
                       {/* Action row */}
                       <div className="flex items-center gap-2 pt-2 border-t">
-                        <Select value={job.status.tag} onValueChange={(v) => handleChangeJobStatus(job.id, v)}>
+                        <Select value={job.status?.tag} onValueChange={(v) => handleChangeJobStatus(job.id, v)}>
                           <SelectTrigger className="h-7 text-xs w-[100px]"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {['Draft', 'Open', 'OnHold', 'Filled', 'Closed'].map((s) => (
@@ -1031,7 +1031,7 @@ export default function RecruitmentPage() {
                       <Select value={newInterviewCandidateId} onValueChange={setNewInterviewCandidateId}>
                         <SelectTrigger><SelectValue placeholder="Select candidate..." /></SelectTrigger>
                         <SelectContent>
-                          {candidates.filter(c => c.status.tag !== 'Hired' && c.status.tag !== 'Rejected').map((c) => (
+                          {candidates.filter(c => c.status?.tag !== 'Hired' && c.status?.tag !== 'Rejected').map((c) => (
                             <SelectItem key={c.id.toString()} value={c.id.toString()}>{c.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -1042,7 +1042,7 @@ export default function RecruitmentPage() {
                       <Select value={newInterviewJobId} onValueChange={setNewInterviewJobId}>
                         <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
                         <SelectContent>
-                          {jobPostings.filter(j => j.status.tag === 'Open').map((j) => (
+                          {jobPostings.filter(j => j.status?.tag === 'Open').map((j) => (
                             <SelectItem key={j.id.toString()} value={j.id.toString()}>{j.title}</SelectItem>
                           ))}
                         </SelectContent>

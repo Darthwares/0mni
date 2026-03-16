@@ -126,8 +126,8 @@ export default function ExpensesPage() {
       .map(e => ({
         ...e,
         date: tsToDate(e.expenseDate),
-        cat: (e.category.tag as ExpenseCategoryKey) || 'Other',
-        statusKey: (e.status.tag as ExpenseStatusKey) || 'Pending',
+        cat: (e.category?.tag as ExpenseCategoryKey) || 'Other',
+        statusKey: (e.status?.tag as ExpenseStatusKey) || 'Pending',
         dollars: Number(e.amountCents) / 100,
       }))
   }, [allExpenses, currentOrgId])

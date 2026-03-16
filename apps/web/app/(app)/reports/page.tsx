@@ -511,8 +511,8 @@ function TaskCompletionChart({ tasks, employees }: { tasks: any[]; employees: an
       const dept = t.assignee ? (empDept.get(t.assignee.toHexString()) ?? 'Unassigned') : 'Unassigned'
       const d = depts.get(dept) ?? { total: 0, completed: 0, inProgress: 0 }
       d.total++
-      if (t.status.tag === 'Completed') d.completed++
-      if (t.status.tag === 'InProgress' || t.status.tag === 'Claimed') d.inProgress++
+      if (t.status?.tag === 'Completed') d.completed++
+      if (t.status?.tag === 'InProgress' || t.status?.tag === 'Claimed') d.inProgress++
       depts.set(dept, d)
     }
     return [...depts.entries()].sort((a, b) => b[1].total - a[1].total)
@@ -557,7 +557,7 @@ function TicketResolutionChart({ tickets }: { tickets: any[] }) {
     const colors = { New: 'bg-blue-500', Open: 'bg-amber-500', Pending: 'bg-orange-500', Resolved: 'bg-emerald-500', Closed: 'bg-neutral-400' }
     return statuses.map(s => ({
       status: s,
-      count: tickets.filter(t => t.status.tag === s).length,
+      count: tickets.filter(t => t.status?.tag === s).length,
       color: colors[s],
     }))
   }, [tickets])
@@ -607,14 +607,14 @@ function SalesFunnelChart({ leads }: { leads: any[] }) {
     const total = leads.length
     return order.map((s, i) => ({
       stage: s,
-      count: leads.filter(l => l.status.tag === s).length,
+      count: leads.filter(l => l.status?.tag === s).length,
       color: colors[i],
       width: total > 0 ? Math.max(15, 100 - i * 20) : 15,
     }))
   }, [leads])
 
-  const lost = leads.filter(l => l.status.tag === 'Lost').length
-  const unqualified = leads.filter(l => l.status.tag === 'Unqualified').length
+  const lost = leads.filter(l => l.status?.tag === 'Lost').length
+  const unqualified = leads.filter(l => l.status?.tag === 'Unqualified').length
   const total = leads.length
   const convRate = total > 0 ? pct(stages[3].count, total) : 0
 
@@ -779,13 +779,13 @@ function RecruitmentFunnelChart({ candidates }: { candidates: any[] }) {
     const total = candidates.length
     return order.map((s, i) => ({
       stage: s,
-      count: candidates.filter(c => c.status.tag === s).length,
+      count: candidates.filter(c => c.status?.tag === s).length,
       color: colors[i],
       width: total > 0 ? Math.max(15, 100 - i * 14) : 15,
     }))
   }, [candidates])
 
-  const rejected = candidates.filter(c => c.status.tag === 'Rejected').length
+  const rejected = candidates.filter(c => c.status?.tag === 'Rejected').length
   const total = candidates.length
   const hireRate = total > 0 ? pct(stages[5].count, total) : 0
 

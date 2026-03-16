@@ -237,7 +237,7 @@ function AgentCard({
               </AvatarFallback>
             </Avatar>
             <span
-              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-neutral-900 ${getStatusDot(agent.status.tag)}`}
+              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-neutral-900 ${getStatusDot(agent.status?.tag)}`}
             />
           </div>
 
@@ -247,16 +247,16 @@ function AgentCard({
               <h3 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 truncate">
                 {agent.name}
               </h3>
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getStatusBadgeClass(agent.status.tag)}`}>
-                {getStatusLabel(agent.status.tag)}
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getStatusBadgeClass(agent.status?.tag)}`}>
+                {getStatusLabel(agent.status?.tag)}
               </span>
             </div>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{agent.role}</p>
           </div>
 
           {/* Dept badge */}
-          <span className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${getDeptColor(agent.department.tag)}`}>
-            {agent.department.tag}
+          <span className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${getDeptColor(agent.department?.tag)}`}>
+            {agent.department?.tag}
           </span>
         </div>
 
@@ -292,8 +292,8 @@ function AgentCard({
           <div className="mb-3 flex items-center gap-2 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900/40 px-2.5 py-1.5">
             <ListTodo className="w-3 h-3 text-violet-500 shrink-0" />
             <span className="text-xs text-violet-700 dark:text-violet-300 truncate flex-1">{currentTask.title}</span>
-            <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${getTaskStatusBadge(currentTask.status.tag)}`}>
-              {currentTask.status.tag}
+            <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${getTaskStatusBadge(currentTask.status?.tag)}`}>
+              {currentTask.status?.tag}
             </span>
           </div>
         )}
@@ -379,25 +379,25 @@ function TaskRow({
         onClick={() => setExpanded((v) => !v)}
       >
         <div className={`h-2 w-2 rounded-full shrink-0 ${
-          task.status.tag === 'Completed' ? 'bg-emerald-500' :
-          task.status.tag === 'InProgress' ? 'bg-blue-500' :
-          task.status.tag === 'Escalated' ? 'bg-red-500' :
-          task.status.tag === 'SelfChecking' ? 'bg-violet-500' :
-          task.status.tag === 'NeedsReview' ? 'bg-amber-500' :
+          task.status?.tag === 'Completed' ? 'bg-emerald-500' :
+          task.status?.tag === 'InProgress' ? 'bg-blue-500' :
+          task.status?.tag === 'Escalated' ? 'bg-red-500' :
+          task.status?.tag === 'SelfChecking' ? 'bg-violet-500' :
+          task.status?.tag === 'NeedsReview' ? 'bg-amber-500' :
           'bg-neutral-400'
         }`} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">{task.title}</span>
-            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getTaskStatusBadge(task.status.tag)}`}>
-              {task.status.tag}
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getTaskStatusBadge(task.status?.tag)}`}>
+              {task.status?.tag}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
             {agentName && <span>{agentName}</span>}
             {agentName && <span>·</span>}
-            <span>{task.taskType.tag.replace(/([A-Z])/g, ' $1').trim()}</span>
+            <span>{task.taskType?.tag.replace(/([A-Z])/g, ' $1').trim()}</span>
             <span>·</span>
             <span>{formatTimestamp(task.createdAt)}</span>
           </div>
@@ -497,7 +497,7 @@ export default function AIEmployeesPage() {
 
   // Filter to AI agents only
   const aiAgents = useMemo(
-    () => allEmployees.filter((e) => e.employeeType.tag === 'AiAgent'),
+    () => allEmployees.filter((e) => e.employeeType?.tag === 'AiAgent'),
     [allEmployees]
   )
 
@@ -530,8 +530,8 @@ export default function AIEmployeesPage() {
   // Stats
   const stats = useMemo(() => {
     const total = aiAgents.length
-    const online = aiAgents.filter((a) => a.status.tag === 'Online').length
-    const busy = aiAgents.filter((a) => a.status.tag === 'Busy' || a.status.tag === 'InCall').length
+    const online = aiAgents.filter((a) => a.status?.tag === 'Online').length
+    const busy = aiAgents.filter((a) => a.status?.tag === 'Busy' || a.status?.tag === 'InCall').length
     const tasksCompleted = aiAgents.reduce(
       (sum, a) => sum + Number(a.tasksCompleted),
       0
@@ -712,7 +712,7 @@ export default function AIEmployeesPage() {
                     </Avatar>
                     <div>
                       <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">{selectedAgent.name}</h2>
-                      <p className="text-xs text-neutral-500">{selectedAgent.role} · {selectedAgent.department.tag}</p>
+                      <p className="text-xs text-neutral-500">{selectedAgent.role} · {selectedAgent.department?.tag}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -728,7 +728,7 @@ export default function AIEmployeesPage() {
                         }
                       }}
                     >
-                      {selectedAgent.status.tag === 'Active' || selectedAgent.status.tag === 'Idle' ? (
+                      {selectedAgent.status?.tag === 'Active' || selectedAgent.status?.tag === 'Idle' ? (
                         <>
                           <Pause className="size-3" />
                           Pause
@@ -871,8 +871,8 @@ export default function AIEmployeesPage() {
                         <div className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50 dark:bg-violet-950/20 px-3 py-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 leading-snug">{t.title}</p>
-                            <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getTaskStatusBadge(t.status.tag)}`}>
-                              {t.status.tag}
+                            <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${getTaskStatusBadge(t.status?.tag)}`}>
+                              {t.status?.tag}
                             </span>
                           </div>
                           {t.aiConfidence !== null && t.aiConfidence !== undefined && (
@@ -907,8 +907,8 @@ export default function AIEmployeesPage() {
                           .map((t) => (
                             <div key={t.id.toString()} className="flex items-center gap-2 text-xs">
                               <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                t.status.tag === 'Completed' ? 'bg-emerald-500' :
-                                t.status.tag === 'Escalated' ? 'bg-red-500' :
+                                t.status?.tag === 'Completed' ? 'bg-emerald-500' :
+                                t.status?.tag === 'Escalated' ? 'bg-red-500' :
                                 'bg-blue-500'
                               }`} />
                               <span className="truncate text-neutral-600 dark:text-neutral-400 flex-1">{t.title}</span>
@@ -936,7 +936,7 @@ export default function AIEmployeesPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {(['InProgress', 'SelfChecking', 'NeedsReview', 'Completed', 'Escalated'] as const).map((status) => {
-                  const count = aiTasks.filter((t) => t.status.tag === status).length
+                  const count = aiTasks.filter((t) => t.status?.tag === status).length
                   if (count === 0) return null
                   return (
                     <span

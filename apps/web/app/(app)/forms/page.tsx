@@ -195,7 +195,7 @@ export default function FormsPage() {
         analytics[qId].values.push(val)
         // For multi-choice/checkbox, split by comma
         const q = analytics[qId].question
-        if (q.questionType.tag === 'Checkbox') {
+        if (q.questionType?.tag === 'Checkbox') {
           for (const v of val.split(',')) {
             const trimmed = v.trim()
             if (trimmed) analytics[qId].valueCounts[trimmed] = (analytics[qId].valueCounts[trimmed] ?? 0) + 1
@@ -209,7 +209,7 @@ export default function FormsPage() {
     // Compute averages for numeric types
     for (const qId of Object.keys(analytics)) {
       const q = analytics[qId].question
-      if (q.questionType.tag === 'Rating' || q.questionType.tag === 'Scale') {
+      if (q.questionType?.tag === 'Rating' || q.questionType?.tag === 'Scale') {
         const nums = analytics[qId].values.map(Number).filter(n => !isNaN(n))
         if (nums.length > 0) {
           analytics[qId].avg = nums.reduce((s, n) => s + n, 0) / nums.length
@@ -241,7 +241,7 @@ export default function FormsPage() {
     exportCSV('forms', [
       { header: 'Title', accessor: (f: any) => f.title },
       { header: 'Description', accessor: (f: any) => f.description },
-      { header: 'Status', accessor: (f: any) => f.status.tag },
+      { header: 'Status', accessor: (f: any) => f.status?.tag },
       { header: 'Questions', accessor: (f: any) => questionsByForm.get(f.id)?.length ?? 0 },
       { header: 'Responses', accessor: (f: any) => responseCountByForm.get(f.id) ?? 0 },
       { header: 'Created', accessor: (f: any) => formatDate(f.createdAt) },
@@ -257,12 +257,12 @@ export default function FormsPage() {
 
   // Stats
   const totalForms = forms.length
-  const activeForms = forms.filter(f => f.status.tag === 'Active').length
+  const activeForms = forms.filter(f => f.status?.tag === 'Active').length
   const totalResponses = forms.reduce((sum, f) => sum + (responseCountByForm.get(f.id) ?? 0), 0)
   const avgResponseRate = activeForms > 0
     ? Math.round(
         (forms
-          .filter(f => f.status.tag === 'Active')
+          .filter(f => f.status?.tag === 'Active')
           .reduce((s, f) => s + (responseCountByForm.get(f.id) ?? 0), 0) /
           activeForms /
           50) *
@@ -273,7 +273,7 @@ export default function FormsPage() {
   // Filtered list
   const filtered = useMemo(() => {
     return forms.filter(f => {
-      const matchesTab = activeTab === 'all' || f.status.tag === activeTab
+      const matchesTab = activeTab === 'all' || f.status?.tag === activeTab
       const q = searchQuery.toLowerCase()
       const matchesSearch = !q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)
       return matchesTab && matchesSearch
@@ -284,9 +284,9 @@ export default function FormsPage() {
   const tabCounts = useMemo(
     () => ({
       all: forms.filter(f => { const q = searchQuery.toLowerCase(); return !q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q) }).length,
-      Draft: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status.tag === 'Draft' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
-      Active: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status.tag === 'Active' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
-      Closed: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status.tag === 'Closed' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
+      Draft: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status?.tag === 'Draft' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
+      Active: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status?.tag === 'Active' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
+      Closed: forms.filter(f => { const q = searchQuery.toLowerCase(); return f.status?.tag === 'Closed' && (!q || f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) }).length,
     }),
     [forms, searchQuery]
   )
@@ -518,8 +518,8 @@ export default function FormsPage() {
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate flex-1">{form.title}</h3>
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0 ${STATUS_CONFIG[form.status.tag] ?? ''}`}>
-                        {form.status.tag}
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0 ${STATUS_CONFIG[form.status?.tag] ?? ''}`}>
+                        {form.status?.tag}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{form.description || 'No description'}</p>
@@ -636,7 +636,7 @@ export default function FormsPage() {
               )}
             </Button>
             {!isPreview && !isResponses && (
-              <Select value={activeForm.status.tag} onValueChange={handleUpdateStatus}>
+              <Select value={activeForm.status?.tag} onValueChange={handleUpdateStatus}>
                 <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -711,7 +711,7 @@ export default function FormsPage() {
                   const qId = q.id.toString()
                   const data = formAnalytics[qId]
                   if (!data) return null
-                  const qType = q.questionType.tag as QuestionTypeKey
+                  const qType = q.questionType?.tag as QuestionTypeKey
                   const totalValues = data.values.length
                   const sortedEntries = Object.entries(data.valueCounts).sort((a, b) => b[1] - a[1])
 
@@ -871,7 +871,7 @@ export default function FormsPage() {
               ) : (
                 <div className="flex flex-col gap-5">
                   {activeFormQuestions.map((q, idx) => {
-                    const qType = q.questionType.tag as QuestionTypeKey
+                    const qType = q.questionType?.tag as QuestionTypeKey
                     const opts = q.options ? q.options.split(',').filter(Boolean) : []
                     return (
                       <div key={q.id.toString()} className="flex flex-col gap-2">
@@ -1090,7 +1090,7 @@ export default function FormsPage() {
 
             {/* Questions */}
             {activeFormQuestions.map((q, idx) => {
-              const qType = q.questionType.tag as QuestionTypeKey
+              const qType = q.questionType?.tag as QuestionTypeKey
               const TypeIcon = QUESTION_TYPE_CONFIG[qType]?.icon ?? Type
               const typeLabel = QUESTION_TYPE_CONFIG[qType]?.label ?? qType
               const opts = q.options ? q.options.split(',').filter(Boolean) : []

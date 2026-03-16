@@ -155,9 +155,9 @@ export default function PublicProfilePage() {
 
   // Task stats
   const taskStats = useMemo(() => {
-    const completed = employeeTasks.filter((t) => t.status.tag === 'Done' || t.status.tag === 'Verified').length
-    const inProgress = employeeTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'Claimed').length
-    const open = employeeTasks.filter((t) => t.status.tag === 'Open' || t.status.tag === 'Todo').length
+    const completed = employeeTasks.filter((t) => t.status?.tag === 'Done' || t.status?.tag === 'Verified').length
+    const inProgress = employeeTasks.filter((t) => t.status?.tag === 'InProgress' || t.status?.tag === 'Claimed').length
+    const open = employeeTasks.filter((t) => t.status?.tag === 'Open' || t.status?.tag === 'Todo').length
     return { completed, inProgress, open, total: employeeTasks.length }
   }, [employeeTasks])
 
@@ -213,9 +213,9 @@ export default function PublicProfilePage() {
 
   // ── Profile data ──
 
-  const status = STATUS_CONFIG[employee.status.tag] ?? STATUS_CONFIG.Offline
-  const isAI = employee.employeeType.tag === 'AiAgent'
-  const deptGradient = DEPT_GRADIENTS[employee.department.tag] ?? 'from-neutral-500 to-neutral-600'
+  const status = STATUS_CONFIG[employee.status?.tag] ?? STATUS_CONFIG.Offline
+  const isAI = employee.employeeType?.tag === 'AiAgent'
+  const deptGradient = DEPT_GRADIENTS[employee.department?.tag] ?? 'from-neutral-500 to-neutral-600'
   const skills: string[] = employee.skills ?? []
 
   return (
@@ -280,12 +280,12 @@ export default function PublicProfilePage() {
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className={`bg-gradient-to-r ${deptGradient} text-white border-0`}>
-                    {employee.department.tag}
+                    {employee.department?.tag}
                   </Badge>
                   <Badge variant="outline" className={`gap-1 ${
-                    employee.status.tag === 'Online' ? 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400' :
-                    employee.status.tag === 'Busy' ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' :
-                    employee.status.tag === 'InCall' ? 'border-blue-500/50 text-blue-600 dark:text-blue-400' :
+                    employee.status?.tag === 'Online' ? 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400' :
+                    employee.status?.tag === 'Busy' ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' :
+                    employee.status?.tag === 'InCall' ? 'border-blue-500/50 text-blue-600 dark:text-blue-400' :
                     'border-neutral-300 dark:border-neutral-700'
                   }`}>
                     <span className={`size-1.5 rounded-full ${status.color}`} />
@@ -494,7 +494,7 @@ export default function PublicProfilePage() {
                             <p className="text-xs text-neutral-500 truncate mt-0.5">{currentTask.description}</p>
                           )}
                         </div>
-                        <Badge variant="outline" className="shrink-0 ml-2">{currentTask.status.tag}</Badge>
+                        <Badge variant="outline" className="shrink-0 ml-2">{currentTask.status?.tag}</Badge>
                       </div>
                     </div>
                   )}
@@ -678,7 +678,7 @@ export default function PublicProfilePage() {
                       Todo: 'bg-amber-500',
                       Blocked: 'bg-red-500',
                     }
-                    const dot = statusColors[task.status.tag] ?? 'bg-neutral-400'
+                    const dot = statusColors[task.status?.tag] ?? 'bg-neutral-400'
                     return (
                       <div
                         key={task.id.toString()}
@@ -694,11 +694,11 @@ export default function PublicProfilePage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-[10px] h-5 gap-1">
                                 <span className={`size-1.5 rounded-full ${dot}`} />
-                                {task.status.tag}
+                                {task.status?.tag}
                               </Badge>
                               {task.priority && (
                                 <Badge variant="secondary" className="text-[10px] h-5">
-                                  {task.priority.tag}
+                                  {task.priority?.tag}
                                 </Badge>
                               )}
                               <span className="text-[10px] text-neutral-400">
@@ -736,7 +736,7 @@ export default function PublicProfilePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                          <span className="font-medium text-neutral-900 dark:text-neutral-100">{entry.action.tag}</span>
+                          <span className="font-medium text-neutral-900 dark:text-neutral-100">{entry.action?.tag}</span>
                           {' '}
                           {entry.details}
                         </p>

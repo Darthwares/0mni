@@ -479,7 +479,7 @@ export default function AnalyticsPage() {
   const topPerformers = useMemo(() => {
     const completedCounts = new Map<string, number>()
     for (const task of orgTasks) {
-      if (task.status.tag === 'Completed' && task.assignee) {
+      if (task.status?.tag === 'Completed' && task.assignee) {
         if (range !== 'all' && task.completedAt && !inRange(task.completedAt)) continue
         const hex = task.assignee.toHexString()
         completedCounts.set(hex, (completedCounts.get(hex) ?? 0) + 1)

@@ -164,7 +164,7 @@ function ChannelsTab() {
         ? [...allMessages]
             .filter(
               m =>
-                m.contextType.tag === 'Channel' &&
+                m.contextType?.tag === 'Channel' &&
                 m.contextId === selectedChannel.id
             )
             .sort((a, b) => Number(a.sentAt.toMillis()) - Number(b.sentAt.toMillis()))
@@ -390,7 +390,7 @@ function DocumentsTab() {
 
   const filteredDocs = useMemo(() => {
     let list = documents
-    if (docTypeFilter !== 'all') list = list.filter(d => d.docType.tag === docTypeFilter)
+    if (docTypeFilter !== 'all') list = list.filter(d => d.docType?.tag === docTypeFilter)
     if (docSearch.trim()) {
       const q = docSearch.toLowerCase()
       list = list.filter(d => d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q))
@@ -400,7 +400,7 @@ function DocumentsTab() {
 
   const docTypeCounts = useMemo(() => {
     const c: Record<string, number> = {}
-    for (const d of documents) c[d.docType.tag] = (c[d.docType.tag] ?? 0) + 1
+    for (const d of documents) c[d.docType?.tag] = (c[d.docType?.tag] ?? 0) + 1
     return c
   }, [documents])
 
@@ -439,7 +439,7 @@ function DocumentsTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredDocs.map(doc => {
-            const typeKey = doc.docType.tag
+            const typeKey = doc.docType?.tag
             const typeConfig = DOC_TYPE_CONFIG[typeKey] ?? {
               label: typeKey,
               icon: <FileText className="size-3" />,
@@ -537,17 +537,17 @@ function MeetingsTab() {
   const filteredMeetings = useMemo(() => {
     if (!mtgSearch.trim()) return meetings
     const q = mtgSearch.toLowerCase()
-    return meetings.filter(m => m.title.toLowerCase().includes(q) || (MEETING_TYPE_LABELS[m.meetingType.tag] ?? '').toLowerCase().includes(q))
+    return meetings.filter(m => m.title.toLowerCase().includes(q) || (MEETING_TYPE_LABELS[m.meetingType?.tag] ?? '').toLowerCase().includes(q))
   }, [meetings, mtgSearch])
 
   const handleExportMeetings = useCallback(() => {
     exportCSV('meetings', [
       { header: 'Title', accessor: (m: any) => m.title },
-      { header: 'Type', accessor: (m: any) => MEETING_TYPE_LABELS[m.meetingType.tag] ?? m.meetingType.tag },
+      { header: 'Type', accessor: (m: any) => MEETING_TYPE_LABELS[m.meetingType?.tag] ?? m.meetingType?.tag },
       { header: 'Scheduled', accessor: (m: any) => formatDateTime(m.scheduledAt) },
       { header: 'Duration (min)', accessor: (m: any) => m.durationMinutes },
       { header: 'Participants', accessor: (m: any) => m.participants.length },
-      { header: 'Status', accessor: (m: any) => m.status.tag },
+      { header: 'Status', accessor: (m: any) => m.status?.tag },
       { header: 'AI Notetaker', accessor: (m: any) => m.aiNotetaker ? 'Yes' : 'No' },
       { header: 'AI Summary', accessor: (m: any) => m.aiSummary ?? '' },
     ], filteredMeetings)
@@ -645,7 +645,7 @@ function MeetingsTab() {
             </TableHeader>
             <TableBody>
               {filteredMeetings.map(meeting => {
-                const typeLabel = MEETING_TYPE_LABELS[meeting.meetingType.tag] ?? meeting.meetingType.tag
+                const typeLabel = MEETING_TYPE_LABELS[meeting.meetingType?.tag] ?? meeting.meetingType?.tag
                 const summaryPreview = meeting.aiSummary
                   ? meeting.aiSummary.slice(0, 80) + (meeting.aiSummary.length > 80 ? '…' : '')
                   : null
@@ -675,7 +675,7 @@ function MeetingsTab() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <MeetingStatusBadge tag={meeting.status.tag} />
+                      <MeetingStatusBadge tag={meeting.status?.tag} />
                     </TableCell>
                     <TableCell className="max-w-[220px]">
                       {summaryPreview ? (
@@ -689,7 +689,7 @@ function MeetingsTab() {
                     </TableCell>
                     <TableCell className="pr-4">
                       <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Select value={meeting.status.tag} onValueChange={(v) => { try { updateMeetingStatus({ meetingId: meeting.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                        <Select value={meeting.status?.tag} onValueChange={(v) => { try { updateMeetingStatus({ meetingId: meeting.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
                           <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {['Scheduled', 'InProgress', 'Completed', 'Cancelled'].map((s) => (
@@ -723,7 +723,7 @@ export default function CollaborationPage() {
   const channelCount = allChannels.length
   const documentCount = allDocuments.length
   const upcomingCount = useMemo(
-    () => [...allMeetings].filter(m => m.status.tag === 'Scheduled').length,
+    () => [...allMeetings].filter(m => m.status?.tag === 'Scheduled').length,
     [allMeetings]
   )
 

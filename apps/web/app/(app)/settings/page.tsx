@@ -114,9 +114,9 @@ export default function SettingsPage() {
   const [linkEmailAddress, setLinkEmailAddress] = useState('')
   const [linkEmailSending, setLinkEmailSending] = useState(false)
 
-  const activeMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Active'), [allOrgMembers])
-  const pendingMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Pending'), [allOrgMembers])
-  const invitedMembers = useMemo(() => allOrgMembers.filter((m) => m.status.tag === 'Invited'), [allOrgMembers])
+  const activeMembers = useMemo(() => allOrgMembers.filter((m) => m.status?.tag === 'Active'), [allOrgMembers])
+  const pendingMembers = useMemo(() => allOrgMembers.filter((m) => m.status?.tag === 'Pending'), [allOrgMembers])
+  const invitedMembers = useMemo(() => allOrgMembers.filter((m) => m.status?.tag === 'Invited'), [allOrgMembers])
 
   const orgInviteLinks = useMemo(() => {
     if (orgId === null) return []
@@ -551,9 +551,9 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {roleIcon(m.role.tag)}
+                      {roleIcon(m.role?.tag)}
                       <Badge className="text-xs bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 hover:bg-slate-500/10">
-                        {m.role.tag}
+                        {m.role?.tag}
                       </Badge>
                     </div>
                   </div>

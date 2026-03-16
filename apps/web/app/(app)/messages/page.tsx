@@ -238,7 +238,7 @@ function MessagesPageInner() {
     if (currentOrgId === null) return null // null = show all (World)
     const ids = new Set<string>()
     for (const m of allMemberships) {
-      if (Number(m.orgId) === currentOrgId && m.status.tag === 'Active' && m.identity) {
+      if (Number(m.orgId) === currentOrgId && m.status?.tag === 'Active' && m.identity) {
         ids.add(m.identity.toHexString())
       }
     }
@@ -253,8 +253,8 @@ function MessagesPageInner() {
         const aIsSelf = a.id.toHexString() === myHex ? -1 : 0
         const bIsSelf = b.id.toHexString() === myHex ? -1 : 0
         if (aIsSelf !== bIsSelf) return aIsSelf - bIsSelf
-        const aOnline = a.status.tag === 'Online' ? 0 : 1
-        const bOnline = b.status.tag === 'Online' ? 0 : 1
+        const aOnline = a.status?.tag === 'Online' ? 0 : 1
+        const bOnline = b.status?.tag === 'Online' ? 0 : 1
         if (aOnline !== bOnline) return aOnline - bOnline
         return a.name.localeCompare(b.name)
       }),
@@ -324,7 +324,7 @@ function MessagesPageInner() {
     return [...allMessages]
       .filter(
         (m) =>
-          m.contextType.tag === 'Channel' &&
+          m.contextType?.tag === 'Channel' &&
           m.contextId === channelId &&
           (m.threadId === null || m.threadId === undefined),
       )
@@ -802,10 +802,10 @@ function MessagesPageInner() {
                               {getInitials(partner.name)}
                             </AvatarFallback>
                           </Avatar>
-                          <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(partner.status.tag)}`} />
+                          <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(partner.status?.tag)}`} />
                         </div>
                         <span className="truncate">{partner.name}{selfDm ? ' (you)' : ''}</span>
-                        {partner.employeeType.tag === 'AiAgent' && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
+                        {partner.employeeType?.tag === 'AiAgent' && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
                       </button>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
@@ -835,7 +835,7 @@ function MessagesPageInner() {
                   return !dmChannels.some((ch) => ch.members.includes(empHex) && ch.members.length <= 2 && !isSelfDm(ch))
                 })
                 .map((emp) => {
-                  const isAI = emp.employeeType.tag === 'AiAgent'
+                  const isAI = emp.employeeType?.tag === 'AiAgent'
                   const isSelf = emp.id.toHexString() === myHex
                   return (
                     <button
@@ -849,7 +849,7 @@ function MessagesPageInner() {
                             {getInitials(emp.name)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(emp.status.tag)}`} />
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${statusDot(emp.status?.tag)}`} />
                       </div>
                       <span className="truncate">{emp.name}{isSelf ? ' (you)' : ''}</span>
                       {isAI && <Bot className="h-3 w-3 shrink-0 text-violet-400" />}
@@ -1101,7 +1101,7 @@ function MessagesPageInner() {
                                 {!isSameAuthor && (
                                   <div className="flex items-baseline gap-2 mb-0.5">
                                     <span className="font-semibold text-sm text-foreground">{senderName}</span>
-                                    {sender?.employeeType.tag === 'AiAgent' && (
+                                    {sender?.employeeType?.tag === 'AiAgent' && (
                                       <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1 h-3.5 bg-violet-900/40 text-violet-300 border-0">
                                         <Bot className="h-2 w-2" /> AI
                                       </Badge>
@@ -1399,15 +1399,15 @@ function MessagesPageInner() {
                               you
                             </Badge>
                           )}
-                          {partner.employeeType.tag === 'AiAgent' && (
+                          {partner.employeeType?.tag === 'AiAgent' && (
                             <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1.5 h-4 bg-violet-900/50 text-violet-300 border-0">
                               <Bot className="h-2 w-2" /> AI
                             </Badge>
                           )}
                         </div>
                         <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <div className={`h-1.5 w-1.5 rounded-full ${statusDot(partner.status.tag)}`} />
-                          {view.employeeId === myHex ? 'Jot down notes, links, and ideas' : partner.status.tag}
+                          <div className={`h-1.5 w-1.5 rounded-full ${statusDot(partner.status?.tag)}`} />
+                          {view.employeeId === myHex ? 'Jot down notes, links, and ideas' : partner.status?.tag}
                         </div>
                       </div>
                     </>
@@ -1557,7 +1557,7 @@ function MessagesPageInner() {
                                   {!isSameAuthor && (
                                     <div className="flex items-baseline gap-2 mb-0.5">
                                       <span className="font-semibold text-sm text-foreground">{senderName}</span>
-                                      {sender?.employeeType.tag === 'AiAgent' && (
+                                      {sender?.employeeType?.tag === 'AiAgent' && (
                                         <Badge variant="secondary" className="text-[9px] gap-0.5 py-0 px-1 h-3.5 bg-violet-900/40 text-violet-300 border-0">
                                           <Bot className="h-2 w-2" /> AI
                                         </Badge>

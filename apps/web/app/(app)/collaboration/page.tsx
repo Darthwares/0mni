@@ -2,6 +2,7 @@
 
 import { useTable, useReducer as useSpacetimeReducer } from 'spacetimedb/react'
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -729,6 +730,35 @@ export default function CollaborationPage() {
     [allMeetings]
   )
 
+  // ── Chart Data ──
+  const MEETING_TYPE_COLORS: Record<string, string> = { OneOnOne: '#3b82f6', TeamSync: '#8b5cf6', CustomerCall: '#10b981', InterviewCall: '#f59e0b', SalesDemo: '#ec4899', AllHands: '#06b6d4' }
+  const MEETING_STATUS_COLORS: Record<string, string> = { Scheduled: '#3b82f6', InProgress: '#10b981', Completed: '#737373', Cancelled: '#ef4444' }
+
+  const meetingTypePieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allMeetings.forEach(m => { const t = m.meetingType?.tag ?? 'TeamSync'; counts[t] = (counts[t] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: MEETING_TYPE_LABELS[k] ?? k, value: v, fill: MEETING_TYPE_COLORS[k] ?? '#737373' }))
+  }, [allMeetings])
+
+  const meetingStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allMeetings.forEach(m => { const s = m.status?.tag ?? 'Scheduled'; counts[s] = (counts[s] ?? 0) + 1 })
+    return Object.entries(counts).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: MEETING_STATUS_COLORS[k] ?? '#737373' }))
+  }, [allMeetings])
+
+  const docTypePieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    allDocuments.forEach(d => { const t = d.docType?.tag ?? 'Wiki'; counts[t] = (counts[t] ?? 0) + 1 })
+    const COLORS = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
+    return Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({
+      name: DOC_TYPE_CONFIG[k]?.label ?? k,
+      value: v,
+      fill: COLORS[i % COLORS.length],
+    }))
+  }, [allDocuments])
+
+  const totalItems = channelCount + documentCount + allMeetings.length
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -782,6 +812,95 @@ export default function CollaborationPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Recharts Insight Grid ── */}
+      {totalItems > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 py-4 border-b flex-shrink-0">
+          {/* Document Types Donut */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Document Types</h3>
+            {docTypePieData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RechartsPie>
+                    <Pie data={docTypePieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                      {docTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {docTypePieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-[140px] flex items-center justify-center text-xs text-muted-foreground">No documents yet</div>
+            )}
+          </div>
+
+          {/* Meeting Types Donut */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Meeting Types</h3>
+            {meetingTypePieData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RechartsPie>
+                    <Pie data={meetingTypePieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                      {meetingTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {meetingTypePieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-[140px] flex items-center justify-center text-xs text-muted-foreground">No meetings yet</div>
+            )}
+          </div>
+
+          {/* Meeting Status Donut */}
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Meeting Status</h3>
+            {meetingStatusPieData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <RechartsPie>
+                    <Pie data={meetingStatusPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
+                      {meetingStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  </RechartsPie>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {meetingStatusPieData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                      <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                      <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-[140px] flex items-center justify-center text-xs text-muted-foreground">No meetings yet</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="channels" className="flex-1 flex flex-col overflow-hidden">

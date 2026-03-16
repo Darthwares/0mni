@@ -52,6 +52,18 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
 import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -243,6 +255,43 @@ export default function KnowledgeBasePage() {
   const uniqueCategories = useMemo(() => {
     const cats = new Set(orgArticles.map((a) => a.category?.tag ?? 'General'))
     return cats.size
+  }, [orgArticles])
+
+  // Chart: category distribution for donut
+  const CATEGORY_CHART_COLORS: Record<string, string> = {
+    Engineering: '#8b5cf6', Product: '#3b82f6', Design: '#ec4899',
+    Hr: '#f59e0b', Operations: '#10b981', Onboarding: '#f97316',
+    Security: '#ef4444', General: '#737373',
+  }
+  const categoryPieData = useMemo(() => {
+    return Object.entries(categories)
+      .filter(([, count]) => count > 0)
+      .map(([cat, count]) => ({
+        name: CATEGORY_CONFIG[cat]?.label ?? cat,
+        value: count,
+        color: CATEGORY_CHART_COLORS[cat] ?? '#737373',
+      }))
+  }, [categories])
+
+  // Chart: top 5 articles by views
+  const topViewedArticles = useMemo(() => {
+    return [...orgArticles]
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5)
+      .map(a => ({
+        title: a.title.length > 24 ? a.title.slice(0, 22) + '…' : a.title,
+        views: a.views,
+        helpful: a.helpful,
+      }))
+  }, [orgArticles])
+
+  // Chart: avg engagement (views/article, helpful/article)
+  const avgViews = orgArticles.length > 0 ? Math.round(totalViews / orgArticles.length) : 0
+  const totalHelpful = useMemo(() => orgArticles.reduce((s, a) => s + a.helpful, 0), [orgArticles])
+  const avgReadTime = useMemo(() => {
+    if (orgArticles.length === 0) return 0
+    const total = orgArticles.reduce((s, a) => s + getReadingTime(a.content), 0)
+    return Math.round(total / orgArticles.length)
   }, [orgArticles])
 
   // Filtered & sorted
@@ -725,6 +774,127 @@ export default function KnowledgeBasePage() {
               <span className="text-2xl font-bold"><CountUp to={totalWords} separator="," /></span>
             </SpotlightCard>
           </div>
+
+          {/* Insights charts */}
+          {orgArticles.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Category distribution donut */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Category Distribution</h3>
+                <div className="h-[160px] flex items-center justify-center">
+                  {categoryPieData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={65}
+                          paddingAngle={3}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {categoryPieData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip
+                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          formatter={(value: number, name: string) => [`${value} article${value !== 1 ? 's' : ''}`, name]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No data</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
+                  {categoryPieData.map((d) => (
+                    <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span className="size-2 rounded-full" style={{ background: d.color }} />
+                      {d.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top articles by views */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Most Viewed Articles</h3>
+                <div className="h-[180px]">
+                  {topViewedArticles.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topViewedArticles} layout="vertical" barSize={14} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                        <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis type="category" dataKey="title" tickLine={false} axisLine={false} width={90} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                        <RechartsTooltip
+                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        />
+                        <Bar dataKey="views" radius={[0, 6, 6, 0]} fill="url(#kbViewsGrad)" />
+                        <defs>
+                          <linearGradient id="kbViewsGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#a78bfa" />
+                          </linearGradient>
+                        </defs>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-xs text-muted-foreground">No articles yet</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Engagement summary */}
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Engagement</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Avg views/article</span>
+                      <span className="text-sm font-bold tabular-nums">{avgViews}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all" style={{ width: `${Math.min(100, avgViews * 2)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Total helpful votes</span>
+                      <span className="text-sm font-bold tabular-nums">{totalHelpful}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all" style={{ width: `${Math.min(100, totalHelpful * 5)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Avg reading time</span>
+                      <span className="text-sm font-bold tabular-nums">{avgReadTime} min</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all" style={{ width: `${Math.min(100, avgReadTime * 10)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground">Pinned articles</span>
+                      <span className="text-sm font-bold tabular-nums">{pinnedCount}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all" style={{ width: `${orgArticles.length > 0 ? Math.min(100, (pinnedCount / orgArticles.length) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Search bar */}
           <div className="relative max-w-lg">

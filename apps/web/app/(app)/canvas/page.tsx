@@ -1129,8 +1129,8 @@ ${html}
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
-      // Ctrl+K — open command palette (works everywhere)
-      if (mod && e.key === 'k') {
+      // Ctrl+P — open canvas quick open (Ctrl+K is global search)
+      if (mod && e.key === 'p' && !e.shiftKey) {
         e.preventDefault()
         setShowCommandPalette((v) => !v)
         return
@@ -2294,7 +2294,7 @@ ${html}
                         { keys: 'Ctrl+Shift+E', action: 'Export markdown' },
                         { keys: 'Ctrl+Shift+F', action: 'Focus mode' },
                         { keys: 'Esc', action: 'Exit focus mode' },
-                        { keys: 'Ctrl+K', action: 'Command palette' },
+                        { keys: 'Ctrl+P', action: 'Quick open document' },
                         { keys: '/', action: 'Slash commands' },
                         { keys: 'Ctrl+B', action: 'Bold text' },
                         { keys: 'Ctrl+I', action: 'Italic text' },
@@ -2537,7 +2537,7 @@ ${html}
           >
             <Search className="size-3.5" />
             <span className="hidden lg:inline">Quick open...</span>
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border bg-muted px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border bg-muted px-1 py-0.5 text-[9px] font-mono">⌘P</kbd>
           </button>
 
           <div className="flex rounded-lg border overflow-hidden">

@@ -196,7 +196,7 @@ export default function MessagesPage() {
 
 function MessagesPageInner() {
   const { identity, isActive, connectionError } = useSpacetimeDB()
-  const { currentOrgId } = useOrg()
+  const { currentOrgId, isGlobalOrg } = useOrg()
   const isMobile = useIsMobile()
   const sendMessage = useReducer(reducers.sendMessage)
   const sendThreadReply = useReducer(reducers.sendThreadReply)
@@ -254,24 +254,24 @@ function MessagesPageInner() {
 
   // ---- Derived data ---------------------------------------------------------
 
-  // Regular channels (not DM channels) — scoped to current org
+  // Regular channels (not DM channels) — scoped to current org (global org shows all)
   const channels = useMemo(
     () => [...allChannels]
-      .filter((c) => !c.name.startsWith('dm-') && (currentOrgId === null || Number(c.orgId) === currentOrgId))
+      .filter((c) => !c.name.startsWith('dm-') && (isGlobalOrg || currentOrgId === null || Number(c.orgId) === currentOrgId))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    [allChannels, currentOrgId],
+    [allChannels, currentOrgId, isGlobalOrg],
   )
 
-  // DM channels — scoped to current org
+  // DM channels — scoped to current org (global org shows all)
   const dmChannels = useMemo(
     () => [...allChannels]
-      .filter((c) => c.name.startsWith('dm-') && c.isPrivate && c.members.includes(myHex) && (currentOrgId === null || Number(c.orgId) === currentOrgId)),
-    [allChannels, myHex, currentOrgId],
+      .filter((c) => c.name.startsWith('dm-') && c.isPrivate && c.members.includes(myHex) && (isGlobalOrg || currentOrgId === null || Number(c.orgId) === currentOrgId)),
+    [allChannels, myHex, currentOrgId, isGlobalOrg],
   )
 
   // Active org members (identity hex set) — used to scope employee list to current org
   const orgMemberIds = useMemo(() => {
-    if (currentOrgId === null) return null // null = show all (World)
+    if (isGlobalOrg || currentOrgId === null) return null // null = show all
     const ids = new Set<string>()
     for (const m of allMemberships) {
       if (Number(m.orgId) === currentOrgId && m.status?.tag === 'Active' && m.identity) {
@@ -279,7 +279,7 @@ function MessagesPageInner() {
       }
     }
     return ids
-  }, [allMemberships, currentOrgId])
+  }, [allMemberships, currentOrgId, isGlobalOrg])
 
   const employees = useMemo(
     () => [...allEmployees]

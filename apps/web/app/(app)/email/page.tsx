@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -587,6 +587,7 @@ export default function EmailPage() {
               className="text-xs text-muted-foreground"
             />
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className={[
             'relative transition-all',
             searchFocused ? 'ring-2 ring-blue-500/20 rounded-lg' : '',

@@ -19,6 +19,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -325,6 +327,7 @@ export default function StandupsPage() {
               className="text-sm text-muted-foreground mt-0.5"
             />
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
         </div>
 
         {/* Controls bar */}

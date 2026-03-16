@@ -7,7 +7,7 @@ import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import {
   Tabs,
   TabsList,
@@ -599,6 +599,7 @@ export default function SalesPage() {
             <BlurText text="Lead qualification and deal pipeline management" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
           </div>
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-semibold tabular-nums">
             <TrendingUp className="size-4 text-emerald-600 dark:text-emerald-400" />

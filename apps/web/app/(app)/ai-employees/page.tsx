@@ -35,6 +35,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 import {
   Bot,
   Brain,
@@ -570,6 +572,7 @@ export default function AIEmployeesPage() {
               </GradientText>
             </h1>
             <BlurText text="Manage and monitor your AI workforce across all departments" delay={35} animateBy="words" className="text-sm text-neutral-500 dark:text-neutral-400" />
+            <PagePresenceStrip className="hidden xl:flex" />
           </div>
           <Button
             className="shrink-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 border-0"

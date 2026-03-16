@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -456,6 +456,7 @@ export default function SupportPage() {
             Support
           </GradientText>
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
         <Separator orientation="vertical" className="h-6" />
         <div className="flex items-center gap-2">
           <Inbox className="h-4 w-4 text-blue-500" />

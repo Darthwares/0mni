@@ -15,6 +15,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -689,6 +691,7 @@ export default function AnalyticsPage() {
                 />
               </div>
             </div>
+            <PagePresenceStrip className="hidden xl:flex" />
             <Button size="sm" variant="outline" onClick={handleExport} className="gap-1.5 h-8 shrink-0">
               <Download className="size-3.5" />
               Export

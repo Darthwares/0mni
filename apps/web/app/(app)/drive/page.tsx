@@ -48,11 +48,12 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 // ── Types ──────────────────────────────────────
 type FileType = 'Folder' | 'Document' | 'Image' | 'Spreadsheet' | 'Code' | 'Video' | 'Audio' | 'Archive' | 'Other'
@@ -336,6 +337,7 @@ export default function DrivePage() {
               <BlurText text="Store, share, and collaborate on files" delay={35} animateBy="words" className="text-muted-foreground text-sm" />
             </div>
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5">
               <Download className="size-4" />

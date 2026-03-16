@@ -68,6 +68,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ---- Helpers ----
 
@@ -760,6 +762,7 @@ export default function CollaborationPage() {
               />
             </div>
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-sm">
               <Hash className="size-3.5 text-indigo-500" />

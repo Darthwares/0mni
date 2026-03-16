@@ -32,13 +32,14 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import {
   Dialog,
   DialogContent,
@@ -610,6 +611,7 @@ export default function ContactsPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <BlurText text="Manage your contacts, leads, and relationships" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

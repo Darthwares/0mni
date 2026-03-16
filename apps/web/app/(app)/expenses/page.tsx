@@ -11,7 +11,8 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
+import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -334,6 +335,8 @@ export default function ExpensesPage() {
               />
             </div>
           </div>
+
+          <PagePresenceStrip className="hidden xl:flex" />
 
           <div className="flex items-center gap-2">
             {filtered.length > 0 && (

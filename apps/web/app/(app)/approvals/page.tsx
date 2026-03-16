@@ -51,6 +51,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ---- Config maps ------------------------------------------------------------
 
@@ -328,6 +330,7 @@ export default function ApprovalsPage() {
             animateBy="words"
             className="text-sm text-muted-foreground"
           />
+          <PagePresenceStrip className="hidden xl:flex" />
 
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<Button />}>

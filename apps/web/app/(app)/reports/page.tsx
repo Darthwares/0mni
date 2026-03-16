@@ -13,6 +13,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 import {
   BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart as RechartsPieChart, Pie,
@@ -373,6 +375,7 @@ export default function ReportsPage() {
           </h1>
           <BlurText text="Build and view reports from your platform data" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
         <button onClick={() => setShowNewDialog(true)} className="flex items-center gap-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-sky-500 to-indigo-600 text-white px-3.5 py-2 hover:opacity-90 transition-opacity shadow-md shadow-indigo-500/20">
           <Plus className="size-3.5" /> New Report
         </button>

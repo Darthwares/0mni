@@ -28,7 +28,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -416,6 +416,7 @@ export default function TimeTrackingPage() {
             <BlurText text="Track hours and manage time entries" delay={35} animateBy="words" className="text-xs text-muted-foreground" />
           </div>
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
         <div className="ml-auto">
           <PresenceBar />
         </div>

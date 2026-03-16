@@ -38,6 +38,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ─── Action config ──────────────────────────────────────────────────────────
 
@@ -340,6 +342,7 @@ export default function ActivityPage() {
             />
           </div>
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
       </div>
 
       {/* ── Stats bar */}

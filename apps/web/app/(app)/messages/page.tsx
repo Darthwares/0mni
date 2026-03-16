@@ -36,7 +36,7 @@ import {
   ContextMenuSeparator,
   ContextMenuLabel,
 } from '@/components/ui/context-menu'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { PresenceAvatars } from '@/components/presence-avatars'
 import GradientText from '@/components/reactbits/GradientText'
 import ShinyText from '@/components/reactbits/ShinyText'
@@ -1431,6 +1431,7 @@ function MessagesPageInner() {
       {/* ================================================================== */}
       <main className="flex-1 flex flex-col min-w-0 bg-background">
         <MessagesShortcutBar />
+        <PagePresenceStrip className="hidden xl:flex" />
         {view === null ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-4">

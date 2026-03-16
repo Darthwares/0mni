@@ -70,6 +70,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ---- Candidate status helpers ------------------------------------------------
 
@@ -502,6 +504,7 @@ export default function RecruitmentPage() {
               className="text-sm text-muted-foreground mt-0.5"
             />
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
         </div>
         <div className="flex items-center gap-2">
           {filteredCandidates.length > 0 && (

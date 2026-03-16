@@ -15,6 +15,8 @@ import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
 import { Button } from '@/components/ui/button'
 import {
@@ -464,12 +466,15 @@ export default function PeoplePage() {
               </GradientText>
             </h1>
           </div>
-          <BlurText
-            text="Your team directory — find anyone across the organization"
-            delay={35}
-            animateBy="words"
-            className="text-sm text-neutral-500 dark:text-neutral-400"
-          />
+          <div className="flex items-center justify-between gap-4">
+            <BlurText
+              text="Your team directory — find anyone across the organization"
+              delay={35}
+              animateBy="words"
+              className="text-sm text-neutral-500 dark:text-neutral-400"
+            />
+            <PagePresenceStrip className="hidden xl:flex" />
+          </div>
         </div>
 
         {/* ── Stats Row ── */}

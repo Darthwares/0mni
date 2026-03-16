@@ -38,6 +38,9 @@ import {
 } from '@/components/ui/context-menu'
 import { PresenceBar } from '@/components/presence-bar'
 import { PresenceAvatars } from '@/components/presence-avatars'
+import GradientText from '@/components/reactbits/GradientText'
+import ShinyText from '@/components/reactbits/ShinyText'
+import CountUp from '@/components/reactbits/CountUp'
 import { MentionInput, RenderMentions } from '@/components/mention-input'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useResourcePresence } from '@/hooks/use-resource-presence'
@@ -135,7 +138,7 @@ function avatarColor(name: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-const EMOJI_LIST = [
+const EMOJI_QUICK = [
   { emoji: '👍', name: 'thumbsup' },
   { emoji: '❤️', name: 'heart' },
   { emoji: '😂', name: 'joy' },
@@ -144,6 +147,39 @@ const EMOJI_LIST = [
   { emoji: '🚀', name: 'rocket' },
   { emoji: '✅', name: 'white_check_mark' },
   { emoji: '💯', name: 'hundred' },
+]
+
+const EMOJI_LIST = [
+  ...EMOJI_QUICK,
+  { emoji: '👎', name: 'thumbsdown' },
+  { emoji: '🔥', name: 'fire' },
+  { emoji: '💡', name: 'bulb' },
+  { emoji: '🤔', name: 'thinking' },
+  { emoji: '😍', name: 'heart_eyes' },
+  { emoji: '😢', name: 'cry' },
+  { emoji: '😮', name: 'open_mouth' },
+  { emoji: '🙏', name: 'pray' },
+  { emoji: '💪', name: 'muscle' },
+  { emoji: '⭐', name: 'star' },
+  { emoji: '🎯', name: 'dart' },
+  { emoji: '💎', name: 'gem' },
+  { emoji: '🤝', name: 'handshake' },
+  { emoji: '👏', name: 'clap' },
+  { emoji: '🫡', name: 'salute' },
+  { emoji: '🙌', name: 'raised_hands' },
+  { emoji: '😅', name: 'sweat_smile' },
+  { emoji: '🫠', name: 'melting_face' },
+  { emoji: '💀', name: 'skull' },
+  { emoji: '👑', name: 'crown' },
+  { emoji: '🧠', name: 'brain' },
+  { emoji: '⚡', name: 'zap' },
+  { emoji: '❌', name: 'x' },
+  { emoji: '⏳', name: 'hourglass' },
+  { emoji: '🔒', name: 'lock' },
+  { emoji: '📌', name: 'pushpin' },
+  { emoji: '🏆', name: 'trophy' },
+  { emoji: '💬', name: 'speech_balloon' },
+  { emoji: '🤖', name: 'robot' },
 ]
 
 function emojiForName(name: string): string {
@@ -284,6 +320,18 @@ function MessagesPageInner() {
     return map
   }, [allReactions, myHex])
 
+  // Message count per channel (for showing activity badges)
+  const channelMessageCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const m of allMessages) {
+      if (m.contextType?.tag === 'Channel' && m.contextId != null) {
+        const key = m.contextId.toString()
+        map.set(key, (map.get(key) ?? 0) + 1)
+      }
+    }
+    return map
+  }, [allMessages])
+
   // Thread reply counts
   const threadCounts = useMemo(() => {
     const map = new Map<string, number>()
@@ -349,6 +397,17 @@ function MessagesPageInner() {
     () => employees.filter((e) => e.name.toLowerCase().includes(searchQuery.toLowerCase())),
     [employees, searchQuery],
   )
+
+  // Search across messages (when search query is active and in a channel)
+  const searchMatchedMessageIds = useMemo(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return null
+    const q = searchQuery.toLowerCase()
+    const ids = new Set<string>()
+    messages.forEach((m) => {
+      if (m.content?.toLowerCase().includes(q)) ids.add(m.id.toString())
+    })
+    return ids
+  }, [searchQuery, messages])
 
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -740,7 +799,13 @@ function MessagesPageInner() {
                     }`}
                   >
                     {channel.isPrivate ? <Lock className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-60" /> : <Hash className="h-3.5 md:h-3 w-3.5 md:w-3 shrink-0 opacity-60" />}
-                    <span className="truncate">{channel.name}</span>
+                    <span className="truncate flex-1">{channel.name}</span>
+                    {(() => {
+                      const count = channelMessageCounts.get(channel.id.toString()) ?? 0
+                      return count > 0 && !isActive ? (
+                        <span className="text-[9px] font-medium text-muted-foreground/60 tabular-nums">{count > 99 ? '99+' : count}</span>
+                      ) : null
+                    })()}
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
@@ -960,13 +1025,17 @@ function MessagesPageInner() {
   if (!isActive) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-foreground/80">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">Ω</span>
+        <div className="text-center space-y-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-violet-500/20">
+            <span className="text-white font-bold text-xl">Ω</span>
           </div>
-          <div className="animate-pulse">
-            <p className="text-sm font-medium">Connecting to SpacetimeDB...</p>
-          </div>
+          <ShinyText
+            text="Connecting to SpacetimeDB..."
+            speed={2}
+            color="#71717a"
+            shineColor="#8b5cf6"
+            className="text-sm font-medium"
+          />
         </div>
       </div>
     )
@@ -1168,16 +1237,29 @@ function MessagesPageInner() {
 
                                 {/* Emoji picker */}
                                 {showEmojiFor === msg.id && (
-                                  <div className="flex items-center gap-0.5 bg-accent border border-border rounded-lg p-1 mt-1 shadow-xl">
-                                    {EMOJI_LIST.map((e) => (
-                                      <button
-                                        key={e.name}
-                                        onClick={() => handleReaction(msg.id, e.name)}
-                                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-accent text-sm"
-                                      >
-                                        {e.emoji}
-                                      </button>
-                                    ))}
+                                  <div className="bg-accent border border-border rounded-xl p-2 mt-1 shadow-xl">
+                                    <div className="flex items-center gap-0.5 mb-1.5 pb-1.5 border-b border-border/50">
+                                      {EMOJI_QUICK.map((e) => (
+                                        <button
+                                          key={e.name}
+                                          onClick={() => handleReaction(msg.id, e.name)}
+                                          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-background/60 text-base transition-transform active:scale-90"
+                                        >
+                                          {e.emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <div className="grid grid-cols-8 gap-0.5 max-h-[120px] overflow-y-auto">
+                                      {EMOJI_LIST.slice(8).map((e) => (
+                                        <button
+                                          key={e.name}
+                                          onClick={() => handleReaction(msg.id, e.name)}
+                                          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-background/60 text-base transition-transform active:scale-90"
+                                        >
+                                          {e.emoji}
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
 
@@ -1224,10 +1306,15 @@ function MessagesPageInner() {
 
               {/* Typing indicators */}
               {typingUsers.length > 0 && (
-                <div className="shrink-0 px-3 py-1 text-xs text-muted-foreground animate-pulse">
+                <div className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="flex gap-0.5">
+                    <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
                   {typingUsers.length === 1
-                    ? `${typingUsers[0]} is typing...`
-                    : `${typingUsers.join(', ')} are typing...`}
+                    ? <span><strong className="text-foreground/70">{typingUsers[0]}</strong> is typing</span>
+                    : <span><strong className="text-foreground/70">{typingUsers.join(', ')}</strong> are typing</span>}
                 </div>
               )}
 
@@ -1346,12 +1433,42 @@ function MessagesPageInner() {
         <MessagesShortcutBar />
         {view === null ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mx-auto">
-                <MessageSquare className="h-8 w-8 text-muted-foreground" />
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-600/20 border border-violet-500/10 flex items-center justify-center mx-auto">
+                <MessageSquare className="h-9 w-9 text-violet-400" />
               </div>
-              <p className="text-lg font-semibold text-foreground/80">Welcome to Omni Messages</p>
-              <p className="text-sm text-muted-foreground">Select a channel or start a conversation</p>
+              <GradientText
+                colors={['#8b5cf6', '#a855f7', '#7c3aed', '#6d28d9', '#8b5cf6']}
+                className="text-xl font-bold"
+                animationSpeed={4}
+              >
+                Welcome to Omni Messages
+              </GradientText>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                Select a channel or start a conversation to collaborate with your team in real-time
+              </p>
+              <div className="flex items-center justify-center gap-4 pt-2">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-foreground">
+                    <CountUp to={channels.length} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Channels</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <div className="text-lg font-bold text-foreground">
+                    <CountUp to={employees.filter((e) => e.status?.tag === 'Online' || e.status?.tag === 'Busy' || e.status?.tag === 'InCall').length} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Online</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <div className="text-lg font-bold text-foreground">
+                    <CountUp to={dmChannels.length} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">DMs</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -1420,20 +1537,38 @@ function MessagesPageInner() {
             <div className="flex-1 flex overflow-hidden">
               {/* Message list */}
               <div className="flex-1 flex flex-col min-w-0">
+                {/* Search results indicator */}
+                {searchMatchedMessageIds && (
+                  <div className="shrink-0 px-5 py-2 border-b border-violet-500/20 bg-violet-500/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs">
+                      <Search className="size-3 text-violet-400" />
+                      <span className="text-muted-foreground">
+                        <strong className="text-foreground">{searchMatchedMessageIds.size}</strong> message{searchMatchedMessageIds.size !== 1 ? 's' : ''} matching &ldquo;{searchQuery}&rdquo;
+                      </span>
+                    </div>
+                    <button onClick={() => setSearchQuery('')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Clear
+                    </button>
+                  </div>
+                )}
                 <ScrollArea className="flex-1">
                   <div className="px-5 py-4">
                     {messages.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-14 h-14 rounded-xl bg-accent flex items-center justify-center mb-3">
-                          {view.kind === 'channel' ? <Hash className="h-7 w-7 text-muted-foreground" /> : <AtSign className="h-7 w-7 text-muted-foreground" />}
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/15 to-purple-600/15 border border-violet-500/10 flex items-center justify-center mb-4">
+                          {view.kind === 'channel' ? <Hash className="h-8 w-8 text-violet-400" /> : <AtSign className="h-8 w-8 text-violet-400" />}
                         </div>
-                        <p className="font-semibold text-foreground/80 text-lg">
+                        <GradientText
+                          colors={['#8b5cf6', '#a855f7', '#7c3aed', '#6d28d9', '#8b5cf6']}
+                          className="text-lg font-bold"
+                          animationSpeed={4}
+                        >
                           {view.kind === 'channel'
-                            ? `This is the beginning of #${currentChannel?.name}`
-                            : `Start a conversation`}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                          {currentChannel?.description ?? 'Send a message to get started'}
+                            ? `Welcome to #${currentChannel?.name}`
+                            : 'Start a conversation'}
+                        </GradientText>
+                        <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+                          {currentChannel?.description ?? 'Send a message to get started. Your messages are synced in real-time across all devices.'}
                         </p>
                       </div>
                     )}
@@ -1462,7 +1597,7 @@ function MessagesPageInner() {
                             <ContextMenu key={msg.id.toString()}>
                               <ContextMenuTrigger>
                             <div
-                              className={`relative group px-2 -mx-2 rounded ${isHovered ? 'bg-muted/50' : 'hover:bg-muted/30'} ${isSameAuthor ? '' : 'mt-3'}`}
+                              className={`relative group px-2 -mx-2 rounded transition-colors ${isHovered ? 'bg-muted/50' : 'hover:bg-muted/30'} ${isSameAuthor ? '' : 'mt-3'} ${searchMatchedMessageIds?.has(msg.id.toString()) ? 'ring-1 ring-violet-500/30 bg-violet-500/5' : ''}`}
                               onMouseEnter={() => setHoveredMsgId(msg.id)}
                               onMouseLeave={() => { setHoveredMsgId(null); if (showEmojiFor === msg.id) setShowEmojiFor(null) }}
                             >
@@ -1525,16 +1660,29 @@ function MessagesPageInner() {
 
                               {/* Emoji picker */}
                               {showEmojiFor === msg.id && (
-                                <div className="absolute -top-10 right-2 flex items-center gap-0.5 bg-accent border border-border rounded-lg p-1 shadow-xl z-20">
-                                  {EMOJI_LIST.map((e) => (
-                                    <button
-                                      key={e.name}
-                                      onClick={() => handleReaction(msg.id, e.name)}
-                                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-accent text-sm"
-                                    >
-                                      {e.emoji}
-                                    </button>
-                                  ))}
+                                <div className="absolute -top-2 right-2 translate-y-[-100%] bg-accent border border-border rounded-xl p-2 shadow-2xl z-20 w-[280px]">
+                                  <div className="flex items-center gap-0.5 mb-1.5 pb-1.5 border-b border-border/50">
+                                    {EMOJI_QUICK.map((e) => (
+                                      <button
+                                        key={e.name}
+                                        onClick={() => handleReaction(msg.id, e.name)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-background/60 text-sm transition-transform hover:scale-125"
+                                      >
+                                        {e.emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="grid grid-cols-8 gap-0.5 max-h-[160px] overflow-y-auto">
+                                    {EMOJI_LIST.slice(8).map((e) => (
+                                      <button
+                                        key={e.name}
+                                        onClick={() => handleReaction(msg.id, e.name)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-background/60 text-sm transition-transform hover:scale-125"
+                                      >
+                                        {e.emoji}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 
@@ -1671,10 +1819,15 @@ function MessagesPageInner() {
 
                 {/* Typing indicators */}
                 {typingUsers.length > 0 && (
-                  <div className="shrink-0 px-5 py-1 text-xs text-muted-foreground animate-pulse">
+                  <div className="shrink-0 px-5 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span className="flex gap-0.5">
+                      <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="size-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
                     {typingUsers.length === 1
-                      ? `${typingUsers[0]} is typing...`
-                      : `${typingUsers.join(', ')} are typing...`}
+                      ? <span><strong className="text-foreground/70">{typingUsers[0]}</strong> is typing</span>
+                      : <span><strong className="text-foreground/70">{typingUsers.join(', ')}</strong> are typing</span>}
                   </div>
                 )}
 

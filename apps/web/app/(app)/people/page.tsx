@@ -11,6 +11,17 @@ import { PresenceBar } from '@/components/presence-bar'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -440,6 +451,42 @@ export default function PeoplePage() {
   const aiCount = orgEmployees.filter((e) => e.employeeType?.tag === 'AiAgent').length
   const uniqueDepts = new Set(orgEmployees.map((e) => e.department?.tag)).size
 
+  // Chart: status distribution
+  const STATUS_CHART_COLORS: Record<string, string> = { Online: '#10b981', Busy: '#f59e0b', InCall: '#3b82f6', Offline: '#a3a3a3' }
+  const statusPieData = useMemo(() => {
+    return Object.entries(statusCounts)
+      .filter(([, count]) => count > 0)
+      .map(([name, value]) => ({
+        name: name === 'InCall' ? 'In Call' : name,
+        value,
+        color: STATUS_CHART_COLORS[name] ?? '#a3a3a3',
+      }))
+  }, [statusCounts])
+
+  // Chart: team composition (Human vs AI)
+  const compositionData = useMemo(() => {
+    const humanCount = orgEmployees.filter(e => e.employeeType?.tag !== 'AiAgent').length
+    return [
+      { name: 'Human', value: humanCount, color: '#14b8a6' },
+      { name: 'AI Agent', value: aiCount, color: '#8b5cf6' },
+    ].filter(d => d.value > 0)
+  }, [orgEmployees, aiCount])
+
+  // Chart: department bar chart data
+  const DEPT_CHART_COLORS: Record<string, string> = {
+    Engineering: '#3b82f6', Sales: '#10b981', Marketing: '#a855f7',
+    Support: '#f59e0b', Design: '#ec4899', HR: '#14b8a6',
+    Operations: '#f97316', Finance: '#06b6d4', Legal: '#f43f5e',
+    Executive: '#6366f1',
+  }
+  const deptBarData = useMemo(() => {
+    return deptCounts.slice(0, 8).map(([dept, count]) => ({
+      name: dept,
+      count,
+      fill: DEPT_CHART_COLORS[dept] ?? '#737373',
+    }))
+  }, [deptCounts])
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -555,6 +602,92 @@ export default function PeoplePage() {
             </div>
           </SpotlightCard>
         </div>
+
+        {/* ── Insights Charts ── */}
+        {orgEmployees.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Status distribution donut */}
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+              <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Availability</h3>
+              <div className="h-[140px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={34} outerRadius={54} paddingAngle={3} dataKey="value" stroke="none">
+                      {statusPieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [value, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+                {statusPieData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                    <span className="size-2 rounded-full" style={{ background: d.color }} />
+                    {d.name} ({d.value})
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Team composition donut */}
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+              <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Team Composition</h3>
+              <div className="h-[140px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={compositionData} cx="50%" cy="50%" innerRadius={34} outerRadius={54} paddingAngle={4} dataKey="value" stroke="none">
+                      {compositionData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [`${value} member${value !== 1 ? 's' : ''}`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+                {compositionData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                    <span className="size-2 rounded-full" style={{ background: d.color }} />
+                    {d.name} ({d.value})
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Department bar chart */}
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+              <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">By Department</h3>
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={deptBarData} barSize={20} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} interval={0} angle={-30} textAnchor="end" height={40} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number) => [`${value} people`, 'Count']}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {deptBarData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Search + Controls ── */}
         <div className="flex flex-col sm:flex-row gap-3">

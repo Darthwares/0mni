@@ -103,6 +103,20 @@ import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import { extractPreviewText, scrollToBlock, type HeadingItem, type DocumentStats } from '@/components/block-editor'
 
+// Cover image gradient presets
+const COVER_GRADIENTS = [
+  { name: 'Violet Dream', value: 'from-violet-500 to-indigo-600' },
+  { name: 'Ocean', value: 'from-cyan-500 to-blue-600' },
+  { name: 'Sunset', value: 'from-orange-400 to-rose-500' },
+  { name: 'Forest', value: 'from-emerald-500 to-teal-600' },
+  { name: 'Midnight', value: 'from-slate-700 to-zinc-900' },
+  { name: 'Aurora', value: 'from-green-400 via-cyan-500 to-blue-500' },
+  { name: 'Nebula', value: 'from-purple-500 via-pink-500 to-red-500' },
+  { name: 'Dawn', value: 'from-amber-200 via-orange-300 to-rose-400' },
+]
+
+const DOC_EMOJIS = ['📝', '📄', '📋', '📊', '🎯', '💡', '🚀', '🔧', '📐', '🎨', '🧪', '📦', '🗂️', '📖', '🏗️', '✨', '🔬', '🎪', '🌟', '⚡']
+
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
   ssr: false,
@@ -388,6 +402,8 @@ export default function CanvasPage() {
   const allDocPins = useTable(tables.document_pin) ?? []
   const allDocComments = useTable(tables.document_comment) ?? []
   const [allDocLifecycles] = useTable(tables.document_lifecycle)
+  const [allDocMetas] = useTable(tables.document_meta)
+  const [allDocViews] = useTable(tables.document_view)
 
   const createDocument = useReducer(reducers.createDocument)
   const updateDocument = useReducer(reducers.updateDocument)
@@ -411,6 +427,8 @@ export default function CanvasPage() {
   const deleteDocumentComment = useReducer(reducers.deleteDocumentComment)
   const resolveDocumentComment = useReducer(reducers.resolveDocumentComment)
   const setDocumentLifecycle = useReducer(reducers.setDocumentLifecycle)
+  const setDocumentMeta = useReducer(reducers.setDocumentMeta)
+  const recordDocumentView = useReducer(reducers.recordDocumentView)
 
   const [activeDocId, setActiveDocId] = useState<bigint | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<bigint | null>(null)
@@ -445,6 +463,10 @@ export default function CanvasPage() {
   const [editorStats, setEditorStats] = useState<DocumentStats | null>(null)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showStatsPanel, setShowStatsPanel] = useState(false)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importText, setImportText] = useState('')
   const editorInstanceRef = useRef<any>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -501,6 +523,30 @@ export default function CanvasPage() {
     return map
   }, [allDocTags])
 
+  // Document meta map (cover images, emoji icons)
+  const docMetaMap = useMemo(() => {
+    const map = new Map<string, { icon: string; coverGradient: string; coverUrl: string; description: string }>()
+    for (const meta of allDocMetas) {
+      map.set(meta.documentId.toString(), {
+        icon: meta.icon,
+        coverGradient: meta.coverGradient,
+        coverUrl: meta.coverUrl,
+        description: meta.description,
+      })
+    }
+    return map
+  }, [allDocMetas])
+
+  // View count per document
+  const docViewCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const v of allDocViews) {
+      const key = v.documentId.toString()
+      map.set(key, (map.get(key) ?? 0) + 1)
+    }
+    return map
+  }, [allDocViews])
+
   // Document lifecycle status map
   const docLifecycleMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -516,6 +562,74 @@ export default function CanvasPage() {
 
   // Track presence when editing a canvas
   const { presentUsers: canvasPresence } = useResourcePresence('Canvas', activeDocId ? Number(activeDocId) : null)
+
+  // Record document view when opening
+  useEffect(() => {
+    if (activeDocId) {
+      try { recordDocumentView({ documentId: activeDocId }) } catch {}
+    }
+  }, [activeDocId])
+
+  // Active doc meta
+  const activeDocMeta = useMemo(() => {
+    if (!activeDocId) return null
+    return docMetaMap.get(activeDocId.toString()) ?? null
+  }, [activeDocId, docMetaMap])
+
+  // Set cover gradient on active doc
+  const handleSetCover = useCallback((gradient: string) => {
+    if (!activeDocId) return
+    const existing = docMetaMap.get(activeDocId.toString())
+    setDocumentMeta({
+      documentId: activeDocId,
+      icon: existing?.icon ?? '',
+      coverUrl: existing?.coverUrl ?? '',
+      coverGradient: gradient,
+      description: existing?.description ?? '',
+    })
+    setShowCoverPicker(false)
+  }, [activeDocId, docMetaMap, setDocumentMeta])
+
+  // Remove cover
+  const handleRemoveCover = useCallback(() => {
+    if (!activeDocId) return
+    const existing = docMetaMap.get(activeDocId.toString())
+    setDocumentMeta({
+      documentId: activeDocId,
+      icon: existing?.icon ?? '',
+      coverUrl: '',
+      coverGradient: '',
+      description: existing?.description ?? '',
+    })
+    setShowCoverPicker(false)
+  }, [activeDocId, docMetaMap, setDocumentMeta])
+
+  // Set emoji icon on active doc
+  const handleSetEmoji = useCallback((emoji: string) => {
+    if (!activeDocId) return
+    const existing = docMetaMap.get(activeDocId.toString())
+    setDocumentMeta({
+      documentId: activeDocId,
+      icon: emoji,
+      coverUrl: existing?.coverUrl ?? '',
+      coverGradient: existing?.coverGradient ?? '',
+      description: existing?.description ?? '',
+    })
+    setShowEmojiPicker(false)
+  }, [activeDocId, docMetaMap, setDocumentMeta])
+
+  // Import from markdown
+  const handleImportMarkdown = useCallback(() => {
+    if (!importText.trim() || !editorInstanceRef.current) return
+    try {
+      const blocks = editorInstanceRef.current.tryParseMarkdownToBlocks(importText)
+      editorInstanceRef.current.replaceBlocks(editorInstanceRef.current.document, blocks)
+      setShowImportDialog(false)
+      setImportText('')
+    } catch (e) {
+      console.error('Markdown import failed:', e)
+    }
+  }, [importText])
 
   // Ref to hold latest documents for use inside debounced callbacks (avoids stale closures)
   const canvasDocumentsRef = useRef<SpacetimeDocument[]>([])
@@ -1141,6 +1255,17 @@ ${html}
               </Button>
             )}
             {!isWhiteboard && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowImportDialog(true)}
+                  className="h-7 gap-1.5 text-xs"
+                  title="Import from Markdown"
+                >
+                  <CopyPlus className="size-3.5" />
+                </Button>
+            )}
+            {!isWhiteboard && (
               <div className="relative">
                 <Button
                   variant="ghost"
@@ -1281,6 +1406,177 @@ ${html}
             }}
           />
         </div>
+
+        {/* Cover image banner */}
+        {!isWhiteboard && (activeDocMeta?.coverGradient || activeDocMeta?.coverUrl) && !focusMode && (
+          <div className="relative group/cover shrink-0">
+            <div className={`h-40 w-full bg-gradient-to-r ${activeDocMeta?.coverGradient || 'from-violet-500 to-indigo-600'}`}>
+              {activeDocMeta?.coverUrl && (
+                <img src={activeDocMeta.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              )}
+            </div>
+            <div className="absolute top-2 right-2 opacity-0 group-hover/cover:opacity-100 transition-opacity flex gap-1">
+              <button
+                onClick={() => setShowCoverPicker(true)}
+                className="px-2 py-1 rounded-md bg-black/40 hover:bg-black/60 text-white text-[10px] font-medium backdrop-blur-sm transition-colors"
+              >
+                Change cover
+              </button>
+              <button
+                onClick={handleRemoveCover}
+                className="px-2 py-1 rounded-md bg-black/40 hover:bg-red-500/80 text-white text-[10px] font-medium backdrop-blur-sm transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+            {/* Emoji icon overlay on cover */}
+            {activeDocMeta?.icon && (
+              <div className="absolute -bottom-6 left-8">
+                <button
+                  onClick={() => setShowEmojiPicker(true)}
+                  className="text-5xl hover:scale-110 transition-transform cursor-pointer drop-shadow-lg"
+                  title="Change icon"
+                >
+                  {activeDocMeta.icon}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add cover/icon buttons (when no cover) */}
+        {!isWhiteboard && !activeDocMeta?.coverGradient && !activeDocMeta?.coverUrl && !focusMode && (
+          <div className="flex items-center gap-2 px-8 pt-3 shrink-0">
+            {!activeDocMeta?.icon && (
+              <button
+                onClick={() => setShowEmojiPicker(true)}
+                className="text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-2 py-1 rounded transition-colors flex items-center gap-1"
+              >
+                😀 Add icon
+              </button>
+            )}
+            {activeDocMeta?.icon && !activeDocMeta?.coverGradient && (
+              <button
+                onClick={() => setShowEmojiPicker(true)}
+                className="text-4xl hover:scale-110 transition-transform cursor-pointer mb-1"
+                title="Change icon"
+              >
+                {activeDocMeta.icon}
+              </button>
+            )}
+            <button
+              onClick={() => setShowCoverPicker(true)}
+              className="text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-2 py-1 rounded transition-colors flex items-center gap-1"
+            >
+              🖼️ Add cover
+            </button>
+          </div>
+        )}
+
+        {/* Cover gradient picker popover */}
+        {showCoverPicker && (
+          <div className="absolute z-50 top-20 right-4 bg-popover border rounded-xl shadow-xl p-4 w-72">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold">Cover Image</h4>
+              <button onClick={() => setShowCoverPicker(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {COVER_GRADIENTS.map((g) => (
+                <button
+                  key={g.value}
+                  onClick={() => handleSetCover(g.value)}
+                  className={`h-12 rounded-lg bg-gradient-to-r ${g.value} hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all ${activeDocMeta?.coverGradient === g.value ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                  title={g.name}
+                />
+              ))}
+            </div>
+            {activeDocMeta?.coverGradient && (
+              <button
+                onClick={handleRemoveCover}
+                className="w-full mt-3 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 py-1.5 rounded transition-colors"
+              >
+                Remove cover
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Emoji picker popover */}
+        {showEmojiPicker && (
+          <div className="absolute z-50 top-20 left-8 bg-popover border rounded-xl shadow-xl p-4 w-72">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold">Page Icon</h4>
+              <button onClick={() => setShowEmojiPicker(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {DOC_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleSetEmoji(emoji)}
+                  className={`text-xl p-1.5 rounded-lg hover:bg-muted transition-colors ${activeDocMeta?.icon === emoji ? 'bg-primary/10 ring-1 ring-primary' : ''}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            {activeDocMeta?.icon && (
+              <button
+                onClick={() => handleSetEmoji('')}
+                className="w-full mt-3 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 py-1.5 rounded transition-colors"
+              >
+                Remove icon
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Import from Markdown dialog */}
+        {showImportDialog && (
+          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Import from Markdown</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Paste Markdown content below. This will replace the current document content.
+                </p>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="# Paste your markdown here..."
+                  className="w-full h-64 rounded-lg border bg-muted/30 p-4 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <label className="flex-1">
+                    <input
+                      type="file"
+                      accept=".md,.markdown,.txt"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = () => setImportText(reader.result as string)
+                          reader.readAsText(file)
+                        }
+                      }}
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors cursor-pointer">
+                      <Download className="size-3.5" />
+                      Upload .md file
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(false)}>Cancel</Button>
+                <Button size="sm" onClick={handleImportMarkdown} disabled={!importText.trim()}>Import</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Editor body + sidebar */}
         <div className="flex-1 overflow-hidden flex">
@@ -2012,6 +2308,8 @@ ${html}
                   pinned={pinnedIds.has(doc.id)}
                   tags={docTagsMap.get(doc.id.toString()) ?? []}
                   status={getDocStatus(doc.id)}
+                  meta={docMetaMap.get(doc.id.toString())}
+                  viewCount={docViewCounts.get(doc.id.toString()) ?? 0}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType?.tag === 'Folder') {
@@ -2045,6 +2343,8 @@ ${html}
                   pinned={pinnedIds.has(doc.id)}
                   tags={docTagsMap.get(doc.id.toString()) ?? []}
                   status={getDocStatus(doc.id)}
+                  meta={docMetaMap.get(doc.id.toString())}
+                  viewCount={docViewCounts.get(doc.id.toString()) ?? 0}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
                     if (doc.docType?.tag === 'Folder') {
@@ -2337,6 +2637,8 @@ function CanvasCard({
   pinned,
   tags,
   status,
+  meta,
+  viewCount,
   onToggleStar,
   onOpen,
   onDelete,
@@ -2351,6 +2653,8 @@ function CanvasCard({
   pinned: boolean
   tags: string[]
   status: string
+  meta?: { icon: string; coverGradient: string; coverUrl: string; description: string } | null
+  viewCount: number
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
@@ -2363,6 +2667,7 @@ function CanvasCard({
   const isWhiteboard = doc.docType?.tag === 'Whiteboard'
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
   const isPrivate = doc.visibility?.tag === 'Private'
+  const hasCover = meta?.coverGradient || meta?.coverUrl
 
   return (
     <ContextMenu>
@@ -2371,39 +2676,49 @@ function CanvasCard({
       onClick={onOpen}
       className="group relative rounded-xl border bg-card cursor-pointer transition-all hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden"
     >
-      {/* Preview area */}
-      <div className={`h-32 flex items-center justify-center ${
-        isFolder
-          ? 'bg-gradient-to-br from-amber-500/5 to-amber-500/10'
-          : isWhiteboard
-            ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
-            : 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
+      {/* Preview area — show cover gradient if set */}
+      <div className={`h-32 flex items-center justify-center relative ${
+        hasCover
+          ? `bg-gradient-to-r ${meta?.coverGradient || 'from-violet-500 to-indigo-600'}`
+          : isFolder
+            ? 'bg-gradient-to-br from-amber-500/5 to-amber-500/10'
+            : isWhiteboard
+              ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-500/10'
+              : 'bg-gradient-to-br from-blue-500/5 to-blue-500/10'
       }`}>
-        {isFolder ? (
+        {hasCover && meta?.coverUrl && (
+          <img src={meta.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+        {hasCover && meta?.icon && (
+          <span className="text-4xl drop-shadow-lg relative z-10">{meta.icon}</span>
+        )}
+        {!hasCover && isFolder ? (
           <FolderOpen className="size-12 text-amber-400/40" />
-        ) : isWhiteboard ? (
+        ) : !hasCover && isWhiteboard ? (
           <div className="relative w-16 h-16">
             <div className="absolute inset-0 border-2 border-foreground/10 rounded-lg rotate-12" />
             <div className="absolute inset-2 border-2 border-foreground/10 rounded-full" />
             <div className="absolute bottom-0 right-0 w-8 h-[2px] bg-foreground/10 rotate-45" />
           </div>
-        ) : (() => {
+        ) : !hasCover ? (() => {
           const preview = extractPreviewText(doc.content, 100)
           return preview ? (
             <div className="px-5 py-3 w-full h-full flex flex-col justify-center">
+              {meta?.icon && <span className="text-2xl mb-1">{meta.icon}</span>}
               <p className="text-[11px] leading-relaxed text-foreground/40 line-clamp-4 font-mono">
                 {preview}
               </p>
             </div>
           ) : (
             <div className="space-y-1.5 px-6 w-full">
+              {meta?.icon && <span className="text-2xl mb-2 block text-center">{meta.icon}</span>}
               <div className="h-2 bg-foreground/10 rounded-full w-3/4" />
               <div className="h-2 bg-foreground/10 rounded-full w-full" />
               <div className="h-2 bg-foreground/10 rounded-full w-2/3" />
               <div className="h-2 bg-foreground/10 rounded-full w-5/6" />
             </div>
           )
-        })()}
+        })() : null}
       </div>
 
       {/* Info */}
@@ -2429,6 +2744,12 @@ function CanvasCard({
             <span className="flex items-center gap-0.5 ml-1">
               <Users className="size-2.5" />
               {doc.sharedWith.length} shared
+            </span>
+          )}
+          {viewCount > 0 && (
+            <span className="flex items-center gap-0.5 ml-1">
+              <Eye className="size-2.5" />
+              {viewCount}
             </span>
           )}
         </div>
@@ -2550,6 +2871,8 @@ function CanvasListItem({
   pinned,
   tags,
   status,
+  meta,
+  viewCount,
   onToggleStar,
   onOpen,
   onDelete,
@@ -2564,6 +2887,8 @@ function CanvasListItem({
   pinned: boolean
   tags: string[]
   status: string
+  meta?: { icon: string; coverGradient: string; coverUrl: string; description: string } | null
+  viewCount: number
   onToggleStar: () => void
   onOpen: () => void
   onDelete: () => void
@@ -2582,13 +2907,17 @@ function CanvasListItem({
       className="group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-sm hover:border-primary/20"
     >
       <div className={`flex items-center justify-center size-10 rounded-lg shrink-0 ${
-        isFolder
-          ? 'bg-amber-500/10'
-          : isWhiteboard
-            ? 'bg-emerald-500/10'
-            : 'bg-blue-500/10'
+        meta?.coverGradient
+          ? `bg-gradient-to-r ${meta.coverGradient}`
+          : isFolder
+            ? 'bg-amber-500/10'
+            : isWhiteboard
+              ? 'bg-emerald-500/10'
+              : 'bg-blue-500/10'
       }`}>
-        {isFolder ? (
+        {meta?.icon ? (
+          <span className="text-xl">{meta.icon}</span>
+        ) : isFolder ? (
           <Folder className="size-5 text-amber-400" />
         ) : isWhiteboard ? (
           <PenTool className="size-5 text-emerald-400" />

@@ -4438,6 +4438,52 @@ pub fn delete_deal(
     Ok(())
 }
 
+#[spacetimedb::reducer]
+pub fn update_lead(
+    ctx: &ReducerContext,
+    lead_id: u64,
+    name: String,
+    email: String,
+    company: Option<String>,
+    phone: Option<String>,
+    title: Option<String>,
+    source: LeadSource,
+) -> Result<(), String> {
+    let existing = ctx.db.lead().id().find(lead_id)
+        .ok_or("Lead not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.lead().id().update(Lead {
+        name,
+        email,
+        company,
+        phone,
+        title,
+        source,
+        ..existing
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_deal(
+    ctx: &ReducerContext,
+    deal_id: u64,
+    name: String,
+    value: f32,
+    lead_id: Option<u64>,
+) -> Result<(), String> {
+    let existing = ctx.db.deal().id().find(deal_id)
+        .ok_or("Deal not found")?;
+    require_org_access(ctx, existing.org_id)?;
+    ctx.db.deal().id().update(Deal {
+        name,
+        value,
+        lead_id,
+        ..existing
+    });
+    Ok(())
+}
+
 // ============================================================================
 // REDUCERS - RECRUITMENT MODULE
 // ============================================================================

@@ -61,11 +61,17 @@ import {
   Plus,
   Target,
   ArrowUpRight,
+  ArrowDownRight,
   Sparkles,
   Trophy,
   Trash2,
-  GripVertical,
   Download,
+  Pencil,
+  Clock,
+  ArrowUpDown,
+  Eye,
+  CalendarDays,
+  Activity,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
@@ -100,6 +106,15 @@ function shortIdentity(id: { toHexString(): string } | undefined | null): string
   if (!id) return '—'
   const hex = id.toHexString()
   return hex.slice(0, 8) + '…'
+}
+
+function daysBetween(a: any, b: any): number {
+  try {
+    const msA = a?.toDate?.()?.getTime?.() ?? 0
+    const msB = b?.toDate?.()?.getTime?.() ?? 0
+    if (!msA || !msB) return 0
+    return Math.round(Math.abs(msB - msA) / (1000 * 60 * 60 * 24))
+  } catch { return 0 }
 }
 
 // ─── Lead status ─────────────────────────────────────────────────────────────
@@ -189,6 +204,8 @@ const DEAL_STAGES: DealStageTag[] = [
   'ClosedLost',
 ]
 
+const ACTIVE_STAGES: DealStageTag[] = ['Discovery', 'Demo', 'Proposal', 'Negotiation']
+
 function stageLabel(tag: DealStageTag): string {
   switch (tag) {
     case 'ClosedWon':  return 'Closed Won'
@@ -273,10 +290,22 @@ export default function SalesPage() {
   const [allDeals] = useTable(tables.deal)
   const createLead = useSpacetimeReducer(reducers.createLead)
   const updateLeadStatus = useSpacetimeReducer(reducers.updateLeadStatus)
+  const updateLead = useSpacetimeReducer(reducers.updateLead)
   const deleteLead = useSpacetimeReducer(reducers.deleteLead)
   const createDeal = useSpacetimeReducer(reducers.createDeal)
   const updateDealStage = useSpacetimeReducer(reducers.updateDealStage)
+  const updateDeal = useSpacetimeReducer(reducers.updateDeal)
   const deleteDeal = useSpacetimeReducer(reducers.deleteDeal)
+
+  // ── Org-scoped data ────────────────────────────────────────────────────
+  const orgLeads = useMemo(
+    () => allLeads.filter(l => Number(l.orgId) === currentOrgId),
+    [allLeads, currentOrgId]
+  )
+  const orgDeals = useMemo(
+    () => allDeals.filter(d => Number(d.orgId) === currentOrgId),
+    [allDeals, currentOrgId]
+  )
 
   // ── Add Lead dialog state
   const [addLeadOpen, setAddLeadOpen] = useState(false)
@@ -285,12 +314,73 @@ export default function SalesPage() {
   const [newLeadCompany, setNewLeadCompany] = useState('')
   const [newLeadSource, setNewLeadSource] = useState<string>('Inbound')
 
+  // ── Edit Lead dialog state
+  const [editLeadOpen, setEditLeadOpen] = useState(false)
+  const [editLeadId, setEditLeadId] = useState<bigint | null>(null)
+  const [editLeadName, setEditLeadName] = useState('')
+  const [editLeadEmail, setEditLeadEmail] = useState('')
+  const [editLeadCompany, setEditLeadCompany] = useState('')
+  const [editLeadPhone, setEditLeadPhone] = useState('')
+  const [editLeadTitle, setEditLeadTitle] = useState('')
+  const [editLeadSource, setEditLeadSource] = useState<string>('Inbound')
+
   // ── Add Deal dialog state
   const [addDealOpen, setAddDealOpen] = useState(false)
   const [newDealName, setNewDealName] = useState('')
   const [newDealValue, setNewDealValue] = useState('')
   const [newDealStage, setNewDealStage] = useState<string>('Discovery')
   const [newDealLeadId, setNewDealLeadId] = useState<string>('')
+
+  // ── Edit Deal dialog state
+  const [editDealOpen, setEditDealOpen] = useState(false)
+  const [editDealId, setEditDealId] = useState<bigint | null>(null)
+  const [editDealName, setEditDealName] = useState('')
+  const [editDealValue, setEditDealValue] = useState('')
+  const [editDealLeadId, setEditDealLeadId] = useState<string>('')
+
+  function openEditLead(lead: any) {
+    setEditLeadId(lead.id)
+    setEditLeadName(lead.name || '')
+    setEditLeadEmail(lead.email || '')
+    setEditLeadCompany(lead.company || '')
+    setEditLeadPhone(lead.phone || '')
+    setEditLeadTitle(lead.title || '')
+    setEditLeadSource(lead.source?.tag || 'Inbound')
+    setEditLeadOpen(true)
+  }
+
+  function handleEditLead() {
+    if (!editLeadId || !editLeadName.trim() || !editLeadEmail.trim()) return
+    updateLead({
+      leadId: editLeadId,
+      name: editLeadName.trim(),
+      email: editLeadEmail.trim(),
+      company: editLeadCompany.trim() || undefined,
+      phone: editLeadPhone.trim() || undefined,
+      title: editLeadTitle.trim() || undefined,
+      source: { tag: editLeadSource } as any,
+    })
+    setEditLeadOpen(false)
+  }
+
+  function openEditDeal(deal: any) {
+    setEditDealId(deal.id)
+    setEditDealName(deal.name || '')
+    setEditDealValue(String(deal.value ?? 0))
+    setEditDealLeadId(deal.leadId ? deal.leadId.toString() : '')
+    setEditDealOpen(true)
+  }
+
+  function handleEditDeal() {
+    if (!editDealId || !editDealName.trim() || !editDealValue.trim()) return
+    updateDeal({
+      dealId: editDealId,
+      name: editDealName.trim(),
+      value: parseFloat(editDealValue) || 0,
+      leadId: editDealLeadId ? BigInt(editDealLeadId) : undefined,
+    })
+    setEditDealOpen(false)
+  }
 
   function handleCreateLead() {
     if (!newLeadName.trim() || !newLeadEmail.trim() || currentOrgId === null) return
@@ -328,12 +418,22 @@ export default function SalesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery]   = useState('')
+  const [leadSort, setLeadSort] = useState<'newest' | 'oldest' | 'name' | 'score'>('newest')
 
-  // ── Sorted + filtered leads
-  const leads = useMemo(
-    () => [...allLeads].sort((a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())),
-    [allLeads]
-  )
+  // ── Pipeline filters
+  const [dealSearch, setDealSearch] = useState('')
+
+  // ── Sorted + filtered leads (org-scoped)
+  const leads = useMemo(() => {
+    const sorted = [...orgLeads]
+    switch (leadSort) {
+      case 'newest': sorted.sort((a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())); break
+      case 'oldest': sorted.sort((a, b) => Number(a.createdAt.toMillis()) - Number(b.createdAt.toMillis())); break
+      case 'name': sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '')); break
+      case 'score': sorted.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)); break
+    }
+    return sorted
+  }, [orgLeads, leadSort])
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -350,7 +450,7 @@ export default function SalesPage() {
     })
   }, [leads, statusFilter, sourceFilter, searchQuery])
 
-  // ── KPIs
+  // ── KPIs (org-scoped)
   const kpis = useMemo(() => {
     const total     = leads.length
     const qualified = leads.filter((l) => l.status.tag === 'Qualified').length
@@ -363,18 +463,27 @@ export default function SalesPage() {
     return { total, qualified, converted, avgScore, convRate }
   }, [leads])
 
-  // ── Deals grouped by stage
-  const deals = useMemo(() => [...allDeals], [allDeals])
+  // ── Deals (org-scoped) grouped by stage
+  const deals = useMemo(() => [...orgDeals], [orgDeals])
+
+  const filteredDeals = useMemo(() => {
+    if (!dealSearch) return deals
+    const q = dealSearch.toLowerCase()
+    return deals.filter(d =>
+      d.name?.toLowerCase().includes(q) ||
+      shortIdentity(d.owner).toLowerCase().includes(q)
+    )
+  }, [deals, dealSearch])
 
   const dealsByStage = useMemo(() => {
-    const map = new Map<DealStageTag, typeof deals>()
+    const map = new Map<DealStageTag, typeof filteredDeals>()
     for (const stage of DEAL_STAGES) map.set(stage, [])
-    for (const deal of deals) {
+    for (const deal of filteredDeals) {
       const tag = deal.stage.tag as DealStageTag
       map.get(tag)?.push(deal)
     }
     return map
-  }, [deals])
+  }, [filteredDeals])
 
   const pipelineValue = useMemo(
     () => deals
@@ -397,7 +506,61 @@ export default function SalesPage() {
     [deals]
   )
 
-  // ── Active filter pills (for quick status filtering)
+  // ── Forecast metrics
+  const forecast = useMemo(() => {
+    const activeDeals = deals.filter(d => !['ClosedWon', 'ClosedLost'].includes(d.stage.tag))
+    const closedWon = deals.filter(d => d.stage.tag === 'ClosedWon')
+    const closedLost = deals.filter(d => d.stage.tag === 'ClosedLost')
+    const totalClosed = closedWon.length + closedLost.length
+
+    const weightedPipeline = activeDeals.reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 0) / 100)), 0)
+    const winRate = totalClosed > 0 ? Math.round((closedWon.length / totalClosed) * 100) : 0
+    const avgDealSize = closedWon.length > 0
+      ? Math.round(closedWon.reduce((s, d) => s + (d.value ?? 0), 0) / closedWon.length)
+      : 0
+    const avgCycleTime = closedWon.length > 0
+      ? Math.round(closedWon.reduce((s, d) => s + daysBetween(d.expectedClose, d.closedAt), 0) / closedWon.length)
+      : 0
+
+    // Stage funnel data
+    const funnel = DEAL_STAGES.map(stage => {
+      const stageDeals = deals.filter(d => d.stage.tag === stage)
+      return {
+        stage,
+        count: stageDeals.length,
+        value: stageDeals.reduce((s, d) => s + (d.value ?? 0), 0),
+      }
+    })
+
+    // Source breakdown
+    const sourceMap = new Map<string, { count: number; converted: number }>()
+    for (const lead of orgLeads) {
+      const tag = lead.source.tag
+      const entry = sourceMap.get(tag) || { count: 0, converted: 0 }
+      entry.count++
+      if (lead.status.tag === 'Converted') entry.converted++
+      sourceMap.set(tag, entry)
+    }
+
+    return {
+      activeDeals: activeDeals.length,
+      activePipelineValue: activeDeals.reduce((s, d) => s + (d.value ?? 0), 0),
+      weightedPipeline,
+      winRate,
+      avgDealSize,
+      avgCycleTime,
+      closedWonCount: closedWon.length,
+      closedLostCount: closedLost.length,
+      funnel,
+      sourceBreakdown: Array.from(sourceMap.entries()).map(([source, data]) => ({
+        source,
+        ...data,
+        rate: data.count > 0 ? Math.round((data.converted / data.count) * 100) : 0,
+      })),
+    }
+  }, [deals, orgLeads])
+
+  // ── Active filter pills
   const STATUS_PILLS: { label: string; value: string; dot: string }[] = [
     { label: 'All', value: 'all', dot: '' },
     { label: 'New', value: 'New', dot: 'bg-blue-500' },
@@ -517,56 +680,32 @@ export default function SalesPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="lead-name">Name *</Label>
-                  <Input
-                    id="lead-name"
-                    placeholder="John Doe"
-                    value={newLeadName}
-                    onChange={(e) => setNewLeadName(e.target.value)}
-                  />
+                  <Input id="lead-name" placeholder="John Doe" value={newLeadName} onChange={(e) => setNewLeadName(e.target.value)} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="lead-email">Email *</Label>
-                  <Input
-                    id="lead-email"
-                    type="email"
-                    placeholder="john@company.com"
-                    value={newLeadEmail}
-                    onChange={(e) => setNewLeadEmail(e.target.value)}
-                  />
+                  <Input id="lead-email" type="email" placeholder="john@company.com" value={newLeadEmail} onChange={(e) => setNewLeadEmail(e.target.value)} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="lead-company">Company</Label>
-                  <Input
-                    id="lead-company"
-                    placeholder="Acme Inc"
-                    value={newLeadCompany}
-                    onChange={(e) => setNewLeadCompany(e.target.value)}
-                  />
+                  <Input id="lead-company" placeholder="Acme Inc" value={newLeadCompany} onChange={(e) => setNewLeadCompany(e.target.value)} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="lead-source">Source</Label>
                   <Select value={newLeadSource} onValueChange={setNewLeadSource}>
-                    <SelectTrigger id="lead-source">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger id="lead-source"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Inbound">Inbound</SelectItem>
                       <SelectItem value="Outbound">Outbound</SelectItem>
                       <SelectItem value="Referral">Referral</SelectItem>
-                      <SelectItem value="AiProspecting">AI Prospecting</SelectItem>
+                      <SelectItem value="AIProspecting">AI Prospecting</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setAddLeadOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateLead}
-                  disabled={!newLeadName.trim() || !newLeadEmail.trim()}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0"
-                >
+                <Button variant="outline" onClick={() => setAddLeadOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateLead} disabled={!newLeadName.trim() || !newLeadEmail.trim()} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0">
                   Create Lead
                 </Button>
               </DialogFooter>
@@ -656,6 +795,10 @@ export default function SalesPage() {
               {deals.length}
             </span>
           </TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5">
+            <Activity className="size-4" />
+            Forecast
+          </TabsTrigger>
         </TabsList>
 
         {/* ════════════════════════════════════════════════════════════════
@@ -707,6 +850,19 @@ export default function SalesPage() {
               </SelectContent>
             </Select>
 
+            <Select value={leadSort} onValueChange={(v) => setLeadSort(v as any)}>
+              <SelectTrigger className="w-40">
+                <ArrowUpDown className="size-3.5 mr-1.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+                <SelectItem value="name">Name A–Z</SelectItem>
+                <SelectItem value="score">Highest score</SelectItem>
+              </SelectContent>
+            </Select>
+
             {(statusFilter !== 'all' || sourceFilter !== 'all' || searchQuery) && (
               <button
                 onClick={() => { setStatusFilter('all'); setSourceFilter('all'); setSearchQuery('') }}
@@ -730,7 +886,7 @@ export default function SalesPage() {
                     { header: 'Source', accessor: (l: typeof filteredLeads[0]) => l.source?.tag ?? '' },
                     { header: 'Score', accessor: (l: typeof filteredLeads[0]) => l.score },
                     { header: 'Phone', accessor: (l: typeof filteredLeads[0]) => l.phone },
-                    { header: 'Notes', accessor: (l: typeof filteredLeads[0]) => l.notes },
+                    { header: 'Title', accessor: (l: typeof filteredLeads[0]) => l.title },
                   ], filteredLeads)}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -849,6 +1005,9 @@ export default function SalesPage() {
                         </TableCell>
                         <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" onClick={() => openEditLead(lead)}>
+                              <Pencil className="size-3" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500/60 hover:text-red-500 hover:bg-red-500/10" onClick={() => { if (confirm('Delete this lead?')) deleteLead({ leadId: lead.id }) }}>
                               <Trash2 className="size-3" />
                             </Button>
@@ -871,7 +1030,7 @@ export default function SalesPage() {
           <div className="mb-5 flex items-center gap-5 flex-wrap">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-sm">
               <BarChart3 className="size-4 text-muted-foreground" />
-              <span className="font-medium tabular-nums">{deals.length}</span>
+              <span className="font-medium tabular-nums">{filteredDeals.length}</span>
               <span className="text-muted-foreground">deals</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-sm">
@@ -889,24 +1048,56 @@ export default function SalesPage() {
               <span className="text-muted-foreground">avg probability</span>
             </div>
 
-            {/* Pipeline progress bar */}
-            <div className="flex-1 min-w-48">
-              <div className="flex h-2 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                {DEAL_STAGES.map((stage) => {
-                  const count = dealsByStage.get(stage)?.length ?? 0
-                  if (count === 0 || deals.length === 0) return null
-                  const pct = (count / deals.length) * 100
-                  const style = stageStyle(stage)
-                  return (
-                    <div
-                      key={stage}
-                      className={`h-full ${style.accent} first:rounded-l-full last:rounded-r-full transition-all`}
-                      style={{ width: `${pct}%` }}
-                      title={`${stageLabel(stage)}: ${count}`}
-                    />
-                  )
-                })}
-              </div>
+            {/* Deal search */}
+            <div className="relative min-w-48">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search deals…"
+                className="pl-8 h-9"
+                value={dealSearch}
+                onChange={(e) => setDealSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Deal export */}
+            <div className="ml-auto flex items-center gap-2">
+              {deals.length > 0 && (
+                <button
+                  onClick={() => exportCSV('deals', [
+                    { header: 'Name', accessor: (d: typeof deals[0]) => d.name },
+                    { header: 'Value', accessor: (d: typeof deals[0]) => d.value },
+                    { header: 'Stage', accessor: (d: typeof deals[0]) => d.stage?.tag ?? '' },
+                    { header: 'Probability', accessor: (d: typeof deals[0]) => d.probability },
+                    { header: 'Owner', accessor: (d: typeof deals[0]) => shortIdentity(d.owner) },
+                    { header: 'Risk Factors', accessor: (d: typeof deals[0]) => d.riskFactors?.join('; ') ?? '' },
+                    { header: 'Next Best Action', accessor: (d: typeof deals[0]) => d.nextBestAction ?? '' },
+                  ], deals)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Download className="size-3.5" />
+                  Export
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Pipeline progress bar */}
+          <div className="mb-4">
+            <div className="flex h-2 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+              {DEAL_STAGES.map((stage) => {
+                const count = dealsByStage.get(stage)?.length ?? 0
+                if (count === 0 || filteredDeals.length === 0) return null
+                const pct = (count / filteredDeals.length) * 100
+                const style = stageStyle(stage)
+                return (
+                  <div
+                    key={stage}
+                    className={`h-full ${style.accent} first:rounded-l-full last:rounded-r-full transition-all`}
+                    style={{ width: `${pct}%` }}
+                    title={`${stageLabel(stage)}: ${count}`}
+                  />
+                )
+              })}
             </div>
           </div>
 
@@ -1011,7 +1202,7 @@ export default function SalesPage() {
                             </div>
                           )}
 
-                          {/* Actions — stage change + delete */}
+                          {/* Actions — stage change + edit + delete */}
                           <div className="flex items-center gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity pt-1 border-t border-border/40">
                             <Select value={deal.stage.tag} onValueChange={(v) => { try { updateDealStage({ dealId: deal.id, newStageTag: v }) } catch (e) { console.error(e) } }}>
                               <SelectTrigger className="h-6 flex-1 text-[11px] border-0 bg-neutral-100 dark:bg-neutral-800 rounded px-1.5">
@@ -1023,6 +1214,9 @@ export default function SalesPage() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0" onClick={() => openEditDeal(deal)}>
+                              <Pencil className="size-3" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 shrink-0" onClick={() => { if (confirm('Delete this deal?')) deleteDeal({ dealId: deal.id }) }}>
                               <Trash2 className="size-3" />
                             </Button>
@@ -1036,9 +1230,350 @@ export default function SalesPage() {
             </div>
           </ScrollArea>
         </TabsContent>
+
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 3 — FORECAST & ANALYTICS
+        ════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="forecast" className="mt-6 flex flex-col gap-6">
+
+          {/* Forecast KPI cards */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(16, 185, 129, 0.15)">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
+                  <DollarSign className="size-3.5 text-white" />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Weighted Pipeline</span>
+              </div>
+              <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {fmtCurrency(forecast.weightedPipeline)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {forecast.activeDeals} active deals
+              </p>
+            </SpotlightCard>
+
+            <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(34, 197, 94, 0.15)">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
+                  <Trophy className="size-3.5 text-white" />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Win Rate</span>
+              </div>
+              <p className="text-2xl font-bold tabular-nums">
+                <CountUp to={forecast.winRate} duration={1.5} />
+                <span className="text-base font-medium text-muted-foreground ml-0.5">%</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {forecast.closedWonCount}W / {forecast.closedLostCount}L
+              </p>
+            </SpotlightCard>
+
+            <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(99, 102, 241, 0.15)">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
+                  <BarChart3 className="size-3.5 text-white" />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Avg Deal Size</span>
+              </div>
+              <p className="text-2xl font-bold tabular-nums">
+                {fmtCurrency(forecast.avgDealSize)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                from {forecast.closedWonCount} closed won
+              </p>
+            </SpotlightCard>
+
+            <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(245, 158, 11, 0.15)">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                  <Clock className="size-3.5 text-white" />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Avg Cycle</span>
+              </div>
+              <p className="text-2xl font-bold tabular-nums">
+                <CountUp to={forecast.avgCycleTime} duration={1.5} />
+                <span className="text-base font-medium text-muted-foreground ml-1">days</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                time to close
+              </p>
+            </SpotlightCard>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pipeline Funnel */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <BarChart3 className="size-4 text-muted-foreground" />
+                  Pipeline Funnel
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="flex flex-col gap-2">
+                  {forecast.funnel.map((item, i) => {
+                    const maxVal = Math.max(...forecast.funnel.map(f => f.value), 1)
+                    const pct = maxVal > 0 ? (item.value / maxVal) * 100 : 0
+                    const style = stageStyle(item.stage)
+                    return (
+                      <div key={item.stage} className="flex items-center gap-3">
+                        <div className="w-24 text-xs font-medium text-right shrink-0">
+                          {stageLabel(item.stage)}
+                        </div>
+                        <div className="flex-1 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-lg overflow-hidden relative">
+                          <div
+                            className={`h-full bg-gradient-to-r ${style.gradient} rounded-lg transition-all duration-700 ease-out`}
+                            style={{ width: `${Math.max(pct, item.count > 0 ? 4 : 0)}%` }}
+                          />
+                          <div className="absolute inset-0 flex items-center px-3 justify-between">
+                            <span className="text-xs font-bold tabular-nums mix-blend-difference text-white">
+                              {item.count} deals
+                            </span>
+                            <span className="text-xs font-semibold tabular-nums mix-blend-difference text-white">
+                              {fmtCurrency(item.value)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lead Source Performance */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Target className="size-4 text-muted-foreground" />
+                  Lead Source Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {forecast.sourceBreakdown.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                    No lead data available
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {forecast.sourceBreakdown.map(src => (
+                      <div key={src.source} className="flex items-center gap-4">
+                        <div className="w-28 shrink-0">
+                          <span className={[
+                            'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium',
+                            sourceBadgeClass(src.source),
+                          ].join(' ')}>
+                            {src.source === 'AIProspecting' && <Sparkles className="size-3" />}
+                            {sourceLabel(src.source)}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-muted-foreground">{src.count} leads</span>
+                            <span className="text-xs font-semibold tabular-nums">
+                              {src.rate}% conversion
+                            </span>
+                          </div>
+                          <div className="h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                              style={{ width: `${src.rate}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="w-16 text-right">
+                          <span className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                            {src.converted}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">won</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Revenue breakdown bar */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <DollarSign className="size-4 text-muted-foreground" />
+                Revenue Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="grid grid-cols-3 gap-6">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-medium">Closed Won</p>
+                  <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{fmtCurrency(wonValue)}</p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <ArrowUpRight className="size-3 text-emerald-500" />
+                    <span className="text-xs font-medium text-emerald-500">{forecast.closedWonCount} deals</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-medium">Active Pipeline</p>
+                  <p className="text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400">{fmtCurrency(forecast.activePipelineValue)}</p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <Eye className="size-3 text-blue-500" />
+                    <span className="text-xs font-medium text-blue-500">{forecast.activeDeals} deals</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-medium">Closed Lost</p>
+                  <p className="text-2xl font-bold tabular-nums text-red-500 dark:text-red-400">
+                    {fmtCurrency(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}
+                  </p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <ArrowDownRight className="size-3 text-red-500" />
+                    <span className="text-xs font-medium text-red-500">{forecast.closedLostCount} deals</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual revenue bar */}
+              {deals.length > 0 && (
+                <div className="mt-4 flex h-4 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                  {wonValue > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all"
+                      style={{ width: `${(wonValue / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      title={`Won: ${fmtCurrency(wonValue)}`}
+                    />
+                  )}
+                  {forecast.activePipelineValue > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all"
+                      style={{ width: `${(forecast.activePipelineValue / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      title={`Active: ${fmtCurrency(forecast.activePipelineValue)}`}
+                    />
+                  )}
+                  {forecast.closedLostCount > 0 && (
+                    <div
+                      className="h-full bg-gradient-to-r from-red-400 to-red-500 transition-all"
+                      style={{ width: `${(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0) / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      title={`Lost: ${fmtCurrency(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}`}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-4 mt-2 justify-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="size-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs text-muted-foreground">Won</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="size-2.5 rounded-full bg-blue-500" />
+                  <span className="text-xs text-muted-foreground">Active</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="size-2.5 rounded-full bg-red-500" />
+                  <span className="text-xs text-muted-foreground">Lost</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
     </div>
+
+    {/* ── Edit Lead Dialog */}
+    <Dialog open={editLeadOpen} onOpenChange={setEditLeadOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Lead</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Name *</Label>
+              <Input value={editLeadName} onChange={(e) => setEditLeadName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Email *</Label>
+              <Input type="email" value={editLeadEmail} onChange={(e) => setEditLeadEmail(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Company</Label>
+              <Input value={editLeadCompany} onChange={(e) => setEditLeadCompany(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Phone</Label>
+              <Input value={editLeadPhone} onChange={(e) => setEditLeadPhone(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Title</Label>
+              <Input value={editLeadTitle} onChange={(e) => setEditLeadTitle(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Source</Label>
+              <Select value={editLeadSource} onValueChange={setEditLeadSource}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Inbound">Inbound</SelectItem>
+                  <SelectItem value="Outbound">Outbound</SelectItem>
+                  <SelectItem value="Referral">Referral</SelectItem>
+                  <SelectItem value="AIProspecting">AI Prospecting</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditLeadOpen(false)}>Cancel</Button>
+          <Button onClick={handleEditLead} disabled={!editLeadName.trim() || !editLeadEmail.trim()} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0">
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* ── Edit Deal Dialog */}
+    <Dialog open={editDealOpen} onOpenChange={setEditDealOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Deal</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>Deal Name *</Label>
+            <Input value={editDealName} onChange={(e) => setEditDealName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Value ($) *</Label>
+              <Input type="number" value={editDealValue} onChange={(e) => setEditDealValue(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Link to Lead</Label>
+              <Select value={editDealLeadId} onValueChange={setEditDealLeadId}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {leads.map(l => (
+                    <SelectItem key={l.id.toString()} value={l.id.toString()}>{l.name} — {l.company || l.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditDealOpen(false)}>Cancel</Button>
+          <Button onClick={handleEditDeal} disabled={!editDealName.trim() || !editDealValue.trim()} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0">
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </div>
   )
 }

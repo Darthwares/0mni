@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -254,6 +255,39 @@ export default function StandupsPage() {
   }, [dayEntries])
   const totalDayMoods = Object.values(dayMoodDistribution).reduce((a, b) => a + b, 0)
 
+  // ── Chart Data ──
+  const MOOD_CHART_COLORS: Record<MoodKey, string> = { Great: '#22c55e', Good: '#3b82f6', Okay: '#f59e0b', Struggling: '#ef4444' }
+
+  const moodPieData = useMemo(() => {
+    const dist = viewMode === 'week' ? weekMoodDistribution : dayMoodDistribution
+    return (['Great', 'Good', 'Okay', 'Struggling'] as MoodKey[])
+      .filter(m => dist[m] > 0)
+      .map(m => ({ name: m, value: dist[m], fill: MOOD_CHART_COLORS[m] }))
+  }, [viewMode, weekMoodDistribution, dayMoodDistribution])
+
+  const dailyParticipationData = useMemo(() => {
+    const days: { name: string; submitted: number; total: number }[] = []
+    for (let i = 6; i >= 0; i--) {
+      const d = addDays(selectedDate, -i)
+      const authors = new Set<string>()
+      entries.forEach(e => {
+        if (isSameDay(e.date, d)) {
+          const hex = typeof e.author.toHexString === 'function' ? e.author.toHexString() : String(e.author)
+          authors.add(hex)
+        }
+      })
+      days.push({ name: d.toLocaleDateString('en-US', { weekday: 'short' }), submitted: authors.size, total: teamSize })
+    }
+    return days
+  }, [entries, selectedDate, teamSize])
+
+  const blockerData = useMemo(() => {
+    return [
+      { name: 'Active', count: activeBlockers.length, fill: '#ef4444' },
+      { name: 'Resolved', count: resolvedBlockerEntries.length, fill: '#22c55e' },
+    ].filter(d => d.count > 0)
+  }, [activeBlockers.length, resolvedBlockerEntries.length])
+
   // Per-person participation streak (how many consecutive days each person has submitted)
   const personStreaks = useMemo(() => {
     const streaks: { name: string; streak: number; submitted: boolean }[] = []
@@ -458,6 +492,85 @@ export default function StandupsPage() {
             <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400"><CountUp to={activeBlockers.length} from={0} duration={1.5} /></p>
           </SpotlightCard>
         </div>
+
+        {/* ── Recharts Insight Grid ── */}
+        {entries.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Mood Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                {viewMode === 'week' ? 'Week' : 'Day'} Mood
+              </h3>
+              <ResponsiveContainer width="100%" height={150}>
+                <RechartsPie>
+                  <Pie data={moodPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value" stroke="none">
+                    {moodPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                </RechartsPie>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-3 mt-1">
+                {moodPieData.map(d => (
+                  <div key={d.name} className="flex items-center gap-1.5">
+                    <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                    <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                    <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Daily Participation Bar */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">7-Day Participation</h3>
+              <ResponsiveContainer width="100%" height={150}>
+                <BarChart data={dailyParticipationData} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                  <RechartsTooltip
+                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    formatter={(v: number) => [`${v} people`, 'Submitted']}
+                  />
+                  <Bar dataKey="submitted" radius={[6, 6, 0, 0]} barSize={20} fill="url(#standupParticipationGrad)" />
+                  <defs>
+                    <linearGradient id="standupParticipationGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Blockers Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Blockers</h3>
+              {blockerData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <RechartsPie>
+                      <Pie data={blockerData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="count" stroke="none">
+                        {blockerData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                  <div className="flex justify-center gap-4 mt-1">
+                    {blockerData.map(d => (
+                      <div key={d.name} className="flex items-center gap-1.5">
+                        <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                        <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                        <span className="text-[10px] font-bold tabular-nums">{d.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[150px] flex items-center justify-center text-xs text-muted-foreground">No blockers reported</div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Week Mood Trend (visible in week view) */}
         {viewMode === 'week' && totalWeekEntries > 0 && (

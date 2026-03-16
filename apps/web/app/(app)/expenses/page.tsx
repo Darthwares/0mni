@@ -6,7 +6,7 @@ import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import {
   Plane, Utensils, Monitor, Building2, Wrench, GraduationCap, MoreHorizontal,
-  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown, Pencil, Trash2, Download,
+  DollarSign, Clock, CheckCircle2, TrendingUp, Search, Plus, Receipt, ArrowUpDown, Pencil, Trash2, Download, AlertCircle, Ban, CreditCard, ChevronDown,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
@@ -21,8 +21,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -144,6 +156,10 @@ export default function ExpensesPage() {
   const [editReceipt, setEditReceipt] = useState(false)
   const [editNotes, setEditNotes] = useState('')
 
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: bigint; description: string } | null>(null)
+
   // Filtered + sorted
   const filtered = useMemo(() => {
     let list = expenses.filter(e => {
@@ -251,6 +267,41 @@ export default function ExpensesPage() {
     })
     setEditOpen(false)
   }, [editId, editDesc, editAmount, editCategory, editReceipt, editNotes, updateExpense])
+
+  const handleStatusChange = useCallback((expenseId: bigint, statusTag: string) => {
+    try { updateExpenseStatus({ expenseId, statusTag }) } catch {}
+  }, [updateExpenseStatus])
+
+  const confirmDelete = useCallback((expense: { id: bigint; description: string }) => {
+    setDeleteTarget(expense)
+    setDeleteConfirmOpen(true)
+  }, [])
+
+  const handleDelete = useCallback(() => {
+    if (deleteTarget) {
+      try { deleteExpense({ expenseId: deleteTarget.id }) } catch {}
+    }
+    setDeleteConfirmOpen(false)
+    setDeleteTarget(null)
+  }, [deleteTarget, deleteExpense])
+
+  // Available status transitions
+  function getNextStatuses(current: ExpenseStatusKey): { label: string; tag: string; icon: typeof CheckCircle2; cls: string }[] {
+    switch (current) {
+      case 'Pending': return [
+        { label: 'Approve', tag: 'Approved', icon: CheckCircle2, cls: 'text-green-600 dark:text-green-400' },
+        { label: 'Reject', tag: 'Rejected', icon: Ban, cls: 'text-red-600 dark:text-red-400' },
+      ]
+      case 'Approved': return [
+        { label: 'Reimburse', tag: 'Reimbursed', icon: CreditCard, cls: 'text-blue-600 dark:text-blue-400' },
+        { label: 'Reject', tag: 'Rejected', icon: Ban, cls: 'text-red-600 dark:text-red-400' },
+      ]
+      case 'Rejected': return [
+        { label: 'Re-approve', tag: 'Approved', icon: CheckCircle2, cls: 'text-green-600 dark:text-green-400' },
+      ]
+      case 'Reimbursed': return []
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -567,25 +618,63 @@ export default function ExpensesPage() {
                   <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${catMeta.color}`}>
                     <CatIcon className="size-3" />{catMeta.label}
                   </span>
-                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${statusBadgeClass(expense.statusKey)}`}>
-                    <span className={`size-1.5 rounded-full ${statusDot(expense.statusKey)}`} />{expense.statusKey}
-                  </span>
+                  {/* Status badge with dropdown for transitions */}
+                  {getNextStatuses(expense.statusKey).length > 0 ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 cursor-pointer hover:ring-1 hover:ring-ring/30 transition-all ${statusBadgeClass(expense.statusKey)}`}>
+                          <span className={`size-1.5 rounded-full ${statusDot(expense.statusKey)}`} />
+                          {expense.statusKey}
+                          <ChevronDown className="size-3 opacity-60" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {getNextStatuses(expense.statusKey).map((action) => {
+                          const ActionIcon = action.icon
+                          return (
+                            <DropdownMenuItem
+                              key={action.tag}
+                              onClick={() => handleStatusChange(expense.id, action.tag)}
+                              className={`text-xs gap-2 ${action.cls}`}
+                            >
+                              <ActionIcon className="size-3.5" />
+                              {action.label}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${statusBadgeClass(expense.statusKey)}`}>
+                      <span className={`size-1.5 rounded-full ${statusDot(expense.statusKey)}`} />{expense.statusKey}
+                    </span>
+                  )}
                   <span className="font-semibold tabular-nums text-sm shrink-0 min-w-20 text-right">
                     {fmtCurrencyDollars(expense.dollars)}
                   </span>
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => openEdit(expense)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
-                    <button
-                      onClick={() => deleteExpense({ expenseId: expense.id })}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => openEdit(expense)}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Edit expense</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => confirmDelete(expense)}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete expense</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               )
@@ -635,6 +724,27 @@ export default function ExpensesPage() {
               <Button onClick={handleEdit} disabled={!editDesc.trim() || !editAmount.trim()} className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white border-0">
                 Save Changes
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-red-500/10">
+                  <AlertCircle className="size-4 text-red-500" />
+                </div>
+                Delete Expense
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete &ldquo;{deleteTarget?.description}&rdquo;? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDelete}>Delete</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

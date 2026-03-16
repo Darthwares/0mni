@@ -44,6 +44,7 @@ import {
   ChevronRight,
   Download,
   ArrowUpDown,
+  MessageSquare,
 } from 'lucide-react'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -193,8 +194,18 @@ function PersonCard({
         </div>
 
         {/* Hover footer */}
-        <div className="px-5 pb-4 pt-0 flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 font-medium">
+        <div className="px-5 pb-4 pt-0 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+          {!isMe && (
+            <Link
+              href={`/messages?dm=${hexId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[10px] text-violet-600 dark:text-violet-400 font-medium hover:underline"
+            >
+              <MessageSquare className="size-3" />
+              Message
+            </Link>
+          )}
+          <span className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 font-medium ml-auto">
             View profile
             <ChevronRight className="size-3" />
           </span>
@@ -296,6 +307,16 @@ function PersonRow({
         {status.label}
       </span>
 
+      {!isMe && (
+        <Link
+          href={`/messages?dm=${hexId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 flex items-center justify-center size-7 rounded-md text-neutral-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-500/10 transition-colors opacity-0 group-hover:opacity-100"
+          title="Message"
+        >
+          <MessageSquare className="size-3.5" />
+        </Link>
+      )}
       <ChevronRight className="size-4 text-neutral-300 dark:text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
     </Link>
   )

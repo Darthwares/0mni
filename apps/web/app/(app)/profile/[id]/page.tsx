@@ -296,7 +296,7 @@ export default function PublicProfilePage() {
 
               {/* Quick actions */}
               <div className="flex items-center gap-2 pt-4 sm:pt-12 shrink-0">
-                <Link href="/messages" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}>
+                <Link href={`/messages?dm=${params.id}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}>
                   <MessageSquare className="size-3.5" />
                   Message
                 </Link>

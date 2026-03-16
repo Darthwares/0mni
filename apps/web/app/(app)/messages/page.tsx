@@ -2,7 +2,8 @@
 
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { Suspense, useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -191,10 +192,17 @@ function emojiForName(name: string): string {
 export default function MessagesPage() {
   const { currentOrgId } = useOrg()
   // Key forces full remount when org switches — guarantees fresh channels, DMs, view state
-  return <MessagesPageInner key={currentOrgId ?? 'world'} />
+  // Suspense required for useSearchParams in Next.js
+  return (
+    <Suspense>
+      <MessagesPageInner key={currentOrgId ?? 'world'} />
+    </Suspense>
+  )
 }
 
 function MessagesPageInner() {
+  const searchParams = useSearchParams()
+  const dmTargetFromUrl = searchParams.get('dm')
   const { identity, isActive, connectionError } = useSpacetimeDB()
   const { currentOrgId, isGlobalOrg } = useOrg()
   const isMobile = useIsMobile()
@@ -506,6 +514,29 @@ function MessagesPageInner() {
       setPendingDmTarget(null)
     }
   }, [dmChannels, pendingDmTarget, isMobile, myHex])
+
+  // Auto-open DM when navigating with ?dm=<hexId> (e.g., from profile page)
+  const dmUrlHandled = useRef(false)
+  useEffect(() => {
+    if (!dmTargetFromUrl || dmUrlHandled.current || !isReady || !myHex) return
+    const targetEmp = allEmployees.find(e => e.id?.toHexString() === dmTargetFromUrl)
+    if (!targetEmp) return
+    dmUrlHandled.current = true
+    // Reuse the same DM open logic
+    const targetHex = targetEmp.id.toHexString()
+    const isSelf = targetHex === myHex
+    const existing = dmChannels.find((c) => {
+      if (isSelf) return isSelfDm(c)
+      return c.members.includes(targetHex) && c.members.includes(myHex) && c.members.length <= 2 && !isSelfDm(c)
+    })
+    if (existing) {
+      setView({ kind: 'dm', channelId: existing.id, employeeId: targetHex })
+      if (isMobile) setMobileShowSidebar(false)
+    } else {
+      setPendingDmTarget(targetHex)
+      createDmChannel({ targetIdentityHex: targetHex }).catch(() => setPendingDmTarget(null))
+    }
+  }, [dmTargetFromUrl, isReady, myHex, allEmployees, dmChannels, isMobile, createDmChannel])
 
   // ---- Handlers -------------------------------------------------------------
 

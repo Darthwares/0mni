@@ -62,6 +62,17 @@ function getDateThreshold(range: DateRange): number {
   return now - (ms[range] ?? 99999) * 86400000
 }
 
+// Static Tailwind color maps — dynamic interpolation breaks JIT purging
+const COLOR_CLASSES: Record<string, { bg10: string; text500: string; text600: string; dark400: string; border20: string }> = {
+  indigo:  { bg10: 'bg-indigo-500/10',  text500: 'text-indigo-500',  text600: 'text-indigo-600',  dark400: 'dark:text-indigo-400',  border20: 'border-indigo-500/20' },
+  amber:   { bg10: 'bg-amber-500/10',   text500: 'text-amber-500',   text600: 'text-amber-600',   dark400: 'dark:text-amber-400',   border20: 'border-amber-500/20' },
+  emerald: { bg10: 'bg-emerald-500/10', text500: 'text-emerald-500', text600: 'text-emerald-600', dark400: 'dark:text-emerald-400', border20: 'border-emerald-500/20' },
+  violet:  { bg10: 'bg-violet-500/10',  text500: 'text-violet-500',  text600: 'text-violet-600',  dark400: 'dark:text-violet-400',  border20: 'border-violet-500/20' },
+  cyan:    { bg10: 'bg-cyan-500/10',    text500: 'text-cyan-500',    text600: 'text-cyan-600',    dark400: 'dark:text-cyan-400',    border20: 'border-cyan-500/20' },
+  rose:    { bg10: 'bg-rose-500/10',    text500: 'text-rose-500',    text600: 'text-rose-600',    dark400: 'dark:text-rose-400',    border20: 'border-rose-500/20' },
+}
+const DEFAULT_COLOR = COLOR_CLASSES.indigo
+
 const TEMPLATES: ReportTemplate[] = [
   { id: 'task-completion', name: 'Task Completion Rate', description: 'Completion percentage by department with status breakdown', source: 'Tasks', chartType: 'bar', icon: BarChart3, color: 'indigo', spotlightColor: 'rgba(99,102,241,0.15)' },
   { id: 'ticket-resolution', name: 'Ticket Resolution Time', description: 'Ticket stats by status with SLA and AI resolution tracking', source: 'Tickets', chartType: 'bar', icon: TicketCheck, color: 'amber', spotlightColor: 'rgba(245,158,11,0.15)' },
@@ -368,9 +379,9 @@ export default function ReportsPage() {
             <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
               <Clock className="size-3.5 text-white" />
             </div>
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Scheduled</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Custom</span>
           </div>
-          <p className="text-2xl font-bold tabular-nums">0</p>
+          <p className="text-2xl font-bold tabular-nums"><CountUp to={customReports.length} duration={1.5} /></p>
         </SpotlightCard>
         <SpotlightCard className="!p-4 !rounded-xl !border-neutral-200 dark:!border-neutral-800 !bg-white dark:!bg-neutral-900/80" spotlightColor="rgba(16,185,129,0.15)">
           <div className="flex items-center gap-2 mb-2">
@@ -420,8 +431,8 @@ export default function ReportsPage() {
                   <Star className={`size-3.5 ${isFav ? 'fill-amber-400 text-amber-400' : 'text-neutral-300 dark:text-neutral-600'}`} />
                 </button>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`flex items-center justify-center size-9 rounded-lg bg-${report.color}-500/10`}>
-                    <Icon className={`size-4.5 text-${report.color}-500`} />
+                  <div className={`flex items-center justify-center size-9 rounded-lg ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).bg10}`}>
+                    <Icon className={`size-4.5 ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).text500}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold truncate pr-6">{report.name}</h3>
@@ -429,7 +440,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={`text-[9px] bg-${report.color}-500/10 text-${report.color}-600 dark:text-${report.color}-400 border-${report.color}-500/20 hover:bg-${report.color}-500/10`}>
+                  <Badge className={`text-[9px] ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).bg10} ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).text600} ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).dark400} ${(COLOR_CLASSES[report.color] ?? DEFAULT_COLOR).border20}`}>
                     {report.source}
                   </Badge>
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground ml-auto">
@@ -811,20 +822,95 @@ function RecruitmentFunnelChart({ candidates }: { candidates: any[] }) {
 }
 
 function CustomReportChart({ report, tasks, tickets, leads, candidates, employees, activity }: { report: ReportTemplate; tasks: any[]; tickets: any[]; leads: any[]; candidates: any[]; employees: any[]; activity: any[] }) {
-  const data = useMemo(() => {
+  const { bars, total, groupLabel, tableHeaders, tableRows } = useMemo(() => {
     const sourceMap: Record<DataSource, any[]> = { Tasks: tasks, Tickets: tickets, Leads: leads, Candidates: candidates, Team: employees, Activity: activity }
     const items = sourceMap[report.source] ?? []
-    return { total: items.length, source: report.source }
+
+    // Group data by a relevant dimension per source
+    const counts = new Map<string, number>()
+    let label = 'Category'
+    switch (report.source) {
+      case 'Tasks':
+        label = 'Status'
+        items.forEach(t => { const s = t.status?.tag ?? 'Unknown'; counts.set(s, (counts.get(s) ?? 0) + 1) })
+        break
+      case 'Tickets':
+        label = 'Status'
+        items.forEach(t => { const s = t.status?.tag ?? 'Unknown'; counts.set(s, (counts.get(s) ?? 0) + 1) })
+        break
+      case 'Leads':
+        label = 'Stage'
+        items.forEach(l => { const s = l.stage?.tag ?? l.status?.tag ?? 'Unknown'; counts.set(s, (counts.get(s) ?? 0) + 1) })
+        break
+      case 'Candidates':
+        label = 'Stage'
+        items.forEach(c => { const s = c.stage?.tag ?? 'Unknown'; counts.set(s, (counts.get(s) ?? 0) + 1) })
+        break
+      case 'Team':
+        label = 'Department'
+        items.forEach(e => { const d = e.department ?? 'Unknown'; counts.set(d, (counts.get(d) ?? 0) + 1) })
+        break
+      case 'Activity':
+        label = 'Action'
+        items.forEach(a => { const s = a.action?.tag ?? 'Unknown'; counts.set(s, (counts.get(s) ?? 0) + 1) })
+        break
+    }
+
+    const barColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-orange-500']
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
+    const max = Math.max(...sorted.map(s => s[1]), 1)
+    const totalCount = items.length
+
+    return {
+      bars: sorted.map(([name, count], i) => ({
+        name,
+        count,
+        pct: Math.round((count / max) * 100),
+        color: barColors[i % barColors.length],
+      })),
+      total: totalCount,
+      groupLabel: label,
+      tableHeaders: [label, 'Count', '% of Total'],
+      tableRows: sorted.map(([name, count]) => [name, count.toString(), `${pct(count, totalCount)}%`]),
+    }
   }, [report.source, tasks, tickets, leads, candidates, employees, activity])
+
+  const cc = COLOR_CLASSES[report.color] ?? DEFAULT_COLOR
 
   return (
     <div>
       <h3 className="text-sm font-semibold mb-4">{report.name}</h3>
-      <div className="rounded-lg bg-indigo-500/5 border border-indigo-500/10 p-6 text-center">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Total {data.source} Records</p>
-        <p className="text-4xl font-bold tabular-nums text-indigo-600 dark:text-indigo-400">{data.total}</p>
+      {/* Summary metric */}
+      <div className={`rounded-lg ${cc.bg10} border p-4 mb-5 flex items-center justify-between`}>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total {report.source}</p>
+          <p className={`text-3xl font-bold tabular-nums ${cc.text600} ${cc.dark400}`}>{total}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{groupLabel}s</p>
+          <p className="text-lg font-semibold tabular-nums">{bars.length}</p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground text-center mt-4">Custom reports display summary metrics from the selected data source.</p>
+      {/* Bar chart */}
+      {bars.length > 0 && (
+        <div className="space-y-2">
+          {bars.map(bar => (
+            <div key={bar.name} className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-24 truncate text-right shrink-0">{bar.name}</span>
+              <div className="flex-1 h-7 rounded-md bg-muted/50 overflow-hidden">
+                <div
+                  className={`h-full rounded-md ${bar.color} flex items-center px-2 transition-all duration-500`}
+                  style={{ width: `${Math.max(bar.pct, 4)}%` }}
+                >
+                  <span className="text-[10px] font-bold text-white tabular-nums">{bar.count}</span>
+                </div>
+              </div>
+              <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">{pct(bar.count, total)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <DataTable headers={tableHeaders} rows={tableRows} />
     </div>
   )
 }

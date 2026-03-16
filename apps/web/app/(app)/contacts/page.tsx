@@ -28,6 +28,7 @@ import {
   Download,
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, PieChart, Pie, Tooltip as RechartsTooltip } from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -245,6 +246,31 @@ export default function ContactsPage() {
       return (now - created.getTime()) < 30 * 86400000
     }).length
     return { total, companies, starred, recentlyAdded }
+  }, [contacts])
+
+  // Contact type distribution for chart
+  const typeDistribution = useMemo(() => {
+    const TYPE_COLORS: Record<string, string> = { Customer: '#3b82f6', Vendor: '#8b5cf6', Partner: '#10b981', Lead: '#f59e0b', Personal: '#ec4899' }
+    const counts: Record<string, number> = {}
+    for (const c of contacts) {
+      const t = getTag(c.contactType) || 'Other'
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value, color: TYPE_COLORS[name] ?? '#737373' }))
+      .sort((a, b) => b.value - a.value)
+  }, [contacts])
+
+  // Top companies by contact count
+  const topCompanies = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const c of contacts) {
+      if (c.company) counts[c.company] = (counts[c.company] ?? 0) + 1
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, value]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, value }))
   }, [contacts])
 
   const selected = selectedId !== null ? contacts.find(c => Number(c.id) === selectedId) ?? null : null
@@ -736,6 +762,60 @@ export default function ContactsPage() {
             <p className="text-2xl font-bold tabular-nums"><CountUp to={stats.recentlyAdded} duration={1.5} /></p>
           </SpotlightCard>
         </div>
+
+        {/* Contact Distribution Charts */}
+        {contacts.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Type Distribution */}
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+              <h3 className="text-sm font-semibold mb-3">By Type</h3>
+              <div className="flex items-center gap-4">
+                <div className="shrink-0 relative size-[100px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={typeDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={28} outerRadius={46} paddingAngle={3} strokeWidth={0}>
+                        {typeDistribution.map(d => <Cell key={d.name} fill={d.color} />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                  {typeDistribution.map(d => (
+                    <div key={d.name} className="flex items-center gap-2">
+                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-[11px] truncate">{d.name}</span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Companies */}
+            {topCompanies.length > 0 && (
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                <h3 className="text-sm font-semibold mb-3">Top Companies</h3>
+                <div className="h-[120px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topCompanies} margin={{ top: 0, right: 4, left: -16, bottom: 0 }}>
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="url(#contactBarGrad)" barSize={28} />
+                      <defs>
+                        <linearGradient id="contactBarGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" />
+                          <stop offset="100%" stopColor="#6366f1" />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filter tabs */}
         <div className="flex items-center gap-2 flex-wrap">

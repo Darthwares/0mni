@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -234,6 +235,28 @@ export default function WorkflowsPage() {
     const c: Record<string, number> = { Active: 0, Paused: 0, Draft: 0, Error: 0 }
     for (const w of workflows) c[w.status] = (c[w.status] ?? 0) + 1
     return c
+  }, [workflows])
+
+  // ── Chart Data ──
+  const WF_STATUS_COLORS: Record<string, string> = { Active: '#10b981', Paused: '#f59e0b', Draft: '#737373', Error: '#ef4444' }
+
+  const statusPieData = useMemo(() => {
+    return Object.entries(statusCountsWf).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v, fill: WF_STATUS_COLORS[k] ?? '#737373' }))
+  }, [statusCountsWf])
+
+  const topWorkflowsByRuns = useMemo(() => {
+    return [...workflows]
+      .filter(w => w.runsTotal > 0)
+      .sort((a, b) => b.runsTotal - a.runsTotal)
+      .slice(0, 5)
+      .map(w => ({ name: w.name.length > 14 ? w.name.slice(0, 14) + '…' : w.name, runs: w.runsTotal, successRate: pct(w.runsSuccess, w.runsTotal) }))
+  }, [workflows])
+
+  const nodeTypeDistribution = useMemo(() => {
+    const counts: Record<string, number> = {}
+    workflows.forEach(w => w.nodes.forEach(n => { counts[n.type] = (counts[n.type] ?? 0) + 1 }))
+    const COLORS: Record<string, string> = { trigger: '#06b6d4', action: '#3b82f6', condition: '#f59e0b', delay: '#a855f7', aiAgent: '#ec4899' }
+    return Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ name: k, value: v, fill: COLORS[k] ?? '#737373' }))
   }, [workflows])
 
   const handleExportWorkflows = useCallback(() => {
@@ -862,6 +885,84 @@ export default function WorkflowsPage() {
             <p className="text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400"><CountUp to={stats.successRate} duration={1.5} /><span className="text-base font-medium text-muted-foreground ml-0.5">%</span></p>
           </SpotlightCard>
         </div>
+
+        {/* ── Recharts Insight Grid ── */}
+        {workflows.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Status Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Workflow Status</h3>
+              <ResponsiveContainer width="100%" height={160}>
+                <RechartsPie>
+                  <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                </RechartsPie>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-3 mt-1">
+                {statusPieData.map(d => (
+                  <div key={d.name} className="flex items-center gap-1.5">
+                    <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                    <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                    <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Workflows by Runs */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Most Executed</h3>
+              {topWorkflowsByRuns.length > 0 ? (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={topWorkflowsByRuns} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} width={62} />
+                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <Bar dataKey="runs" radius={[0, 6, 6, 0]} barSize={14} fill="url(#wfRunsGrad)" />
+                    <defs>
+                      <linearGradient id="wfRunsGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#06b6d4" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.8} />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No runs recorded yet</div>
+              )}
+            </div>
+
+            {/* Node Type Donut */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Node Types</h3>
+              {nodeTypeDistribution.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <RechartsPie>
+                      <Pie data={nodeTypeDistribution} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
+                        {nodeTypeDistribution.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-3 mt-1">
+                    {nodeTypeDistribution.map(d => (
+                      <div key={d.name} className="flex items-center gap-1.5">
+                        <div className="size-2 rounded-full" style={{ background: d.fill }} />
+                        <span className="text-[10px] text-muted-foreground">{d.name}</span>
+                        <span className="text-[10px] font-bold tabular-nums">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">No nodes yet</div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Search + Status filter */}
         <div className="flex flex-col sm:flex-row gap-3">

@@ -656,6 +656,17 @@ export const DocumentLifecycle = __t.object("DocumentLifecycle", {
 });
 export type DocumentLifecycle = __Infer<typeof DocumentLifecycle>;
 
+export const DocumentMeta = __t.object("DocumentMeta", {
+  documentId: __t.u64(),
+  orgId: __t.u64(),
+  icon: __t.string(),
+  coverUrl: __t.string(),
+  coverGradient: __t.string(),
+  description: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type DocumentMeta = __Infer<typeof DocumentMeta>;
+
 export const DocumentPin = __t.object("DocumentPin", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -699,6 +710,14 @@ export const DocumentVersion = __t.object("DocumentVersion", {
   createdAt: __t.timestamp(),
 });
 export type DocumentVersion = __Infer<typeof DocumentVersion>;
+
+export const DocumentView = __t.object("DocumentView", {
+  id: __t.u64(),
+  documentId: __t.u64(),
+  viewer: __t.identity(),
+  viewedAt: __t.timestamp(),
+});
+export type DocumentView = __Infer<typeof DocumentView>;
 
 // The tagged union or sum type for the algebraic type `DocumentVisibility`.
 export const DocumentVisibility = __t.enum("DocumentVisibility", {

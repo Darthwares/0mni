@@ -5361,6 +5361,94 @@ pub fn set_document_lifecycle(
 }
 
 // ============================================================================
+// DOCUMENT METADATA (cover images, emoji icons, description)
+// ============================================================================
+
+#[spacetimedb::table(accessor = document_meta, public)]
+#[derive(Clone)]
+pub struct DocumentMeta {
+    #[primary_key]
+    pub document_id: u64,
+    pub org_id: u64,
+    pub icon: String,            // Emoji icon e.g. "📝"
+    pub cover_url: String,       // URL to cover image (empty = no cover)
+    pub cover_gradient: String,  // CSS gradient fallback e.g. "from-violet-500 to-indigo-600"
+    pub description: String,     // Short description/subtitle
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn set_document_meta(
+    ctx: &ReducerContext,
+    document_id: u64,
+    icon: String,
+    cover_url: String,
+    cover_gradient: String,
+    description: String,
+) -> Result<(), String> {
+    let doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    let now = ctx.timestamp;
+    if let Some(existing) = ctx.db.document_meta().document_id().find(&document_id) {
+        ctx.db.document_meta().document_id().update(DocumentMeta {
+            icon,
+            cover_url,
+            cover_gradient,
+            description,
+            updated_at: now,
+            ..existing
+        });
+    } else {
+        ctx.db.document_meta().insert(DocumentMeta {
+            document_id,
+            org_id: doc.org_id,
+            icon,
+            cover_url,
+            cover_gradient,
+            description,
+            updated_at: now,
+        });
+    }
+    Ok(())
+}
+
+// ============================================================================
+// DOCUMENT VIEWS (analytics)
+// ============================================================================
+
+#[spacetimedb::table(accessor = document_view, public)]
+#[derive(Clone)]
+pub struct DocumentView {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub document_id: u64,
+    pub viewer: Identity,
+    pub viewed_at: Timestamp,
+}
+
+#[spacetimedb::reducer]
+pub fn record_document_view(
+    ctx: &ReducerContext,
+    document_id: u64,
+) -> Result<(), String> {
+    let _doc = ctx.db.document().id().find(&document_id)
+        .ok_or("Document not found")?;
+    // Only record one view per user per document (upsert behavior via dedup)
+    let already = ctx.db.document_view().iter()
+        .any(|v| v.document_id == document_id && v.viewer == ctx.sender());
+    if !already {
+        ctx.db.document_view().insert(DocumentView {
+            id: 0,
+            document_id,
+            viewer: ctx.sender(),
+            viewed_at: ctx.timestamp,
+        });
+    }
+    Ok(())
+}
+
+// ============================================================================
 // REDUCERS - EMAIL METADATA
 // ============================================================================
 

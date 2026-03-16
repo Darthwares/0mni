@@ -158,6 +158,7 @@ import MoveDriveItemReducer from "./move_drive_item_reducer";
 import PauseAgentReducer from "./pause_agent_reducer";
 import PinDocumentReducer from "./pin_document_reducer";
 import PinMessageReducer from "./pin_message_reducer";
+import RecordDocumentViewReducer from "./record_document_view_reducer";
 import RejectMembershipReducer from "./reject_membership_reducer";
 import RejectRequestReducer from "./reject_request_reducer";
 import RemoveDocumentTagReducer from "./remove_document_tag_reducer";
@@ -182,6 +183,7 @@ import SendMessageReducer from "./send_message_reducer";
 import SendThreadReplyReducer from "./send_thread_reply_reducer";
 import SendVideoFrameReducer from "./send_video_frame_reducer";
 import SetDocumentLifecycleReducer from "./set_document_lifecycle_reducer";
+import SetDocumentMetaReducer from "./set_document_meta_reducer";
 import SetDocumentVisibilityReducer from "./set_document_visibility_reducer";
 import SetEmailLabelReducer from "./set_email_label_reducer";
 import SetResourcePresenceReducer from "./set_resource_presence_reducer";
@@ -283,9 +285,11 @@ import DocumentRow from "./document_table";
 import DocumentCommentRow from "./document_comment_table";
 import DocumentFavoriteRow from "./document_favorite_table";
 import DocumentLifecycleRow from "./document_lifecycle_table";
+import DocumentMetaRow from "./document_meta_table";
 import DocumentPinRow from "./document_pin_table";
 import DocumentTagRow from "./document_tag_table";
 import DocumentVersionRow from "./document_version_table";
+import DocumentViewRow from "./document_view_table";
 import DriveItemRow from "./drive_item_table";
 import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
@@ -600,6 +604,17 @@ const tablesSchema = __schema({
       { name: 'document_lifecycle_document_id_key', constraint: 'unique', columns: ['documentId'] },
     ],
   }, DocumentLifecycleRow),
+  document_meta: __table({
+    name: 'document_meta',
+    indexes: [
+      { name: 'document_id', algorithm: 'btree', columns: [
+        'documentId',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_meta_document_id_key', constraint: 'unique', columns: ['documentId'] },
+    ],
+  }, DocumentMetaRow),
   document_pin: __table({
     name: 'document_pin',
     indexes: [
@@ -633,6 +648,17 @@ const tablesSchema = __schema({
       { name: 'document_version_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DocumentVersionRow),
+  document_view: __table({
+    name: 'document_view',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'document_view_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DocumentViewRow),
   drive_item: __table({
     name: 'drive_item',
     indexes: [
@@ -1319,6 +1345,7 @@ const reducersSchema = __reducers(
   __reducerSchema("pause_agent", PauseAgentReducer),
   __reducerSchema("pin_document", PinDocumentReducer),
   __reducerSchema("pin_message", PinMessageReducer),
+  __reducerSchema("record_document_view", RecordDocumentViewReducer),
   __reducerSchema("reject_membership", RejectMembershipReducer),
   __reducerSchema("reject_request", RejectRequestReducer),
   __reducerSchema("remove_document_tag", RemoveDocumentTagReducer),
@@ -1343,6 +1370,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_thread_reply", SendThreadReplyReducer),
   __reducerSchema("send_video_frame", SendVideoFrameReducer),
   __reducerSchema("set_document_lifecycle", SetDocumentLifecycleReducer),
+  __reducerSchema("set_document_meta", SetDocumentMetaReducer),
   __reducerSchema("set_document_visibility", SetDocumentVisibilityReducer),
   __reducerSchema("set_email_label", SetEmailLabelReducer),
   __reducerSchema("set_resource_presence", SetResourcePresenceReducer),

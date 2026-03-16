@@ -43,7 +43,7 @@ export function PresenceBar() {
     return employees.filter(
       (e) =>
         e.id.toHexString() !== myHex &&
-        (e.status.tag === 'Online' || e.status.tag === 'Busy' || e.status.tag === 'InCall')
+        (e.status?.tag === 'Online' || e.status?.tag === 'Busy' || e.status?.tag === 'InCall')
     ).slice(0, 8)
   }, [identity, employees])
 
@@ -71,20 +71,20 @@ export function PresenceBar() {
                         </AvatarFallback>
                       </Avatar>
                       <div className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-background ${
-                        emp.status.tag === 'Online' ? 'bg-emerald-500' :
-                        emp.status.tag === 'Busy' ? 'bg-amber-500' :
-                        emp.status.tag === 'InCall' ? 'bg-blue-500 animate-pulse' : 'bg-neutral-500'
+                        emp.status?.tag === 'Online' ? 'bg-emerald-500' :
+                        emp.status?.tag === 'Busy' ? 'bg-amber-500' :
+                        emp.status?.tag === 'InCall' ? 'bg-blue-500 animate-pulse' : 'bg-neutral-500'
                       }`} />
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
                     <p className="font-medium">{emp.name}</p>
                     <p className="text-muted-foreground flex items-center gap-1">
                       <Circle className={`size-1.5 fill-current ${
-                        emp.status.tag === 'Online' ? 'text-emerald-500' :
-                        emp.status.tag === 'Busy' ? 'text-amber-500' :
-                        emp.status.tag === 'InCall' ? 'text-blue-500' : 'text-neutral-500'
+                        emp.status?.tag === 'Online' ? 'text-emerald-500' :
+                        emp.status?.tag === 'Busy' ? 'text-amber-500' :
+                        emp.status?.tag === 'InCall' ? 'text-blue-500' : 'text-neutral-500'
                       }`} />
-                      {emp.status.tag === 'InCall' ? 'In a call' : emp.status.tag}
+                      {emp.status?.tag === 'InCall' ? 'In a call' : emp.status?.tag}
                     </p>
                     {emp.role && <p className="text-muted-foreground/70">{emp.role}</p>}
                   </TooltipContent>
@@ -127,7 +127,7 @@ export function PagePresenceStrip({ className = '' }: { className?: string }) {
     return employees.filter(
       (e) =>
         e.id.toHexString() !== myHex &&
-        (e.status.tag === 'Online' || e.status.tag === 'Busy' || e.status.tag === 'InCall')
+        (e.status?.tag === 'Online' || e.status?.tag === 'Busy' || e.status?.tag === 'InCall')
     ).slice(0, 5)
   }, [identity, employees])
 
@@ -149,7 +149,7 @@ export function PagePresenceStrip({ className = '' }: { className?: string }) {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
                 <p className="font-medium">{emp.name}</p>
-                <p className="text-muted-foreground">{emp.status.tag}</p>
+                <p className="text-muted-foreground">{emp.status?.tag}</p>
               </TooltipContent>
             </Tooltip>
           )

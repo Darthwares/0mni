@@ -96,6 +96,8 @@ import {
   Type,
   AlignJustify,
   BookOpen,
+  PanelLeft,
+  PanelLeftClose,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -470,6 +472,8 @@ export default function CanvasPage() {
   const editorInstanceRef = useRef<any>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [showSidebar, setShowSidebar] = useState(true)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -695,6 +699,44 @@ export default function CanvasPage() {
     if (activeDocId === null) return null
     return canvasDocuments.find((d) => d.id === activeDocId) ?? null
   }, [activeDocId, canvasDocuments])
+
+  // Sidebar tree: build a hierarchy of { doc, children[] } for the tree view
+  type TreeNode = { doc: SpacetimeDocument; children: TreeNode[] }
+  const sidebarTree = useMemo(() => {
+    // Build children map: parentId -> sorted children
+    const childrenMap = new Map<string, SpacetimeDocument[]>()
+    for (const doc of canvasDocuments) {
+      const parentKey = doc.parentId != null ? doc.parentId.toString() : 'root'
+      const list = childrenMap.get(parentKey) ?? []
+      list.push(doc)
+      childrenMap.set(parentKey, list)
+    }
+    // Sort each group: folders first, then by title
+    for (const list of childrenMap.values()) {
+      list.sort((a, b) => {
+        const aFolder = a.docType?.tag === 'Folder' ? 0 : 1
+        const bFolder = b.docType?.tag === 'Folder' ? 0 : 1
+        if (aFolder !== bFolder) return aFolder - bFolder
+        return a.title.localeCompare(b.title)
+      })
+    }
+    const buildTree = (parentKey: string): TreeNode[] => {
+      return (childrenMap.get(parentKey) ?? []).map((doc) => ({
+        doc,
+        children: doc.docType?.tag === 'Folder' ? buildTree(doc.id.toString()) : [],
+      }))
+    }
+    return buildTree('root')
+  }, [canvasDocuments])
+
+  const toggleFolder = useCallback((folderId: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+  }, [])
 
   // Document stats
   const docStats = useMemo(() => {
@@ -2093,10 +2135,175 @@ ${html}
   }
 
   // ---- List View ----
+
+  // Recursive tree item renderer
+  const renderTreeItem = (node: TreeNode, depth: number = 0): React.ReactNode => {
+    const { doc, children } = node
+    const isFolder = doc.docType?.tag === 'Folder'
+    const isWhiteboard = doc.docType?.tag === 'Whiteboard'
+    const idStr = doc.id.toString()
+    const isExpanded = expandedFolders.has(idStr)
+    const isActive = doc.docType?.tag !== 'Folder' && activeDocId === doc.id
+    const isCurrent = isFolder && currentFolderId === doc.id
+    const meta = docMetaMap.get(idStr)
+    const isPinned = pinnedIds.has(doc.id)
+
+    return (
+      <div key={idStr}>
+        <button
+          onClick={() => {
+            if (isFolder) {
+              toggleFolder(idStr)
+              setCurrentFolderId(doc.id)
+            } else {
+              setActiveDocId(doc.id)
+            }
+          }}
+          className={`group w-full flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-[12px] transition-all hover:bg-muted/80 ${
+            isActive ? 'bg-violet-500/10 text-violet-400 font-medium' :
+            isCurrent ? 'bg-muted text-foreground font-medium' :
+            'text-muted-foreground'
+          }`}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          title={doc.title}
+        >
+          {isFolder ? (
+            <ChevronRight
+              className={`size-3 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+            />
+          ) : (
+            <span className="size-3 shrink-0" />
+          )}
+          {meta?.icon ? (
+            <span className="text-[11px] shrink-0">{meta.icon}</span>
+          ) : isFolder ? (
+            isExpanded ? <FolderOpen className="size-3.5 text-amber-400 shrink-0" /> : <Folder className="size-3.5 text-amber-400/70 shrink-0" />
+          ) : isWhiteboard ? (
+            <PenTool className="size-3 text-emerald-400 shrink-0" />
+          ) : (
+            <FileText className="size-3 text-blue-400 shrink-0" />
+          )}
+          <span className="truncate flex-1">{doc.title}</span>
+          {isPinned && <Pin className="size-2.5 text-amber-400 shrink-0 opacity-60" />}
+          {isFolder && children.length > 0 && (
+            <span className="text-[9px] text-muted-foreground/50 shrink-0 tabular-nums">{children.length}</span>
+          )}
+        </button>
+        {isFolder && isExpanded && children.length > 0 && (
+          <div>
+            {children.map((child) => renderTreeItem(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      {/* Document Tree Sidebar */}
+      {showSidebar && (
+        <aside className="w-60 border-r flex flex-col bg-background/50 shrink-0">
+          <div className="flex items-center justify-between px-3 py-2.5 border-b">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Explorer</span>
+            <button
+              onClick={() => setShowSidebar(false)}
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Hide sidebar"
+            >
+              <PanelLeftClose className="size-3.5" />
+            </button>
+          </div>
+
+          {/* Quick actions */}
+          <div className="px-2 py-1.5 border-b flex gap-1">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex-1 flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Plus className="size-3" />
+              New
+            </button>
+            <button
+              onClick={() => setShowCreateFolder(true)}
+              className="flex-1 flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <FolderPlus className="size-3" />
+              Folder
+            </button>
+          </div>
+
+          {/* Pinned section */}
+          {pinnedIds.size > 0 && (
+            <div className="px-2 py-1.5 border-b">
+              <span className="px-2 text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">Pinned</span>
+              <div className="mt-1 space-y-0.5">
+                {canvasDocuments
+                  .filter((d) => pinnedIds.has(d.id) && d.docType?.tag !== 'Folder')
+                  .slice(0, 5)
+                  .map((doc) => {
+                    const isWhiteboard = doc.docType?.tag === 'Whiteboard'
+                    const meta = docMetaMap.get(doc.id.toString())
+                    const isActive = activeDocId === doc.id
+                    return (
+                      <button
+                        key={doc.id.toString()}
+                        onClick={() => setActiveDocId(doc.id)}
+                        className={`w-full flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-left transition-all hover:bg-muted/80 ${
+                          isActive ? 'bg-violet-500/10 text-violet-400 font-medium' : 'text-muted-foreground'
+                        }`}
+                      >
+                        <Pin className="size-2.5 text-amber-400 shrink-0" />
+                        {meta?.icon ? (
+                          <span className="text-[11px] shrink-0">{meta.icon}</span>
+                        ) : isWhiteboard ? (
+                          <PenTool className="size-3 text-emerald-400 shrink-0" />
+                        ) : (
+                          <FileText className="size-3 text-blue-400 shrink-0" />
+                        )}
+                        <span className="truncate">{doc.title}</span>
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Tree */}
+          <ScrollArea className="flex-1">
+            <div className="px-1 py-1.5 space-y-0.5">
+              {/* Root button */}
+              <button
+                onClick={() => { setCurrentFolderId(null); setExpandedFolders(new Set()) }}
+                className={`w-full flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-left transition-all hover:bg-muted/80 ${
+                  currentFolderId === null && !activeDocId ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'
+                }`}
+              >
+                <Folder className="size-3.5 text-violet-400 shrink-0" />
+                <span className="truncate">All Documents</span>
+                <span className="text-[9px] text-muted-foreground/50 shrink-0 tabular-nums ml-auto">
+                  {canvasDocuments.filter((d) => d.docType?.tag !== 'Folder').length}
+                </span>
+              </button>
+              {/* Recursive tree */}
+              {sidebarTree.map((node) => renderTreeItem(node, 0))}
+            </div>
+          </ScrollArea>
+        </aside>
+      )}
+
+      {/* Main content column */}
+      <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 shrink-0">
+        {!showSidebar && (
+          <button
+            onClick={() => setShowSidebar(true)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors -ml-1"
+            title="Show sidebar"
+          >
+            <PanelLeft className="size-4" />
+          </button>
+        )}
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-5" />
         <div className="flex items-center gap-2">
@@ -2624,6 +2831,7 @@ ${html}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }

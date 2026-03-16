@@ -1,7 +1,7 @@
 'use client'
 
 import { useTable, useSpacetimeDB, useReducer } from 'spacetimedb/react'
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { tables, reducers } from '@/generated'
@@ -10,9 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
-import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { Input } from '@/components/ui/input'
 import {
   Tooltip,
@@ -526,13 +524,7 @@ export default function DashboardPage() {
   }, [markAllNotificationsRead, currentOrgId])
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <PresenceBar />
-      </header>
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex-1">
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
       {/* Welcome header */}
       <div className="flex items-center justify-between">
@@ -676,9 +668,11 @@ export default function DashboardPage() {
       </Dialog>
 
       {/* Live Globe */}
-      <div className="relative -mx-4 md:mx-0">
-        <LiveGlobe />
-      </div>
+      <ErrorBoundary fallback={null}>
+        <div className="relative -mx-4 md:mx-0">
+          <LiveGlobe />
+        </div>
+      </ErrorBoundary>
 
       {/* Location participate button */}
       {locationShared === null && (
@@ -1178,7 +1172,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-    </div>
     </div>
     </div>
   )

@@ -34,6 +34,10 @@ import {
   Download,
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -299,6 +303,75 @@ export default function ActivityPage() {
     return { total, today, aiActions, uniqueActors }
   }, [activities, employeeMap])
 
+  // Activity heatmap — last 12 weeks (84 days), 7 cols per week
+  const heatmapData = useMemo(() => {
+    const days: { date: string; count: number; dayOfWeek: number; weekIdx: number }[] = []
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
+    const countByDay = new Map<string, number>()
+    for (const a of activities) {
+      try {
+        const key = a.timestamp.toDate().toISOString().slice(0, 10)
+        countByDay.set(key, (countByDay.get(key) ?? 0) + 1)
+      } catch { /* skip */ }
+    }
+    // Build 12 weeks starting from the Monday 12 weeks ago
+    const startDate = new Date(now)
+    startDate.setDate(startDate.getDate() - 83)
+    for (let i = 0; i < 84; i++) {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      const key = d.toISOString().slice(0, 10)
+      days.push({
+        date: key,
+        count: countByDay.get(key) ?? 0,
+        dayOfWeek: d.getDay(),
+        weekIdx: Math.floor(i / 7),
+      })
+    }
+    return days
+  }, [activities])
+
+  const heatmapMax = useMemo(() => Math.max(...heatmapData.map(d => d.count), 1), [heatmapData])
+
+  // Top contributors — top 5 by activity count
+  const topContributors = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const a of activities) {
+      const hex = a.actor.toHexString()
+      counts.set(hex, (counts.get(hex) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([hex, count]) => ({ hex, name: employeeMap.get(hex)?.name ?? 'Unknown', count, isAI: employeeMap.get(hex)?.employeeType?.tag === 'AiAgent' }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+  }, [activities, employeeMap])
+
+  const topContributorMax = topContributors[0]?.count ?? 1
+
+  // Module breakdown — activity by entity type
+  const moduleBreakdown = useMemo(() => {
+    const MODULE_COLORS: Record<string, string> = {
+      task: '#6366f1', ticket: '#f59e0b', document: '#8b5cf6', message: '#0ea5e9',
+      deal: '#10b981', lead: '#14b8a6', contact: '#ec4899', invoice: '#f97316',
+      candidate: '#06b6d4', expense: '#ef4444', workflow: '#3b82f6', form: '#a855f7',
+    }
+    const counts = new Map<string, number>()
+    for (const a of activities) {
+      const key = a.entityType.toLowerCase()
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const total = [...counts.values()].reduce((s, v) => s + v, 0) || 1
+    return [...counts.entries()]
+      .map(([key, count]) => ({
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        value: count,
+        color: MODULE_COLORS[key] ?? '#737373',
+        pct: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [activities])
+
   const handleExportActivity = useCallback(() => {
     exportCSV('activity-log', [
       { header: 'Actor', accessor: (a: any) => getActorName(a.actor) },
@@ -395,6 +468,117 @@ export default function ActivityPage() {
           </p>
         </SpotlightCard>
       </div>
+
+      {/* ── Insights Row: Heatmap + Contributors + Module Breakdown */}
+      {activities.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Activity Heatmap */}
+          <div className="lg:col-span-2 rounded-2xl border bg-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold">Activity Heatmap</h2>
+              <span className="text-[10px] text-muted-foreground">Last 12 weeks</span>
+            </div>
+            <div className="flex gap-[3px]">
+              {Array.from({ length: 12 }, (_, weekIdx) => (
+                <div key={weekIdx} className="flex flex-col gap-[3px]">
+                  {Array.from({ length: 7 }, (_, dayIdx) => {
+                    const cell = heatmapData.find(d => d.weekIdx === weekIdx && d.dayOfWeek === dayIdx)
+                    if (!cell) return <div key={dayIdx} className="size-[14px] rounded-[3px] bg-muted/30" />
+                    const intensity = cell.count / heatmapMax
+                    const bg = cell.count === 0
+                      ? 'bg-muted/40 dark:bg-neutral-800'
+                      : intensity > 0.75 ? 'bg-violet-500' : intensity > 0.5 ? 'bg-violet-400' : intensity > 0.25 ? 'bg-violet-300 dark:bg-violet-600' : 'bg-violet-200 dark:bg-violet-700'
+                    return (
+                      <div
+                        key={dayIdx}
+                        className={`size-[14px] rounded-[3px] ${bg} transition-colors`}
+                        title={`${cell.date}: ${cell.count} events`}
+                      />
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="text-[10px] text-muted-foreground">Less</span>
+              <div className="flex gap-[2px]">
+                <div className="size-[10px] rounded-[2px] bg-muted/40 dark:bg-neutral-800" />
+                <div className="size-[10px] rounded-[2px] bg-violet-200 dark:bg-violet-700" />
+                <div className="size-[10px] rounded-[2px] bg-violet-300 dark:bg-violet-600" />
+                <div className="size-[10px] rounded-[2px] bg-violet-400" />
+                <div className="size-[10px] rounded-[2px] bg-violet-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">More</span>
+            </div>
+          </div>
+
+          {/* Top Contributors + Module Breakdown stacked */}
+          <div className="flex flex-col gap-4">
+            {/* Top Contributors */}
+            <div className="rounded-2xl border bg-card p-5 flex-1">
+              <h2 className="text-sm font-semibold mb-3">Top Contributors</h2>
+              {topContributors.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No data</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {topContributors.map((c, i) => (
+                    <div key={c.hex} className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-muted-foreground w-4 text-right tabular-nums">{i + 1}</span>
+                      <Avatar className="size-6">
+                        <AvatarFallback className={`text-[8px] font-bold text-white bg-gradient-to-br ${avatarGradient(c.name)}`}>
+                          {getInitials(c.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-medium truncate">{c.name}</span>
+                          {c.isAI && <Bot className="size-2.5 text-violet-500 shrink-0" />}
+                        </div>
+                        <div className="h-1 rounded-full bg-muted mt-0.5 overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all" style={{ width: `${(c.count / topContributorMax) * 100}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{c.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Module Breakdown */}
+            <div className="rounded-2xl border bg-card p-5 flex-1">
+              <h2 className="text-sm font-semibold mb-3">By Module</h2>
+              {moduleBreakdown.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No data</p>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 relative size-[90px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={moduleBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={28} outerRadius={42} paddingAngle={2} strokeWidth={0}>
+                          {moduleBreakdown.map(m => <Cell key={m.name} fill={m.color} />)}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    {moduleBreakdown.slice(0, 4).map(m => (
+                      <div key={m.name} className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                        <span className="text-[10px] truncate">{m.name}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0">{m.pct}%</span>
+                      </div>
+                    ))}
+                    {moduleBreakdown.length > 4 && (
+                      <span className="text-[10px] text-muted-foreground">+{moduleBreakdown.length - 4} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

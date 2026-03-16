@@ -331,7 +331,7 @@ export default function DashboardPage() {
   // Extension map for story points
   const extensionMap = useMemo(() => {
     const map = new Map<string, any>()
-    allTaskExtensions.forEach((ext) => map.set(ext.taskId.toString(), ext))
+    allTaskExtensions.forEach((ext) => { if (ext.taskId != null) map.set(ext.taskId.toString(), ext) })
     return map
   }, [allTaskExtensions])
 

@@ -150,22 +150,16 @@ export default function AgentStudioPage() {
   }, [agents])
 
   const handleExportAgents = useCallback(() => {
-    const headers = ['Name', 'Department', 'Status', 'Model', 'Threshold', 'Capabilities', 'Total Runs', 'Success Rate']
-    const rows = agents.map(a => {
-      const runs = Number(a.runsTotal)
-      const success = Number(a.runsSuccess)
-      return [
-        a.name,
-        a.department,
-        getTag(a.status),
-        a.model,
-        `${a.threshold}%`,
-        (a.capabilities ?? '').replace(/,/g, '; '),
-        String(runs),
-        runs > 0 ? `${Math.round(success / runs * 100)}%` : 'N/A',
-      ]
-    })
-    exportCSV('ai-agents', headers, rows)
+    exportCSV('ai-agents', [
+      { header: 'Name', accessor: (a: any) => a.name },
+      { header: 'Department', accessor: (a: any) => a.department },
+      { header: 'Status', accessor: (a: any) => getTag(a.status) },
+      { header: 'Model', accessor: (a: any) => a.model },
+      { header: 'Threshold', accessor: (a: any) => `${a.threshold}%` },
+      { header: 'Capabilities', accessor: (a: any) => (a.capabilities ?? '').replace(/,/g, '; ') },
+      { header: 'Total Runs', accessor: (a: any) => Number(a.runsTotal) },
+      { header: 'Success Rate', accessor: (a: any) => { const runs = Number(a.runsTotal); const success = Number(a.runsSuccess); return runs > 0 ? `${Math.round(success / runs * 100)}%` : 'N/A' } },
+    ], agents)
   }, [agents])
 
   const startEditAgent = useCallback((agent: typeof agents[0]) => {

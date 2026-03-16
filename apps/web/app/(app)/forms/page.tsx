@@ -153,12 +153,15 @@ export default function FormsPage() {
   const answersByResponse = useMemo(() => {
     const map = new Map<string, typeof allAnswers>()
     for (const a of allAnswers) {
+      if (!a.responseId) continue
       const key = a.responseId.toString()
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(a)
     }
     return map
   }, [allAnswers])
+
+  const [activeFormId, setActiveFormId] = useState<bigint | null>(null)
 
   // Responses for active form (for responses view)
   const activeFormResponses = useMemo(() => {
@@ -220,35 +223,35 @@ export default function FormsPage() {
   const handleExportResponses = useCallback(() => {
     if (!activeFormId) return
     const questions = questionsByForm.get(activeFormId) ?? []
-    const headers = ['Response #', 'Submitted', ...questions.map(q => q.questionText)]
-    const rows = activeFormResponses.map((resp, idx) => {
-      const answers = answersByResponse.get(resp.id.toString()) ?? []
-      const ansMap = new Map(answers.map(a => [a.questionId.toString(), a.value]))
-      return [
-        String(idx + 1),
-        formatDate(resp.submittedAt),
-        ...questions.map(q => ansMap.get(q.id.toString()) ?? ''),
-      ]
-    })
-    exportCSV('form-responses', headers, rows)
+    exportCSV('form-responses', [
+      { header: 'Response #', accessor: (resp: any) => activeFormResponses.indexOf(resp) + 1 },
+      { header: 'Submitted', accessor: (resp: any) => formatDate(resp.submittedAt) },
+      ...questions.map(q => ({
+        header: q.questionText,
+        accessor: (resp: any) => {
+          const answers = answersByResponse.get(resp.id.toString()) ?? []
+          const ansMap = new Map(answers.map((a: any) => [a.questionId.toString(), a.value]))
+          return ansMap.get(q.id.toString()) ?? ''
+        },
+      })),
+    ], activeFormResponses)
   }, [activeFormId, activeFormResponses, questionsByForm, answersByResponse])
 
   const handleExportFormsList = useCallback(() => {
-    exportCSV('forms', ['Title', 'Description', 'Status', 'Questions', 'Responses', 'Created'],
-      forms.map(f => [
-        f.title, f.description, f.status.tag,
-        String(questionsByForm.get(f.id)?.length ?? 0),
-        String(responseCountByForm.get(f.id) ?? 0),
-        formatDate(f.createdAt),
-      ])
-    )
+    exportCSV('forms', [
+      { header: 'Title', accessor: (f: any) => f.title },
+      { header: 'Description', accessor: (f: any) => f.description },
+      { header: 'Status', accessor: (f: any) => f.status.tag },
+      { header: 'Questions', accessor: (f: any) => questionsByForm.get(f.id)?.length ?? 0 },
+      { header: 'Responses', accessor: (f: any) => responseCountByForm.get(f.id) ?? 0 },
+      { header: 'Created', accessor: (f: any) => formatDate(f.createdAt) },
+    ], forms)
   }, [forms, questionsByForm, responseCountByForm])
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [activeFormId, setActiveFormId] = useState<bigint | null>(null)
   const [showTypePicker, setShowTypePicker] = useState(false)
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, unknown>>({})
 

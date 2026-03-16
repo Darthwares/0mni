@@ -394,6 +394,8 @@ export default function PeoplePage() {
     return counts
   }, [deptFiltered])
 
+  const totalCount = orgEmployees.length
+
   // Department distribution for bar
   const deptDistribution = useMemo(() => {
     const DEPT_BAR_COLORS: Record<string, string> = {
@@ -411,16 +413,16 @@ export default function PeoplePage() {
   const handleExportCSV = () => {
     exportCSV(
       'people',
-      ['Name', 'Role', 'Email', 'Department', 'Status', 'Type', 'Skills'],
-      sorted.map((e) => [
-        e.name,
-        e.role,
-        e.email ?? '',
-        e.department.tag,
-        e.status.tag,
-        e.employeeType.tag === 'AiAgent' ? 'AI Agent' : 'Human',
-        (e.skills ?? []).join('; '),
-      ])
+      [
+        { header: 'Name', accessor: (e: any) => e.name },
+        { header: 'Role', accessor: (e: any) => e.role },
+        { header: 'Email', accessor: (e: any) => e.email ?? '' },
+        { header: 'Department', accessor: (e: any) => e.department.tag },
+        { header: 'Status', accessor: (e: any) => e.status.tag },
+        { header: 'Type', accessor: (e: any) => e.employeeType.tag === 'AiAgent' ? 'AI Agent' : 'Human' },
+        { header: 'Skills', accessor: (e: any) => (e.skills ?? []).join('; ') },
+      ],
+      sorted
     )
   }
 
@@ -430,7 +432,6 @@ export default function PeoplePage() {
   }
 
   // Stats
-  const totalCount = orgEmployees.length
   const onlineCount = orgEmployees.filter(
     (e) => e.status.tag === 'Online' || e.status.tag === 'Busy' || e.status.tag === 'InCall'
   ).length

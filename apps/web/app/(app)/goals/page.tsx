@@ -196,6 +196,7 @@ export default function GoalsPage() {
   const checkInsByKR = useMemo(() => {
     const map = new Map<string, typeof allCheckIns>()
     allCheckIns.forEach(ci => {
+      if (ci.krId == null) return
       const key = ci.krId.toString()
       const list = map.get(key) ?? []
       list.push(ci)

@@ -216,9 +216,11 @@ function BoardListView({ boards, onOpenBoard, onNewBoard, onNewFromTemplate, onD
     })
 
   const handleExport = useCallback(() => {
-    const headers = ['Title', 'Elements', 'Last Modified']
-    const rows = boards.map(b => [b.title, String(b.elements.length), b.modified.toLocaleString()])
-    exportCSV('whiteboards', headers, rows)
+    exportCSV('whiteboards', [
+      { header: 'Title', accessor: (b: any) => b.title },
+      { header: 'Elements', accessor: (b: any) => b.elements.length },
+      { header: 'Last Modified', accessor: (b: any) => b.modified.toLocaleString() },
+    ], boards)
   }, [boards])
 
   const startRename = (id: number, currentTitle: string) => {

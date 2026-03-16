@@ -540,7 +540,10 @@ export default function AnalyticsPage() {
       { Metric: 'Recruitment Hire Rate', Value: `${recruitPipeline.hireRate}%` },
       { Metric: 'AI Workforce Ratio', Value: `${aiMetrics.aiRatio}%` },
     ]
-    exportCSV(rows, `analytics-${range}-${new Date().toISOString().slice(0, 10)}`)
+    exportCSV(`analytics-${range}-${new Date().toISOString().slice(0, 10)}`, [
+      { header: 'Metric', accessor: (r: any) => r.Metric },
+      { header: 'Value', accessor: (r: any) => r.Value },
+    ], rows)
   }, [kpis, supportMetrics, salesPipeline, dealMetrics, invoiceMetrics, expenseMetrics, recruitPipeline, aiMetrics, range])
 
   // ════════════════════════════════════════════════════════════════════════════

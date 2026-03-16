@@ -467,6 +467,7 @@ export default function CanvasPage() {
   const [shareDocId, setShareDocId] = useState<bigint | null>(null)
   const [listFilter, setListFilter] = useState<'all' | 'documents' | 'whiteboards' | 'starred'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'inReview' | 'published' | 'archived'>('all')
+  const [tagFilter, setTagFilter] = useState<string>('all')
   const [showToc, setShowToc] = useState(false)
   const [headings, setHeadings] = useState<HeadingItem[]>([])
   const [fullWidth, setFullWidth] = useState(false)
@@ -537,6 +538,36 @@ export default function CanvasPage() {
     }
     return map
   }, [allDocTags])
+
+  // Unique tags across all documents
+  const allUniqueTags = useMemo(() => {
+    const tagSet = new Set<string>()
+    for (const [, tags] of docTagsMap) {
+      for (const tag of tags) tagSet.add(tag)
+    }
+    return [...tagSet].sort()
+  }, [docTagsMap])
+
+  // Recently viewed by ME (for sidebar)
+  const myRecentlyViewed = useMemo(() => {
+    if (!myHex) return []
+    const viewsByDoc = new Map<string, number>()
+    for (const v of allDocViews) {
+      if (v.viewerId?.toHexString() !== myHex) continue
+      const key = v.documentId.toString()
+      try {
+        const ts = v.viewedAt?.toDate?.()?.getTime?.() ?? 0
+        if (ts > (viewsByDoc.get(key) ?? 0)) viewsByDoc.set(key, ts)
+      } catch {
+        viewsByDoc.set(key, viewsByDoc.get(key) ?? 0)
+      }
+    }
+    return [...viewsByDoc.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([docIdStr]) => canvasDocuments.find((d) => d.id.toString() === docIdStr))
+      .filter(Boolean) as typeof canvasDocuments
+  }, [allDocViews, myHex, canvasDocuments])
 
   // Document meta map (cover images, emoji icons)
   const docMetaMap = useMemo(() => {
@@ -797,6 +828,14 @@ export default function CanvasPage() {
       const target = statusMap[statusFilter]
       items = items.filter((d) => d.docType?.tag === 'Folder' || getDocStatus(d.id) === target)
     }
+    // Tag filter
+    if (tagFilter !== 'all') {
+      items = items.filter((d) => {
+        if (d.docType?.tag === 'Folder') return true
+        const tags = docTagsMap.get(d.id.toString()) ?? []
+        return tags.includes(tagFilter)
+      })
+    }
     // Sort: pinned first, then by updated_at desc
     return [...items].sort((a, b) => {
       const aPin = pinnedIds.has(a.id) ? 0 : 1
@@ -804,7 +843,7 @@ export default function CanvasPage() {
       if (aPin !== bPin) return aPin - bPin
       return 0 // preserve existing sort
     })
-  }, [filteredDocuments, listFilter, statusFilter, starredIds, pinnedIds, getDocStatus])
+  }, [filteredDocuments, listFilter, statusFilter, starredIds, pinnedIds, getDocStatus, tagFilter, docTagsMap])
 
   // Last edited by name
   const lastEditedByName = useMemo(() => {
@@ -2557,6 +2596,42 @@ ${html}
             </div>
           )}
 
+          {/* Recently Viewed by Me */}
+          {myRecentlyViewed.length > 0 && (
+            <div className="px-2 py-1.5 border-b">
+              <span className="px-2 text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">Recently Viewed</span>
+              <div className="mt-1 space-y-0.5">
+                {myRecentlyViewed
+                  .filter((d) => d.docType?.tag !== 'Folder')
+                  .slice(0, 5)
+                  .map((doc) => {
+                    const isWhiteboard = doc.docType?.tag === 'Whiteboard'
+                    const meta = docMetaMap.get(doc.id.toString())
+                    const isActive = activeDocId === doc.id
+                    return (
+                      <button
+                        key={doc.id.toString()}
+                        onClick={() => setActiveDocId(doc.id)}
+                        className={`w-full flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-left transition-all hover:bg-muted/80 ${
+                          isActive ? 'bg-violet-500/10 text-violet-400 font-medium' : 'text-muted-foreground'
+                        }`}
+                      >
+                        <Clock className="size-2.5 text-muted-foreground/40 shrink-0" />
+                        {meta?.icon ? (
+                          <span className="text-[11px] shrink-0">{meta.icon}</span>
+                        ) : isWhiteboard ? (
+                          <PenTool className="size-3 text-emerald-400 shrink-0" />
+                        ) : (
+                          <FileText className="size-3 text-blue-400 shrink-0" />
+                        )}
+                        <span className="truncate">{doc.title}</span>
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
           {/* Tree */}
           <ScrollArea className="flex-1">
             <div className="px-1 py-1.5 space-y-0.5">
@@ -2767,6 +2842,37 @@ ${html}
                   {f.label}
                 </button>
               ))}
+              {allUniqueTags.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-4 mx-1" />
+                  <div className="flex items-center gap-1 overflow-x-auto">
+                    <Tag className="size-3 text-muted-foreground/50 shrink-0" />
+                    <button
+                      onClick={() => setTagFilter('all')}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all whitespace-nowrap ${
+                        tagFilter === 'all'
+                          ? 'bg-violet-500/15 text-violet-400 ring-1 ring-violet-500/30'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      All Tags
+                    </button>
+                    {allUniqueTags.slice(0, 8).map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => setTagFilter(tagFilter === tag ? 'all' : tag)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all whitespace-nowrap ${
+                          tagFilter === tag
+                            ? 'bg-violet-500/15 text-violet-400 ring-1 ring-violet-500/30'
+                            : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

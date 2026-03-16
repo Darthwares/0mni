@@ -1203,13 +1203,13 @@ export default function CalendarPage() {
                   {/* Attendee list */}
                   {(() => {
                     const eventAtts = getEventAttendees(selectedEvent.id)
-                    const myRsvp = eventAtts.find(a => a.identity.toHexString() === myHex)
+                    const myRsvp = eventAtts.find(a => a.identity?.toHexString() === myHex)
                     return (
                       <>
                         {eventAtts.length > 0 ? (
                           <div className="space-y-1.5 mb-3">
                             {eventAtts.map(att => {
-                              const name = getEmployeeName(att.identity.toHexString())
+                              const name = att.identity ? getEmployeeName(att.identity.toHexString()) : 'Unknown'
                               const rsvpTag = att.rsvpStatus?.tag ?? 'Pending'
                               const rsvpConfig: Record<string, { icon: typeof Check; color: string }> = {
                                 Accepted: { icon: Check, color: 'text-green-600 dark:text-green-400' },
@@ -1235,13 +1235,13 @@ export default function CalendarPage() {
                                     <TooltipContent>RSVP: {rsvpTag}</TooltipContent>
                                   </Tooltip>
                                   <Tooltip>
-                                    <TooltipTrigger>
-                                      <button
+                                    <TooltipTrigger
+                                      render={<button
                                         onClick={() => removeEventAttendee({ attendeeId: att.id })}
                                         className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
-                                      >
-                                        <X className="size-3" />
-                                      </button>
+                                      />}
+                                    >
+                                      <X className="size-3" />
                                     </TooltipTrigger>
                                     <TooltipContent>Remove attendee</TooltipContent>
                                   </Tooltip>
@@ -1289,7 +1289,7 @@ export default function CalendarPage() {
                         </div>
                         {attendeeSearch.trim() && (() => {
                           const q = attendeeSearch.toLowerCase()
-                          const existingHexes = new Set(eventAtts.map(a => a.identity.toHexString()))
+                          const existingHexes = new Set(eventAtts.filter(a => a.identity).map(a => a.identity.toHexString()))
                           const matches = allEmployees
                             .filter(e => (e.name.toLowerCase().includes(q) || (e.email?.toLowerCase().includes(q) ?? false)) && !existingHexes.has(e.id.toHexString()))
                             .slice(0, 5)

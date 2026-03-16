@@ -627,9 +627,9 @@ export default function ContactsPage() {
                   { header: 'Notes', accessor: (c: any) => c.notes },
                   { header: 'Starred', accessor: (c: any) => c.starred ? 'Yes' : 'No' },
                 ],
-                sorted
+                filtered
               )}
-              disabled={sorted.length === 0}
+              disabled={filtered.length === 0}
             >
               <Download className="size-3.5 mr-1.5" />
               Export

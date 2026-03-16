@@ -19,6 +19,11 @@ import {
   Calendar,
   Pencil,
   Download,
+  Copy,
+  MoreHorizontal,
+  TrendingUp,
+  Receipt,
+  Ban,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -137,6 +142,7 @@ const FILTER_TABS: { label: string; value: FilterTab; dot: string }[] = [
   { label: 'Sent',     value: 'Sent',      dot: 'bg-blue-500' },
   { label: 'Paid',     value: 'Paid',      dot: 'bg-green-500' },
   { label: 'Overdue',  value: 'Overdue',   dot: 'bg-red-500' },
+  { label: 'Cancelled', value: 'Cancelled', dot: 'bg-neutral-400' },
 ]
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -159,6 +165,9 @@ export default function InvoicingPage() {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [sortField, setSortField] = useState<'date' | 'amount' | 'client' | 'due' | 'status'>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   // Edit invoice dialog state
   const [editInvOpen, setEditInvOpen] = useState(false)
@@ -332,6 +341,69 @@ export default function InvoicingPage() {
     setEditInvOpen(false)
   }, [selected, editInvClient, editInvEmail, editInvTax, editInvNotes, editInvDueDate, updateInvoice])
 
+  // Sort toggle
+  function toggleSort(field: typeof sortField) {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir(field === 'client' ? 'asc' : 'desc') }
+  }
+
+  // Sorted + filtered
+  const sortedFiltered = useMemo(() => {
+    const arr = [...filtered]
+    const dir = sortDir === 'asc' ? 1 : -1
+    arr.sort((a, b) => {
+      switch (sortField) {
+        case 'date': return dir * (Number(a.issuedAt) - Number(b.issuedAt))
+        case 'amount': return dir * (invoiceTotal(a) - invoiceTotal(b))
+        case 'client': return dir * a.clientName.localeCompare(b.clientName)
+        case 'due': return dir * (Number(a.dueDate) - Number(b.dueDate))
+        case 'status': return dir * (getTag(a.status) as string).localeCompare(getTag(b.status) as string)
+        default: return 0
+      }
+    })
+    return arr
+  }, [filtered, sortField, sortDir, allLineItems])
+
+  // Due date urgency
+  function dueUrgency(inv: typeof invoices[number]): { text: string; className: string } | null {
+    const tag = getTag(inv.status)
+    if (tag === 'Paid' || tag === 'Cancelled' || tag === 'Draft') return null
+    const due = tsToDate(inv.dueDate)
+    if (due.getTime() === 0) return null
+    const days = Math.ceil((due.getTime() - Date.now()) / 86400000)
+    if (days < 0) return { text: `${Math.abs(days)}d overdue`, className: 'text-red-500 font-medium' }
+    if (days <= 3) return { text: `Due in ${days}d`, className: 'text-amber-500 font-medium' }
+    if (days <= 7) return { text: `Due in ${days}d`, className: 'text-amber-400/80' }
+    return null
+  }
+
+  // Duplicate invoice
+  function handleDuplicate(inv: typeof invoices[number]) {
+    if (currentOrgId === null) return
+    const items = getLineItems(inv.id)
+    const lineItemsData = items
+      .map(li => `${li.description}|${li.quantity}|${Number(li.unitPriceCents)}`)
+      .join('\n')
+    const dueDate = dateToTimestamp(new Date(Date.now() + 30 * 86400000))
+    createInvoice({
+      orgId: BigInt(currentOrgId),
+      clientName: inv.clientName,
+      clientEmail: inv.clientEmail,
+      taxRate: inv.taxRate,
+      notes: inv.notes,
+      dueDate,
+      lineItemsData,
+    })
+  }
+
+  // Delete with confirmation
+  function confirmDelete() {
+    if (deleteConfirmId === null) return
+    deleteInvoice({ invoiceId: BigInt(deleteConfirmId) })
+    if (selectedId === deleteConfirmId) setSelectedId(null)
+    setDeleteConfirmId(null)
+  }
+
   // ── Invoice detail view ─────────────────────────────────────────────────
   if (selected) {
     const items = getLineItems(selected.id)
@@ -504,13 +576,17 @@ export default function InvoicingPage() {
                 onClick={() => handleStatusChange(Number(selected.id), 'Cancelled')}
                 className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10"
               >
-                <X className="size-4 mr-1.5" />
+                <Ban className="size-4 mr-1.5" />
                 Cancel Invoice
               </Button>
             )}
+            <Button variant="outline" onClick={() => { handleDuplicate(selected); setSelectedId(null) }}>
+              <Copy className="size-4 mr-1.5" />
+              Duplicate
+            </Button>
             <Button
               variant="outline"
-              onClick={() => { deleteInvoice({ invoiceId: BigInt(Number(selected.id)) }); setSelectedId(null) }}
+              onClick={() => setDeleteConfirmId(Number(selected.id))}
               className="text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/10 ml-auto"
             >
               <Trash2 className="size-4 mr-1.5" />
@@ -552,6 +628,29 @@ export default function InvoicingPage() {
                 <Button variant="outline" onClick={() => setEditInvOpen(false)}>Cancel</Button>
                 <Button onClick={handleEditInvoice} disabled={!editInvClient.trim()} className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-0">
                   Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Confirmation Dialog */}
+          <Dialog open={deleteConfirmId !== null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <div className="flex items-center justify-center size-8 rounded-full bg-red-500/10">
+                    <Trash2 className="size-4 text-red-500" />
+                  </div>
+                  Delete Invoice
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground py-2">
+                This action cannot be undone. The invoice and all its line items will be permanently deleted.
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+                <Button onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white border-0">
+                  Delete Invoice
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -835,18 +934,40 @@ export default function InvoicingPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="pl-4 text-[11px] uppercase tracking-wider font-semibold">Invoice #</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Client</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Amount</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Status</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Issued</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Due Date</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">
+                      <button onClick={() => toggleSort('client')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Client {sortField === 'client' && <span className="text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">
+                      <button onClick={() => toggleSort('amount')} className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors">
+                        Amount {sortField === 'amount' && <span className="text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">
+                      <button onClick={() => toggleSort('status')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Status {sortField === 'status' && <span className="text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">
+                      <button onClick={() => toggleSort('date')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Issued {sortField === 'date' && <span className="text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wider font-semibold">
+                      <button onClick={() => toggleSort('due')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Due Date {sortField === 'due' && <span className="text-[9px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </button>
+                    </TableHead>
                     <TableHead className="pr-4 text-[11px] uppercase tracking-wider font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(inv => {
+                  {sortedFiltered.map(inv => {
                     const total = invoiceTotal(inv)
                     const statusTag = getTag(inv.status) as StatusTag
+                    const urgency = dueUrgency(inv)
+                    const itemCount = getLineItems(inv.id).length
                     return (
                       <TableRow
                         key={Number(inv.id)}
@@ -854,7 +975,10 @@ export default function InvoicingPage() {
                         onClick={() => setSelectedId(Number(inv.id))}
                       >
                         <TableCell className="pl-4">
-                          <span className="font-mono text-sm font-medium">{inv.invoiceNumber}</span>
+                          <div>
+                            <span className="font-mono text-sm font-medium">{inv.invoiceNumber}</span>
+                            <p className="text-[10px] text-muted-foreground/60">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -877,7 +1001,12 @@ export default function InvoicingPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{fmtDate(tsToDate(inv.issuedAt))}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{fmtDate(tsToDate(inv.dueDate))}</TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="text-sm text-muted-foreground">{fmtDate(tsToDate(inv.dueDate))}</span>
+                            {urgency && <p className={`text-[10px] ${urgency.className}`}>{urgency.text}</p>}
+                          </div>
+                        </TableCell>
                         <TableCell className="pr-4 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                             {statusTag === 'Draft' && (
@@ -892,6 +1021,12 @@ export default function InvoicingPage() {
                                 Paid
                               </Button>
                             )}
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => handleDuplicate(inv)}>
+                              <Copy className="size-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500" onClick={() => setDeleteConfirmId(Number(inv.id))}>
+                              <Trash2 className="size-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -902,6 +1037,28 @@ export default function InvoicingPage() {
             )}
           </CardContent>
         </Card>
+        {/* Delete Confirmation Dialog (list view) */}
+        <Dialog open={deleteConfirmId !== null && selectedId === null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="flex items-center justify-center size-8 rounded-full bg-red-500/10">
+                  <Trash2 className="size-4 text-red-500" />
+                </div>
+                Delete Invoice
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground py-2">
+              This action cannot be undone. The invoice and all its line items will be permanently deleted.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+              <Button onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white border-0">
+                Delete Invoice
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

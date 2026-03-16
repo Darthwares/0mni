@@ -565,17 +565,15 @@ export default function OrgChartPage() {
   )
 
   const handleExportOrgChart = useCallback(() => {
-    const headers = ['Name', 'Role', 'Department', 'Status', 'Type', 'Email', 'Skills']
-    const rows = orgEmployees.map((e) => [
-      e.name,
-      e.role,
-      e.department.tag,
-      e.status.tag,
-      e.employeeType.tag,
-      e.email ?? '',
-      e.skills?.join(', ') ?? '',
-    ])
-    exportCSV('org-chart', headers, rows)
+    exportCSV('org-chart', [
+      { header: 'Name', accessor: (e: any) => e.name },
+      { header: 'Role', accessor: (e: any) => e.role },
+      { header: 'Department', accessor: (e: any) => e.department.tag },
+      { header: 'Status', accessor: (e: any) => e.status.tag },
+      { header: 'Type', accessor: (e: any) => e.employeeType.tag },
+      { header: 'Email', accessor: (e: any) => e.email ?? '' },
+      { header: 'Skills', accessor: (e: any) => e.skills?.join(', ') ?? '' },
+    ], orgEmployees)
   }, [orgEmployees])
 
   const orgName = displayOrgName(currentOrg?.name)

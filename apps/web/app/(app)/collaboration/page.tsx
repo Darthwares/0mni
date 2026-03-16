@@ -541,20 +541,16 @@ function MeetingsTab() {
   }, [meetings, mtgSearch])
 
   const handleExportMeetings = useCallback(() => {
-    exportCSV(
-      'meetings',
-      ['Title', 'Type', 'Scheduled', 'Duration (min)', 'Participants', 'Status', 'AI Notetaker', 'AI Summary'],
-      filteredMeetings.map(m => [
-        m.title,
-        MEETING_TYPE_LABELS[m.meetingType.tag] ?? m.meetingType.tag,
-        formatDateTime(m.scheduledAt),
-        String(m.durationMinutes),
-        String(m.participants.length),
-        m.status.tag,
-        m.aiNotetaker ? 'Yes' : 'No',
-        m.aiSummary ?? '',
-      ])
-    )
+    exportCSV('meetings', [
+      { header: 'Title', accessor: (m: any) => m.title },
+      { header: 'Type', accessor: (m: any) => MEETING_TYPE_LABELS[m.meetingType.tag] ?? m.meetingType.tag },
+      { header: 'Scheduled', accessor: (m: any) => formatDateTime(m.scheduledAt) },
+      { header: 'Duration (min)', accessor: (m: any) => m.durationMinutes },
+      { header: 'Participants', accessor: (m: any) => m.participants.length },
+      { header: 'Status', accessor: (m: any) => m.status.tag },
+      { header: 'AI Notetaker', accessor: (m: any) => m.aiNotetaker ? 'Yes' : 'No' },
+      { header: 'AI Summary', accessor: (m: any) => m.aiSummary ?? '' },
+    ], filteredMeetings)
   }, [filteredMeetings])
 
   const handleCreate = useCallback(() => {

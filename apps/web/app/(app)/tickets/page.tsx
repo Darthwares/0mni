@@ -367,31 +367,6 @@ export default function TicketsPage() {
     }
   }, [listSortField])
 
-  const sortedFilteredTasks = useMemo(() => {
-    if (!listSortField) return filteredTasks
-    const priorityOrder = ['Urgent', 'High', 'Medium', 'Low']
-    const statusOrder = ['Blocked', 'Escalated', 'InProgress', 'SelfChecking', 'NeedsReview', 'Claimed', 'Unclaimed', 'Completed', 'Cancelled']
-    return [...filteredTasks].sort((a, b) => {
-      let cmp = 0
-      switch (listSortField) {
-        case 'title': cmp = a.title.localeCompare(b.title); break
-        case 'priority': cmp = priorityOrder.indexOf(a.priority.tag) - priorityOrder.indexOf(b.priority.tag); break
-        case 'status': cmp = statusOrder.indexOf(a.status.tag) - statusOrder.indexOf(b.status.tag); break
-        case 'created': {
-          try { cmp = a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime() } catch { cmp = 0 }
-          break
-        }
-        case 'sp': {
-          const spA = extensionMap.get(a.id.toString())?.storyPoints ?? 0
-          const spB = extensionMap.get(b.id.toString())?.storyPoints ?? 0
-          cmp = spA - spB
-          break
-        }
-      }
-      return listSortDir === 'asc' ? cmp : -cmp
-    })
-  }, [filteredTasks, listSortField, listSortDir, extensionMap])
-
   // Create form state
   const [createStep, setCreateStep] = useState<'template' | 'form'>('template')
   const [newTitle, setNewTitle] = useState('')
@@ -420,19 +395,19 @@ export default function TicketsPage() {
   // Maps for quick lookup
   const extensionMap = useMemo(() => {
     const map = new Map<string, any>()
-    allTaskExtensions.forEach((ext) => map.set(ext.taskId.toString(), ext))
+    allTaskExtensions.forEach((ext) => { if (ext.taskId != null) map.set(ext.taskId.toString(), ext) })
     return map
   }, [allTaskExtensions])
 
   const sprintMap = useMemo(() => {
     const map = new Map<string, any>()
-    allSprints.forEach((s) => map.set(s.id.toString(), s))
+    allSprints.forEach((s) => { if (s.id != null) map.set(s.id.toString(), s) })
     return map
   }, [allSprints])
 
   const epicMap = useMemo(() => {
     const map = new Map<string, any>()
-    allEpics.forEach((e) => map.set(e.id.toString(), e))
+    allEpics.forEach((e) => { if (e.id != null) map.set(e.id.toString(), e) })
     return map
   }, [allEpics])
 
@@ -444,13 +419,14 @@ export default function TicketsPage() {
 
   const labelMap = useMemo(() => {
     const map = new Map<string, any>()
-    allTaskLabels.forEach((l) => map.set(l.id.toString(), l))
+    allTaskLabels.forEach((l) => { if (l.id != null) map.set(l.id.toString(), l) })
     return map
   }, [allTaskLabels])
 
   const taskLabelsMap = useMemo(() => {
     const map = new Map<string, any[]>()
     allLabelAssignments.forEach((a) => {
+      if (a.labelId == null || a.taskId == null) return
       const label = labelMap.get(a.labelId.toString())
       if (!label) return
       const key = a.taskId.toString()
@@ -464,6 +440,7 @@ export default function TicketsPage() {
   const childTasksMap = useMemo(() => {
     const map = new Map<string, bigint[]>()
     allTaskParents.forEach((tp) => {
+      if (tp.parentTaskId == null || tp.childTaskId == null) return
       const key = tp.parentTaskId.toString()
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(tp.childTaskId)
@@ -474,6 +451,7 @@ export default function TicketsPage() {
   const parentTaskMap = useMemo(() => {
     const map = new Map<string, bigint>()
     allTaskParents.forEach((tp) => {
+      if (tp.childTaskId == null || tp.parentTaskId == null) return
       map.set(tp.childTaskId.toString(), tp.parentTaskId)
     })
     return map
@@ -532,6 +510,31 @@ export default function TicketsPage() {
     }
     return tasks
   }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, filterLabel, currentOrgId, extensionMap, taskLabelsMap])
+
+  const sortedFilteredTasks = useMemo(() => {
+    if (!listSortField) return filteredTasks
+    const priorityOrder = ['Urgent', 'High', 'Medium', 'Low']
+    const statusOrder = ['Blocked', 'Escalated', 'InProgress', 'SelfChecking', 'NeedsReview', 'Claimed', 'Unclaimed', 'Completed', 'Cancelled']
+    return [...filteredTasks].sort((a, b) => {
+      let cmp = 0
+      switch (listSortField) {
+        case 'title': cmp = a.title.localeCompare(b.title); break
+        case 'priority': cmp = priorityOrder.indexOf(a.priority.tag) - priorityOrder.indexOf(b.priority.tag); break
+        case 'status': cmp = statusOrder.indexOf(a.status.tag) - statusOrder.indexOf(b.status.tag); break
+        case 'created': {
+          try { cmp = a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime() } catch { cmp = 0 }
+          break
+        }
+        case 'sp': {
+          const spA = extensionMap.get(a.id.toString())?.storyPoints ?? 0
+          const spB = extensionMap.get(b.id.toString())?.storyPoints ?? 0
+          cmp = spA - spB
+          break
+        }
+      }
+      return listSortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filteredTasks, listSortField, listSortDir, extensionMap])
 
   // Sprint-scoped tasks for sprint view
   const sprintTasks = useMemo(() => {

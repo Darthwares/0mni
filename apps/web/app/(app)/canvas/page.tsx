@@ -492,6 +492,7 @@ export default function CanvasPage() {
   const docTagsMap = useMemo(() => {
     const map = new Map<string, string[]>()
     for (const t of allDocTags) {
+      if (!t.documentId) continue
       const key = t.documentId.toString()
       const existing = map.get(key) ?? []
       existing.push(t.tag)

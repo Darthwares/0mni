@@ -306,18 +306,28 @@ export default function EngineeringPage() {
   }, [bugs, bugSearch])
 
   const handleExportPRs = useCallback(() => {
-    exportCSV('pull-requests', ['Title', 'PR #', 'Repository', 'Status', 'AI Reviewed', 'Security Issues', 'Performance Issues', 'Created'],
-      filteredPRs.map(pr => {
-        const repo = reposMap.get(pr.repositoryId)
-        return [pr.title, pr.externalId ?? '', repo?.name ?? '', prStatusClass(pr.status.tag).label, pr.aiReviewed ? 'Yes' : 'No', String(pr.securityIssues.length), String(pr.performanceIssues.length), formatTimestamp(pr.createdAt)]
-      })
-    )
+    exportCSV('pull-requests', [
+      { header: 'Title', accessor: (pr: any) => pr.title },
+      { header: 'PR #', accessor: (pr: any) => pr.externalId ?? '' },
+      { header: 'Repository', accessor: (pr: any) => reposMap.get(pr.repositoryId)?.name ?? '' },
+      { header: 'Status', accessor: (pr: any) => prStatusClass(pr.status.tag).label },
+      { header: 'AI Reviewed', accessor: (pr: any) => pr.aiReviewed ? 'Yes' : 'No' },
+      { header: 'Security Issues', accessor: (pr: any) => pr.securityIssues.length },
+      { header: 'Performance Issues', accessor: (pr: any) => pr.performanceIssues.length },
+      { header: 'Created', accessor: (pr: any) => formatTimestamp(pr.createdAt) },
+    ], filteredPRs)
   }, [filteredPRs, reposMap])
 
   const handleExportBugs = useCallback(() => {
-    exportCSV('bugs', ['Title', 'Severity', 'Priority', 'Status', 'AI Triaged', 'Suggested Fix', 'Reported'],
-      filteredBugs.map(b => [b.title, b.severity.tag, b.priority.tag, bugStatusClass(b.status.tag).label, b.aiTriaged ? 'Yes' : 'No', b.aiSuggestedFix ?? '', formatTimestamp(b.reportedAt)])
-    )
+    exportCSV('bugs', [
+      { header: 'Title', accessor: (b: any) => b.title },
+      { header: 'Severity', accessor: (b: any) => b.severity.tag },
+      { header: 'Priority', accessor: (b: any) => b.priority.tag },
+      { header: 'Status', accessor: (b: any) => bugStatusClass(b.status.tag).label },
+      { header: 'AI Triaged', accessor: (b: any) => b.aiTriaged ? 'Yes' : 'No' },
+      { header: 'Suggested Fix', accessor: (b: any) => b.aiSuggestedFix ?? '' },
+      { header: 'Reported', accessor: (b: any) => formatTimestamp(b.reportedAt) },
+    ], filteredBugs)
   }, [filteredBugs])
 
   const repos = useMemo(

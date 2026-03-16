@@ -142,6 +142,7 @@ export default function StandupsPage() {
     return new Set(
       allBlockerResolutions
         .filter(r => r.orgId === BigInt(currentOrgId))
+        .filter(r => r.standupId != null)
         .map(r => r.standupId.toString())
     )
   }, [allBlockerResolutions, currentOrgId])

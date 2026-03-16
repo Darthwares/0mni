@@ -233,15 +233,14 @@ export default function DrivePage() {
   }, [items])
 
   const handleExportCSV = useCallback(() => {
-    exportCSV(
-      'drive-files',
-      ['Name', 'Type', 'Size', 'Starred', 'Shared', 'Modified'],
-      filteredItems.map(i => [
-        i.name, i._type, formatSize(i._size),
-        i.starred ? 'Yes' : 'No', i.shared ? 'Yes' : 'No',
-        i._modified.toISOString(),
-      ])
-    )
+    exportCSV('drive-files', [
+      { header: 'Name', accessor: (i: any) => i.name },
+      { header: 'Type', accessor: (i: any) => i._type },
+      { header: 'Size', accessor: (i: any) => formatSize(i._size) },
+      { header: 'Starred', accessor: (i: any) => i.starred ? 'Yes' : 'No' },
+      { header: 'Shared', accessor: (i: any) => i.shared ? 'Yes' : 'No' },
+      { header: 'Modified', accessor: (i: any) => i._modified.toISOString() },
+    ], filteredItems)
   }, [filteredItems])
 
   // ── Handlers ─────────────────────────────────

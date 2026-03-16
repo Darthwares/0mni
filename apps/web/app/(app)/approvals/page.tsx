@@ -239,18 +239,16 @@ export default function ApprovalsPage() {
   }, [allEmployees, currentOrgId])
 
   const handleExportApprovals = useCallback(() => {
-    const headers = ['Title', 'Type', 'Status', 'Priority', 'Requester', 'Approver', 'Amount', 'Description']
-    const rows = requests.map(r => [
-      r.title,
-      getTag(r.approvalType),
-      getTag(r.status),
-      getTag(r.priority),
-      resolveName(r.requester),
-      resolveName(r.approver),
-      Number(r.amountCents) > 0 ? `$${(Number(r.amountCents) / 100).toFixed(2)}` : '',
-      r.description,
-    ])
-    exportCSV('approvals', headers, rows)
+    exportCSV('approvals', [
+      { header: 'Title', accessor: (r: any) => r.title },
+      { header: 'Type', accessor: (r: any) => getTag(r.approvalType) },
+      { header: 'Status', accessor: (r: any) => getTag(r.status) },
+      { header: 'Priority', accessor: (r: any) => getTag(r.priority) },
+      { header: 'Requester', accessor: (r: any) => resolveName(r.requester) },
+      { header: 'Approver', accessor: (r: any) => resolveName(r.approver) },
+      { header: 'Amount', accessor: (r: any) => Number(r.amountCents) > 0 ? `$${(Number(r.amountCents) / 100).toFixed(2)}` : '' },
+      { header: 'Description', accessor: (r: any) => r.description },
+    ], requests)
   }, [requests])
 
   // Actions

@@ -298,16 +298,14 @@ export default function ActivityPage() {
   }, [activities, employeeMap])
 
   const handleExportActivity = useCallback(() => {
-    const headers = ['Actor', 'Action', 'Entity Type', 'Entity ID', 'Metadata', 'Timestamp']
-    const rows = filteredActivities.map(a => [
-      getActorName(a.actor),
-      a.action.tag,
-      a.entityType,
-      String(a.entityId),
-      a.metadata ?? '',
-      fmtFullTime(a.timestamp),
-    ])
-    exportCSV('activity-log', headers, rows)
+    exportCSV('activity-log', [
+      { header: 'Actor', accessor: (a: any) => getActorName(a.actor) },
+      { header: 'Action', accessor: (a: any) => a.action.tag },
+      { header: 'Entity Type', accessor: (a: any) => a.entityType },
+      { header: 'Entity ID', accessor: (a: any) => a.entityId },
+      { header: 'Metadata', accessor: (a: any) => a.metadata ?? '' },
+      { header: 'Timestamp', accessor: (a: any) => fmtFullTime(a.timestamp) },
+    ], filteredActivities)
   }, [filteredActivities, employeeMap])
 
   return (

@@ -104,6 +104,14 @@ import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import { extractPreviewText, scrollToBlock, type HeadingItem, type DocumentStats } from '@/components/block-editor'
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from '@/components/ui/command'
 
 // Cover image gradient presets
 const COVER_GRADIENTS = [
@@ -474,6 +482,7 @@ export default function CanvasPage() {
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [showSidebar, setShowSidebar] = useState(true)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
 
   const myHex = identity?.toHexString() ?? ''
 
@@ -1119,8 +1128,14 @@ ${html}
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!activeDoc) return
       const mod = e.metaKey || e.ctrlKey
+      // Ctrl+K — open command palette (works everywhere)
+      if (mod && e.key === 'k') {
+        e.preventDefault()
+        setShowCommandPalette((v) => !v)
+        return
+      }
+      if (!activeDoc) return
       // Ctrl+S — save version
       if (mod && e.key === 's' && !e.shiftKey) {
         e.preventDefault()
@@ -1145,6 +1160,189 @@ ${html}
     return () => window.removeEventListener('keydown', handler)
   }, [activeDoc, focusMode, handleSaveVersion, handleExportMarkdown])
 
+  // ---- Command Palette (shared between editor and list views) ----
+  const getDocPath = useCallback((doc: SpacetimeDocument): string => {
+    const parts: string[] = []
+    let parentId = doc.parentId
+    while (parentId != null) {
+      const parent = canvasDocuments.find((d) => d.id === parentId)
+      if (parent) {
+        parts.unshift(parent.title)
+        parentId = parent.parentId ?? null
+      } else break
+    }
+    return parts.length > 0 ? parts.join(' / ') : ''
+  }, [canvasDocuments])
+
+  const commandPalette = (
+    <CommandDialog open={showCommandPalette} onOpenChange={setShowCommandPalette}>
+      <CommandInput placeholder="Search documents, actions..." />
+      <CommandList>
+        <CommandEmpty>No results found.</CommandEmpty>
+
+        {/* Quick Actions */}
+        <CommandGroup heading="Actions">
+          <CommandItem
+            onSelect={() => {
+              setShowCommandPalette(false)
+              setShowCreate(true)
+            }}
+          >
+            <Plus className="size-4 text-blue-400" />
+            <span>New Document</span>
+            <kbd className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">doc</kbd>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setShowCommandPalette(false)
+              setShowCreate(true)
+              setNewType('Whiteboard')
+            }}
+          >
+            <PenTool className="size-4 text-emerald-400" />
+            <span>New Whiteboard</span>
+            <kbd className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">board</kbd>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              setShowCommandPalette(false)
+              setShowCreateFolder(true)
+            }}
+          >
+            <FolderPlus className="size-4 text-amber-400" />
+            <span>New Folder</span>
+          </CommandItem>
+          {activeDoc && (
+            <>
+              <CommandItem
+                onSelect={() => {
+                  setShowCommandPalette(false)
+                  setActiveDocId(null)
+                }}
+              >
+                <ArrowLeft className="size-4 text-muted-foreground" />
+                <span>Back to document list</span>
+              </CommandItem>
+              <CommandItem
+                onSelect={() => {
+                  setShowCommandPalette(false)
+                  setFocusMode((f) => !f)
+                }}
+              >
+                <Focus className="size-4 text-violet-400" />
+                <span>{focusMode ? 'Exit focus mode' : 'Enter focus mode'}</span>
+                <kbd className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">⌃⇧F</kbd>
+              </CommandItem>
+            </>
+          )}
+        </CommandGroup>
+
+        {/* Recent documents */}
+        {recentDocs.length > 0 && (
+          <CommandGroup heading="Recent">
+            {recentDocs.map((doc) => {
+              const isWhiteboard = doc.docType?.tag === 'Whiteboard'
+              const meta = docMetaMap.get(doc.id.toString())
+              const path = getDocPath(doc)
+              return (
+                <CommandItem
+                  key={doc.id.toString()}
+                  value={`recent-${doc.title}`}
+                  onSelect={() => {
+                    setShowCommandPalette(false)
+                    setActiveDocId(doc.id)
+                  }}
+                >
+                  {meta?.icon ? (
+                    <span className="text-sm">{meta.icon}</span>
+                  ) : isWhiteboard ? (
+                    <PenTool className="size-4 text-emerald-400" />
+                  ) : (
+                    <FileText className="size-4 text-blue-400" />
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{doc.title}</span>
+                    {path && <span className="text-[10px] text-muted-foreground truncate">{path}</span>}
+                  </div>
+                  <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                    {formatTimeAgo(timestampToDate(doc.updatedAt))}
+                  </span>
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        )}
+
+        {/* All documents (non-folder, searchable) */}
+        <CommandGroup heading="All Documents">
+          {canvasDocuments
+            .filter((d) => d.docType?.tag !== 'Folder')
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map((doc) => {
+              const isWhiteboard = doc.docType?.tag === 'Whiteboard'
+              const meta = docMetaMap.get(doc.id.toString())
+              const path = getDocPath(doc)
+              const isPinned = pinnedIds.has(doc.id)
+              return (
+                <CommandItem
+                  key={doc.id.toString()}
+                  value={doc.title}
+                  onSelect={() => {
+                    setShowCommandPalette(false)
+                    setActiveDocId(doc.id)
+                  }}
+                >
+                  {meta?.icon ? (
+                    <span className="text-sm">{meta.icon}</span>
+                  ) : isWhiteboard ? (
+                    <PenTool className="size-4 text-emerald-400" />
+                  ) : (
+                    <FileText className="size-4 text-blue-400" />
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate flex items-center gap-1">
+                      {doc.title}
+                      {isPinned && <Pin className="size-2.5 text-amber-400 inline shrink-0" />}
+                    </span>
+                    {path && <span className="text-[10px] text-muted-foreground truncate">{path}</span>}
+                  </div>
+                  <Badge variant="outline" className="ml-auto text-[9px] shrink-0">
+                    {isWhiteboard ? 'Board' : 'Doc'}
+                  </Badge>
+                </CommandItem>
+              )
+            })}
+        </CommandGroup>
+
+        {/* Folders */}
+        {folders.length > 0 && (
+          <CommandGroup heading="Folders">
+            {folders.map((folder) => {
+              const path = getDocPath(folder)
+              return (
+                <CommandItem
+                  key={folder.id.toString()}
+                  value={`folder-${folder.title}`}
+                  onSelect={() => {
+                    setShowCommandPalette(false)
+                    setActiveDocId(null)
+                    setCurrentFolderId(folder.id)
+                  }}
+                >
+                  <Folder className="size-4 text-amber-400" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{folder.title}</span>
+                    {path && <span className="text-[10px] text-muted-foreground truncate">{path}</span>}
+                  </div>
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </CommandDialog>
+  )
+
   // ---- Editor View ----
   if (activeDoc) {
     const isWhiteboard = activeDoc.docType?.tag === 'Whiteboard'
@@ -1152,6 +1350,7 @@ ${html}
 
     return (
       <div className="flex h-full flex-col">
+        {commandPalette}
         {/* Editor header */}
         <div className={`flex items-center gap-3 border-b px-4 py-2.5 shrink-0 transition-all ${focusMode ? 'h-0 overflow-hidden border-b-0 py-0' : ''}`}>
           <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1">
@@ -2095,6 +2294,7 @@ ${html}
                         { keys: 'Ctrl+Shift+E', action: 'Export markdown' },
                         { keys: 'Ctrl+Shift+F', action: 'Focus mode' },
                         { keys: 'Esc', action: 'Exit focus mode' },
+                        { keys: 'Ctrl+K', action: 'Command palette' },
                         { keys: '/', action: 'Slash commands' },
                         { keys: 'Ctrl+B', action: 'Bold text' },
                         { keys: 'Ctrl+I', action: 'Italic text' },
@@ -2200,6 +2400,7 @@ ${html}
 
   return (
     <div className="flex h-full">
+      {commandPalette}
       {/* Document Tree Sidebar */}
       {showSidebar && (
         <aside className="w-60 border-r flex flex-col bg-background/50 shrink-0">
@@ -2329,6 +2530,15 @@ ${html}
               className="pl-8 h-8 w-52 text-sm"
             />
           </div>
+
+          <button
+            onClick={() => setShowCommandPalette(true)}
+            className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Search className="size-3.5" />
+            <span className="hidden lg:inline">Quick open...</span>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border bg-muted px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+          </button>
 
           <div className="flex rounded-lg border overflow-hidden">
             <button

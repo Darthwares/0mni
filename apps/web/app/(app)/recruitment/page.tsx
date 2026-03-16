@@ -267,31 +267,45 @@ export default function RecruitmentPage() {
   const [completeNotes, setCompleteNotes] = useState('')
   const [completeRec, setCompleteRec] = useState('')
 
+  // Org-scoped data
+  const orgCandidates = useMemo(
+    () => allCandidates.filter(c => Number(c.orgId) === currentOrgId),
+    [allCandidates, currentOrgId]
+  )
+  const orgJobPostings = useMemo(
+    () => allJobPostings.filter(j => Number(j.orgId) === currentOrgId),
+    [allJobPostings, currentOrgId]
+  )
+  const orgInterviews = useMemo(
+    () => allInterviews.filter(i => Number(i.orgId) === currentOrgId),
+    [allInterviews, currentOrgId]
+  )
+
   // Sorted candidates
   const candidates = useMemo(
     () =>
-      [...allCandidates].sort(
+      [...orgCandidates].sort(
         (a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())
       ),
-    [allCandidates]
+    [orgCandidates]
   )
 
   // Sorted job postings
   const jobPostings = useMemo(
     () =>
-      [...allJobPostings].sort(
+      [...orgJobPostings].sort(
         (a, b) => Number(b.postedAt.toMillis()) - Number(a.postedAt.toMillis())
       ),
-    [allJobPostings]
+    [orgJobPostings]
   )
 
   // Sorted interviews (ascending by scheduled time)
   const interviews = useMemo(
     () =>
-      [...allInterviews].sort(
+      [...orgInterviews].sort(
         (a, b) => Number(a.scheduledAt.toMillis()) - Number(b.scheduledAt.toMillis())
       ),
-    [allInterviews]
+    [orgInterviews]
   )
 
   // Lookup maps

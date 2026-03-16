@@ -216,6 +216,7 @@ const ENTITY_TYPE_FILTERS = [
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function ActivityPage() {
+  const { currentOrgId } = useOrg()
   const [allActivity] = useTable(tables.activity_log)
   const [allEmployees] = useTable(tables.employee)
   const [actionFilter, setActionFilter] = useState('all')
@@ -227,9 +228,14 @@ export default function ActivityPage() {
     [allEmployees]
   )
 
+  const orgActivity = useMemo(
+    () => allActivity.filter(a => Number(a.orgId) === currentOrgId),
+    [allActivity, currentOrgId]
+  )
+
   const activities = useMemo(
-    () => [...allActivity].sort((a, b) => Number(b.timestamp.toMillis()) - Number(a.timestamp.toMillis())),
-    [allActivity]
+    () => [...orgActivity].sort((a, b) => Number(b.timestamp.toMillis()) - Number(a.timestamp.toMillis())),
+    [orgActivity]
   )
 
   const filteredActivities = useMemo(() => {

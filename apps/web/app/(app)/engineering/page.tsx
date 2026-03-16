@@ -252,14 +252,19 @@ export default function EngineeringPage() {
     setNewBugTitle(''); setNewBugDesc(''); setNewBugSeverity('Medium'); setNewBugPriority('Medium')
   }, [newBugTitle, newBugDesc, newBugSeverity, newBugPriority, currentOrgId, createBug])
 
+  // Org-scoped data
+  const orgPRs = useMemo(() => allPRs.filter(p => Number(p.orgId) === currentOrgId), [allPRs, currentOrgId])
+  const orgBugs = useMemo(() => allBugs.filter(b => Number(b.orgId) === currentOrgId), [allBugs, currentOrgId])
+  const orgRepos = useMemo(() => allRepos.filter(r => Number(r.orgId) === currentOrgId), [allRepos, currentOrgId])
+
   const pullRequests = useMemo(
-    () => [...allPRs].sort((a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())),
-    [allPRs]
+    () => [...orgPRs].sort((a, b) => Number(b.createdAt.toMillis()) - Number(a.createdAt.toMillis())),
+    [orgPRs]
   )
 
   const reposMap = useMemo(
-    () => new Map(allRepos.map(r => [r.id, r])),
-    [allRepos]
+    () => new Map(orgRepos.map(r => [r.id, r])),
+    [orgRepos]
   )
 
   const prKpis = useMemo(() => {
@@ -272,8 +277,8 @@ export default function EngineeringPage() {
   }, [pullRequests])
 
   const bugs = useMemo(
-    () => [...allBugs].sort((a, b) => Number(b.reportedAt.toMillis()) - Number(a.reportedAt.toMillis())),
-    [allBugs]
+    () => [...orgBugs].sort((a, b) => Number(b.reportedAt.toMillis()) - Number(a.reportedAt.toMillis())),
+    [orgBugs]
   )
 
   const bugKpis = useMemo(() => {
@@ -316,8 +321,8 @@ export default function EngineeringPage() {
   }, [filteredBugs])
 
   const repos = useMemo(
-    () => [...allRepos].sort((a, b) => a.name.localeCompare(b.name)),
-    [allRepos]
+    () => [...orgRepos].sort((a, b) => a.name.localeCompare(b.name)),
+    [orgRepos]
   )
 
   return (

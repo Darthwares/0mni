@@ -88,12 +88,20 @@ import {
   Archive,
   CircleDot,
   type LucideIcon,
+  FileCode,
+  FileJson,
+  Focus,
+  Keyboard,
+  Hash,
+  Type,
+  AlignJustify,
+  BookOpen,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
-import { extractPreviewText, scrollToBlock, type HeadingItem } from '@/components/block-editor'
+import { extractPreviewText, scrollToBlock, type HeadingItem, type DocumentStats } from '@/components/block-editor'
 
 // Dynamic imports for heavy editors
 const BlockEditor = dynamic(() => import('@/components/block-editor'), {
@@ -433,6 +441,10 @@ export default function CanvasPage() {
   const [showToc, setShowToc] = useState(false)
   const [headings, setHeadings] = useState<HeadingItem[]>([])
   const [fullWidth, setFullWidth] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
+  const [editorStats, setEditorStats] = useState<DocumentStats | null>(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showStatsPanel, setShowStatsPanel] = useState(false)
   const editorInstanceRef = useRef<any>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const savedStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -860,22 +872,84 @@ export default function CanvasPage() {
     }
   }, [activeDocId, restoreDocumentVersion])
 
-  // Export document to Markdown
-  const handleExport = useCallback(async () => {
+  // Export helpers
+  const downloadFile = useCallback((content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const sanitizeFilename = useCallback((title: string) => {
+    return title.replace(/[^a-zA-Z0-9_-]/g, '_')
+  }, [])
+
+  // Export to Markdown
+  const handleExportMarkdown = useCallback(async () => {
     if (!editorInstanceRef.current || !activeDoc) return
     try {
       const markdown = await editorInstanceRef.current.blocksToMarkdownLossy(editorInstanceRef.current.document)
-      const blob = new Blob([markdown], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${activeDoc.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`
-      a.click()
-      URL.revokeObjectURL(url)
+      downloadFile(markdown, `${sanitizeFilename(activeDoc.title)}.md`, 'text/markdown')
     } catch (e) {
-      console.error('Export failed:', e)
+      console.error('Markdown export failed:', e)
     }
-  }, [activeDoc])
+    setShowExportMenu(false)
+  }, [activeDoc, downloadFile, sanitizeFilename])
+
+  // Export to HTML
+  const handleExportHTML = useCallback(async () => {
+    if (!editorInstanceRef.current || !activeDoc) return
+    try {
+      const html = await editorInstanceRef.current.blocksToHTMLLossy(editorInstanceRef.current.document)
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${activeDoc.title}</title>
+  <style>
+    body { font-family: 'Inter', -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1a1a1a; }
+    h1 { font-size: 2rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+    h2 { font-size: 1.5rem; margin-top: 2rem; }
+    h3 { font-size: 1.25rem; margin-top: 1.5rem; }
+    pre { background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; }
+    th { background: #f9fafb; font-weight: 600; }
+    blockquote { border-left: 3px solid #6366f1; padding-left: 1rem; margin-left: 0; color: #4b5563; }
+    ul[data-type="taskList"] li { list-style: none; }
+  </style>
+</head>
+<body>
+<h1>${activeDoc.title}</h1>
+${html}
+</body>
+</html>`
+      downloadFile(fullHtml, `${sanitizeFilename(activeDoc.title)}.html`, 'text/html')
+    } catch (e) {
+      console.error('HTML export failed:', e)
+    }
+    setShowExportMenu(false)
+  }, [activeDoc, downloadFile, sanitizeFilename])
+
+  // Export to JSON (raw BlockNote)
+  const handleExportJSON = useCallback(() => {
+    if (!editorInstanceRef.current || !activeDoc) return
+    try {
+      const json = JSON.stringify(editorInstanceRef.current.document, null, 2)
+      downloadFile(json, `${sanitizeFilename(activeDoc.title)}.json`, 'application/json')
+    } catch (e) {
+      console.error('JSON export failed:', e)
+    }
+    setShowExportMenu(false)
+  }, [activeDoc, downloadFile, sanitizeFilename])
+
+  // Legacy export handler (backward compat — defaults to markdown)
+  const handleExport = handleExportMarkdown
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -885,6 +959,35 @@ export default function CanvasPage() {
     }
   }, [])
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!activeDoc) return
+      const mod = e.metaKey || e.ctrlKey
+      // Ctrl+S — save version
+      if (mod && e.key === 's' && !e.shiftKey) {
+        e.preventDefault()
+        handleSaveVersion()
+      }
+      // Ctrl+Shift+E — export markdown
+      if (mod && e.shiftKey && e.key === 'E') {
+        e.preventDefault()
+        handleExportMarkdown()
+      }
+      // Ctrl+Shift+F — toggle focus mode
+      if (mod && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        setFocusMode(f => !f)
+      }
+      // Escape — exit focus mode
+      if (e.key === 'Escape' && focusMode) {
+        setFocusMode(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeDoc, focusMode, handleSaveVersion, handleExportMarkdown])
+
   // ---- Editor View ----
   if (activeDoc) {
     const isWhiteboard = activeDoc.docType.tag === 'Whiteboard'
@@ -893,7 +996,7 @@ export default function CanvasPage() {
     return (
       <div className="flex h-full flex-col">
         {/* Editor header */}
-        <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0">
+        <div className={`flex items-center gap-3 border-b px-4 py-2.5 shrink-0 transition-all ${focusMode ? 'h-0 overflow-hidden border-b-0 py-0' : ''}`}>
           <Button variant="ghost" size="sm" onClick={() => setActiveDocId(null)} className="gap-1.5 -ml-1">
             <ArrowLeft className="size-4" />
             Back
@@ -1037,14 +1140,76 @@ export default function CanvasPage() {
               </Button>
             )}
             {!isWhiteboard && (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="h-7 gap-1.5 text-xs"
+                  title="Export document"
+                >
+                  <Download className="size-3.5" />
+                </Button>
+                {showExportMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                    <div className="absolute top-full right-0 mt-1 z-50 bg-popover border rounded-lg shadow-lg p-1 min-w-[180px]">
+                      <button
+                        onClick={handleExportMarkdown}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs hover:bg-muted transition-colors text-left"
+                      >
+                        <FileText className="size-3.5 text-muted-foreground" />
+                        <div>
+                          <span className="font-medium">Markdown</span>
+                          <span className="text-muted-foreground ml-1">.md</span>
+                        </div>
+                        <kbd className="ml-auto text-[9px] text-muted-foreground bg-muted px-1 rounded">^+E</kbd>
+                      </button>
+                      <button
+                        onClick={handleExportHTML}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs hover:bg-muted transition-colors text-left"
+                      >
+                        <FileCode className="size-3.5 text-muted-foreground" />
+                        <div>
+                          <span className="font-medium">HTML</span>
+                          <span className="text-muted-foreground ml-1">.html</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={handleExportJSON}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs hover:bg-muted transition-colors text-left"
+                      >
+                        <FileJson className="size-3.5 text-muted-foreground" />
+                        <div>
+                          <span className="font-medium">JSON</span>
+                          <span className="text-muted-foreground ml-1">.json</span>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {!isWhiteboard && (
               <Button
-                variant="ghost"
+                variant={focusMode ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={handleExport}
+                onClick={() => setFocusMode(!focusMode)}
                 className="h-7 gap-1.5 text-xs"
-                title="Export as Markdown"
+                title={focusMode ? 'Exit focus mode (Esc)' : 'Focus mode (Ctrl+Shift+F)'}
               >
-                <Download className="size-3.5" />
+                <Focus className="size-3.5" />
+              </Button>
+            )}
+            {!isWhiteboard && (
+              <Button
+                variant={showStatsPanel ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => { setShowStatsPanel(!showStatsPanel); if (!showStatsPanel) { setShowComments(false); setShowVersions(false); setShowToc(false) } }}
+                className="h-7 gap-1.5 text-xs"
+                title="Document stats"
+              >
+                <Hash className="size-3.5" />
               </Button>
             )}
             <PresenceBar />
@@ -1067,7 +1232,7 @@ export default function CanvasPage() {
               )}
             </span>
             {/* Word count */}
-            {activeDocWordCount !== null && (
+            {activeDocWordCount !== null && !focusMode && (
               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <BarChart3 className="size-3" />
                 {activeDocWordCount.toLocaleString()} words
@@ -1085,7 +1250,7 @@ export default function CanvasPage() {
         </div>
 
         {/* Tags bar */}
-        <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-muted/30">
+        <div className={`flex items-center gap-2 px-4 py-1.5 border-b bg-muted/30 transition-all ${focusMode ? 'h-0 overflow-hidden border-b-0 py-0' : ''}`}>
           <Tag className="size-3 text-muted-foreground shrink-0" />
           {(docTagsMap.get(activeDoc.id.toString()) ?? []).map(tag => {
             const tagObj = allDocTags.find(t => t.documentId === activeDoc.id && t.tag === tag)
@@ -1130,8 +1295,10 @@ export default function CanvasPage() {
                 initialContent={parsedContent}
                 onChange={handleContentChange}
                 onHeadingsChange={setHeadings}
+                onStatsChange={setEditorStats}
                 onEditorReady={(editor: any) => { editorInstanceRef.current = editor }}
                 fullWidth={fullWidth}
+                focusMode={focusMode}
               />
             )}
           </div>
@@ -1514,7 +1681,116 @@ export default function CanvasPage() {
               </ScrollArea>
             </div>
           )}
+
+          {/* Document Stats sidebar */}
+          {showStatsPanel && !isWhiteboard && (
+            <div className="w-72 border-l flex flex-col bg-background shrink-0">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Hash className="size-4 text-amber-400" />
+                  <h3 className="text-sm font-semibold">Document Stats</h3>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowStatsPanel(false)} className="h-6 w-6 p-0">
+                  <span className="sr-only">Close</span>
+                  <span className="text-xs text-muted-foreground">&times;</span>
+                </Button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-muted/50 p-3 text-center">
+                      <Type className="size-4 text-blue-400 mx-auto mb-1" />
+                      <p className="text-lg font-bold tabular-nums">{editorStats?.words?.toLocaleString() ?? 0}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Words</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-center">
+                      <AlignJustify className="size-4 text-emerald-400 mx-auto mb-1" />
+                      <p className="text-lg font-bold tabular-nums">{editorStats?.characters?.toLocaleString() ?? 0}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Characters</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-center">
+                      <List className="size-4 text-amber-400 mx-auto mb-1" />
+                      <p className="text-lg font-bold tabular-nums">{editorStats?.paragraphs ?? 0}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Paragraphs</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-center">
+                      <BookOpen className="size-4 text-violet-400 mx-auto mb-1" />
+                      <p className="text-lg font-bold tabular-nums">{editorStats?.readingTime ?? 0}</p>
+                      <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Min Read</p>
+                    </div>
+                  </div>
+
+                  {/* Headings breakdown */}
+                  <div className="rounded-lg border p-3">
+                    <h4 className="text-xs font-semibold mb-2">Structure</h4>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Headings</span>
+                        <span className="font-medium tabular-nums">{editorStats?.headings ?? 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Comments</span>
+                        <span className="font-medium tabular-nums">{docComments.count}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Versions</span>
+                        <span className="font-medium tabular-nums">{docVersions.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Tags</span>
+                        <span className="font-medium tabular-nums">{(docTagsMap.get(activeDoc.id.toString()) ?? []).length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keyboard shortcuts reference */}
+                  <div className="rounded-lg border p-3">
+                    <h4 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                      <Keyboard className="size-3.5" />
+                      Shortcuts
+                    </h4>
+                    <div className="space-y-1.5">
+                      {[
+                        { keys: 'Ctrl+S', action: 'Save version' },
+                        { keys: 'Ctrl+Shift+E', action: 'Export markdown' },
+                        { keys: 'Ctrl+Shift+F', action: 'Focus mode' },
+                        { keys: 'Esc', action: 'Exit focus mode' },
+                        { keys: '/', action: 'Slash commands' },
+                        { keys: 'Ctrl+B', action: 'Bold text' },
+                        { keys: 'Ctrl+I', action: 'Italic text' },
+                      ].map(s => (
+                        <div key={s.keys} className="flex items-center justify-between text-[11px]">
+                          <span className="text-muted-foreground">{s.action}</span>
+                          <kbd className="text-[9px] bg-muted px-1.5 py-0.5 rounded font-mono">{s.keys}</kbd>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          )}
         </div>
+
+        {/* Focus mode overlay bar */}
+        {focusMode && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-popover/95 backdrop-blur-sm border rounded-full px-4 py-2 shadow-lg">
+            <Focus className="size-3.5 text-violet-400" />
+            <span className="text-xs text-muted-foreground">Focus Mode</span>
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-[10px] text-muted-foreground tabular-nums">{editorStats?.words?.toLocaleString() ?? 0} words</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFocusMode(false)}
+              className="h-6 px-2 text-[10px] gap-1"
+            >
+              <X className="size-3" />
+              Exit
+            </Button>
+          </div>
+        )}
       </div>
     )
   }

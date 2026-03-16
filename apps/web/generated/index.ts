@@ -217,6 +217,7 @@ import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
 import UpdateCustomerReducer from "./update_customer_reducer";
+import UpdateDealReducer from "./update_deal_reducer";
 import UpdateDealStageReducer from "./update_deal_stage_reducer";
 import UpdateDocumentReducer from "./update_document_reducer";
 import UpdateEmployeeProfileReducer from "./update_employee_profile_reducer";
@@ -233,6 +234,7 @@ import UpdateInvoiceStatusReducer from "./update_invoice_status_reducer";
 import UpdateJobPostingStatusReducer from "./update_job_posting_status_reducer";
 import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
+import UpdateLeadReducer from "./update_lead_reducer";
 import UpdateLeadStatusReducer from "./update_lead_status_reducer";
 import UpdateMeetingStatusReducer from "./update_meeting_status_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
@@ -1375,6 +1377,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),
   __reducerSchema("update_customer", UpdateCustomerReducer),
+  __reducerSchema("update_deal", UpdateDealReducer),
   __reducerSchema("update_deal_stage", UpdateDealStageReducer),
   __reducerSchema("update_document", UpdateDocumentReducer),
   __reducerSchema("update_employee_profile", UpdateEmployeeProfileReducer),
@@ -1391,6 +1394,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_job_posting_status", UpdateJobPostingStatusReducer),
   __reducerSchema("update_kb_article", UpdateKbArticleReducer),
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
+  __reducerSchema("update_lead", UpdateLeadReducer),
   __reducerSchema("update_lead_status", UpdateLeadStatusReducer),
   __reducerSchema("update_meeting_status", UpdateMeetingStatusReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),

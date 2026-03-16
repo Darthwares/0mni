@@ -41,6 +41,17 @@ import {
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -267,6 +278,44 @@ export default function NotificationsPage() {
   const todayCount = notifications.filter((n) => getDateGroup(n.createdAt) === 'Today').length
   const urgentCount = notifications.filter((n) => n.priority?.tag === 'Urgent' || n.priority?.tag === 'High').length
 
+  // Chart: type distribution
+  const TYPE_CHART_COLORS: Record<string, string> = {
+    TaskAssigned: '#3b82f6', TaskCompleted: '#10b981', MentionInMessage: '#0ea5e9',
+    TicketUpdate: '#8b5cf6', PrReviewRequested: '#f97316', AgentCompleted: '#a855f7',
+    MeetingReminder: '#f59e0b', DocumentShared: '#14b8a6', SystemAlert: '#ef4444',
+  }
+  const typePieData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const n of notifications) {
+      const t = n.notificationType?.tag ?? 'SystemAlert'
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([key, value]) => ({
+      name: typeConfig[key as NotificationTypeTag]?.label ?? key,
+      value,
+      color: TYPE_CHART_COLORS[key] ?? '#737373',
+    }))
+  }, [notifications])
+
+  // Chart: priority bar
+  const PRIORITY_BAR_COLORS: Record<string, string> = { Low: '#737373', Normal: '#3b82f6', High: '#f97316', Urgent: '#ef4444' }
+  const priorityBarData = useMemo(() => {
+    const counts: Record<string, number> = { Low: 0, Normal: 0, High: 0, Urgent: 0 }
+    for (const n of notifications) {
+      const p = n.priority?.tag ?? 'Normal'
+      counts[p] = (counts[p] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      fill: PRIORITY_BAR_COLORS[name] ?? '#737373',
+    }))
+  }, [notifications])
+
+  // Read rate
+  const readCount = notifications.filter(n => n.read).length
+  const readPct = notifications.length > 0 ? Math.round((readCount / notifications.length) * 100) : 0
+
   // Selection helpers
   const allFilteredIds = useMemo(() => new Set(filtered.map(n => String(n.id))), [filtered])
   const allSelected = filtered.length > 0 && selectedIds.size === filtered.length && [...allFilteredIds].every(id => selectedIds.has(id))
@@ -450,6 +499,100 @@ export default function NotificationsPage() {
             </div>
           </SpotlightCard>
         </div>
+
+        {/* Insights charts */}
+        {notifications.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+            {/* Type distribution donut */}
+            <div className="rounded-xl border bg-card p-3">
+              <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">By Type</h3>
+              <div className="h-[120px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={typePieData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={2} dataKey="value" stroke="none">
+                      {typePieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 11 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number, name: string) => [value, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 justify-center">
+                {typePieData.slice(0, 5).map((d) => (
+                  <span key={d.name} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                    <span className="size-1.5 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                ))}
+                {typePieData.length > 5 && (
+                  <span className="text-[9px] text-muted-foreground">+{typePieData.length - 5} more</span>
+                )}
+              </div>
+            </div>
+
+            {/* Priority bar chart */}
+            <div className="rounded-xl border bg-card p-3">
+              <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Priority Spread</h3>
+              <div className="h-[130px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityBarData} barSize={24} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 11 }}
+                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(value: number) => [value, 'Count']}
+                    />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {priorityBarData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Read rate + engagement */}
+            <div className="rounded-xl border bg-card p-3">
+              <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Engagement</h3>
+              <div className="space-y-3 mt-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">Read rate</span>
+                    <span className="text-sm font-bold tabular-nums">{readPct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all" style={{ width: `${readPct}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">Unread</span>
+                    <span className="text-sm font-bold tabular-nums text-amber-500">{unreadCount}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all" style={{ width: `${notifications.length > 0 ? Math.min(100, (unreadCount / notifications.length) * 100) : 0}%` }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">High/Urgent</span>
+                    <span className="text-sm font-bold tabular-nums text-red-500">{urgentCount}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-red-500 to-rose-500 transition-all" style={{ width: `${notifications.length > 0 ? Math.min(100, (urgentCount / notifications.length) * 100) : 0}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Type filter pills */}
         <div className="flex flex-wrap gap-1.5 mt-3">

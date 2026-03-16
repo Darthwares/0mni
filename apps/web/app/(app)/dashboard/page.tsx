@@ -1,7 +1,7 @@
 'use client'
 
 import { useTable, useSpacetimeDB, useReducer } from 'spacetimedb/react'
-import { useMemo, useState, useEffect, Suspense } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { tables, reducers } from '@/generated'
@@ -13,12 +13,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { PresenceBar } from '@/components/presence-bar'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Input } from '@/components/ui/input'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -41,19 +54,22 @@ import {
   UserPlus,
   Edit3,
   Trash2,
-  Star,
   Clock,
   Sparkles,
   Zap,
   Target,
-  Layers,
   TrendingUp,
   CalendarClock,
   Bell,
   Flame,
-  ArrowUp,
-  Minus,
-  ArrowDown,
+  Plus,
+  Calendar,
+  FileEdit,
+  CircleCheck,
+  Timer,
+  ChevronRight,
+  BellOff,
+  LayoutDashboard,
 } from 'lucide-react'
 
 const LiveGlobe = dynamic(() => import('@/components/live-globe').then(m => ({ default: m.LiveGlobe })), {
@@ -91,6 +107,25 @@ function timeAgo(ts: any): string {
   } catch { return '' }
 }
 
+function formatEventTime(ts: any): string {
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(Number(ts))
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  } catch { return '' }
+}
+
+function formatEventDate(ts: any): string {
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(Number(ts))
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (d.toDateString() === today.toDateString()) return 'Today'
+    if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+
 function getActionIcon(action: string) {
   switch (action) {
     case 'Created': return <FileText className="size-3.5 text-emerald-400" />
@@ -119,6 +154,16 @@ function getActionVerb(action: string) {
   }
 }
 
+const categoryColors: Record<string, string> = {
+  Meeting: 'bg-blue-500',
+  Deadline: 'bg-red-500',
+  Interview: 'bg-violet-500',
+  Standup: 'bg-emerald-500',
+  Review: 'bg-amber-500',
+  Personal: 'bg-pink-500',
+  Other: 'bg-neutral-500',
+}
+
 export default function DashboardPage() {
   const { identity } = useSpacetimeDB()
   const { currentOrgId, isGlobalOrg, orgMembers } = useOrg()
@@ -134,12 +179,22 @@ export default function DashboardPage() {
   const [allNotifications] = useTable(tables.notification)
   const [allDeals] = useTable(tables.deal)
   const [allTickets] = useTable(tables.ticket)
+  const [allCalEvents] = useTable(tables.cal_event)
 
   const myHex = identity?.toHexString() ?? ''
   const setUserLocation = useReducer(reducers.setUserLocation)
+  const updateTaskStatus = useReducer(reducers.updateTaskStatus)
+  const createTask = useReducer(reducers.createTask)
+  const createDocument = useReducer(reducers.createDocument)
+  const markAllNotificationsRead = useReducer(reducers.markAllNotificationsRead)
 
-  // Location sharing state
+  // UI state
   const [locationShared, setLocationShared] = useState<boolean | null>(null)
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false)
+  const [quickTaskTitle, setQuickTaskTitle] = useState('')
+  const [quickTaskPriority, setQuickTaskPriority] = useState('Medium')
+  const [completingTask, setCompletingTask] = useState<string | null>(null)
+
   useEffect(() => {
     const stored = localStorage.getItem('0mni-location-shared')
     setLocationShared(stored !== null && stored !== 'denied' ? true : stored === 'denied' ? false : null)
@@ -151,7 +206,6 @@ export default function DashboardPage() {
       (pos) => {
         const { latitude, longitude } = pos.coords
         localStorage.setItem('0mni-location-shared', JSON.stringify({ latitude, longitude, ts: Date.now() }))
-        // Persist to SpacetimeDB so globe shows real location
         try { setUserLocation({ latitude, longitude }) } catch {}
         setLocationShared(true)
       },
@@ -162,7 +216,6 @@ export default function DashboardPage() {
     )
   }
 
-  // On mount, if location was previously shared, re-sync to DB
   useEffect(() => {
     const stored = localStorage.getItem('0mni-location-shared')
     if (stored && stored !== 'denied') {
@@ -201,8 +254,12 @@ export default function DashboardPage() {
     () => allDocuments.filter(d => Number(d.orgId) === currentOrgId),
     [allDocuments, currentOrgId]
   )
+  const orgCalEvents = useMemo(
+    () => allCalEvents.filter(e => Number(e.orgId) === currentOrgId),
+    [allCalEvents, currentOrgId]
+  )
 
-  // Build unified feed items from activity logs + recent messages
+  // Unified feed
   type FeedItem = {
     id: string
     type: 'activity' | 'message'
@@ -217,8 +274,6 @@ export default function DashboardPage() {
 
   const feedItems = useMemo(() => {
     const items: FeedItem[] = []
-
-    // Activity logs
     for (const log of allActivityLogs) {
       try {
         items.push({
@@ -233,8 +288,6 @@ export default function DashboardPage() {
         })
       } catch {}
     }
-
-    // Recent messages (non-DM channels only, show as chat activity)
     for (const msg of orgMessages) {
       if (msg.content.startsWith('[system]')) continue
       const channel = orgChannels.find(c => c.id === msg.contextId)
@@ -250,8 +303,7 @@ export default function DashboardPage() {
         })
       } catch {}
     }
-
-    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50)
+    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 30)
   }, [allActivityLogs, orgMessages, orgChannels])
 
   // Stats
@@ -283,7 +335,7 @@ export default function DashboardPage() {
     return map
   }, [allTaskExtensions])
 
-  // My Tasks
+  // My Tasks (open, sorted by priority)
   const myTasks = useMemo(() => {
     return orgTasks.filter((t) => {
       if (!identity) return false
@@ -292,7 +344,7 @@ export default function DashboardPage() {
     }).sort((a, b) => {
       const pOrder = ['Urgent', 'High', 'Medium', 'Low']
       return pOrder.indexOf(a.priority.tag) - pOrder.indexOf(b.priority.tag)
-    }).slice(0, 6)
+    }).slice(0, 8)
   }, [orgTasks, identity, myHex])
 
   // Active sprint
@@ -302,7 +354,6 @@ export default function DashboardPage() {
     ) || null
   }, [allSprints, currentOrgId])
 
-  // Sprint stats
   const sprintStats = useMemo(() => {
     if (!activeSprint) return null
     const sprintId = activeSprint.id.toString()
@@ -317,7 +368,7 @@ export default function DashboardPage() {
     return { total: tasks.length, completed, totalPoints, completedPoints }
   }, [activeSprint, orgTasks, extensionMap])
 
-  // Task status distribution for chart
+  // Task status distribution
   const statusDistribution = useMemo(() => {
     const dist = { Unclaimed: 0, Claimed: 0, InProgress: 0, NeedsReview: 0, Completed: 0, Escalated: 0 }
     orgTasks.forEach((t) => {
@@ -326,7 +377,7 @@ export default function DashboardPage() {
     return dist
   }, [orgTasks])
 
-  // Weekly velocity — tasks completed per day (last 7 days)
+  // Weekly velocity
   const weeklyVelocity = useMemo(() => {
     const days: { label: string; count: number }[] = []
     const now = Date.now()
@@ -345,14 +396,14 @@ export default function DashboardPage() {
     }
     return days
   }, [orgTasks])
-
   const maxVelocity = Math.max(...weeklyVelocity.map((d) => d.count), 1)
 
   // Unread notifications
-  const unreadCount = useMemo(
-    () => allNotifications.filter((n) => !n.read && !n.dismissed).length,
+  const unreadNotifications = useMemo(
+    () => allNotifications.filter((n) => !n.read && !n.dismissed),
     [allNotifications]
   )
+  const unreadCount = unreadNotifications.length
 
   // Overdue tasks
   const overdueTasks = useMemo(() => {
@@ -366,7 +417,7 @@ export default function DashboardPage() {
     })
   }, [orgTasks])
 
-  // Deals pipeline value
+  // Deals pipeline
   const dealStats = useMemo(() => {
     const orgDeals = allDeals.filter((d) => Number(d.orgId) === currentOrgId)
     const totalValue = orgDeals.reduce((sum, d) => sum + Number(d.value), 0)
@@ -374,6 +425,104 @@ export default function DashboardPage() {
       .reduce((sum, d) => sum + Number(d.value), 0)
     return { total: orgDeals.length, totalValue, wonValue }
   }, [allDeals, currentOrgId])
+
+  // Upcoming events (next 7 days)
+  const upcomingEvents = useMemo(() => {
+    const now = Date.now()
+    const weekAhead = now + 7 * 86400000
+    return orgCalEvents
+      .filter((e) => {
+        try {
+          const start = e.startTime.toDate?.().getTime() ?? 0
+          return start >= now && start <= weekAhead
+        } catch { return false }
+      })
+      .sort((a, b) => {
+        try {
+          return (a.startTime.toDate?.().getTime() ?? 0) - (b.startTime.toDate?.().getTime() ?? 0)
+        } catch { return 0 }
+      })
+      .slice(0, 5)
+  }, [orgCalEvents])
+
+  // Due-soon tasks (next 3 days, not overdue)
+  const dueSoonTasks = useMemo(() => {
+    const now = Date.now()
+    const threeDays = now + 3 * 86400000
+    return orgTasks
+      .filter((t) => {
+        if (t.status.tag === 'Completed' || t.status.tag === 'Cancelled') return false
+        try {
+          const due = t.dueAt?.toDate()?.getTime()
+          return due && due >= now && due <= threeDays
+        } catch { return false }
+      })
+      .sort((a, b) => {
+        try {
+          return (a.dueAt?.toDate()?.getTime() ?? 0) - (b.dueAt?.toDate()?.getTime() ?? 0)
+        } catch { return 0 }
+      })
+      .slice(0, 5)
+  }, [orgTasks])
+
+  // Recent documents
+  const recentDocs = useMemo(() => {
+    return [...orgDocs]
+      .sort((a, b) => {
+        try {
+          return (b.updatedAt?.toDate()?.getTime() ?? 0) - (a.updatedAt?.toDate()?.getTime() ?? 0)
+        } catch { return 0 }
+      })
+      .slice(0, 5)
+  }, [orgDocs])
+
+  // Tasks completed today (for streak feel)
+  const tasksCompletedToday = useMemo(() => {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    return orgTasks.filter((t) => {
+      if (t.status.tag !== 'Completed') return false
+      try {
+        return (t.completedAt?.toDate()?.getTime() ?? 0) >= todayStart.getTime()
+      } catch { return false }
+    }).length
+  }, [orgTasks])
+
+  // Quick task creation
+  const handleQuickTask = useCallback(async () => {
+    if (!quickTaskTitle.trim()) return
+    try {
+      await createTask({
+        taskType: { tag: 'FeatureRequest' },
+        title: quickTaskTitle.trim(),
+        description: '',
+        contextType: { tag: 'Task' },
+        contextId: BigInt(0),
+        assignee: identity ?? null,
+        priority: { tag: quickTaskPriority as any },
+        orgId: BigInt(currentOrgId),
+      })
+      setQuickTaskTitle('')
+      setQuickTaskOpen(false)
+    } catch {}
+  }, [quickTaskTitle, quickTaskPriority, createTask, identity, currentOrgId])
+
+  // Complete task from dashboard
+  const handleCompleteTask = useCallback(async (taskId: bigint) => {
+    const key = taskId.toString()
+    setCompletingTask(key)
+    try {
+      await updateTaskStatus({ taskId, newStatus: { tag: 'Completed' } })
+    } catch {}
+    setTimeout(() => setCompletingTask(null), 600)
+  }, [updateTaskStatus])
+
+  // Mark all notifications read
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await markAllNotificationsRead({ orgId: BigInt(currentOrgId) })
+    } catch {}
+  }, [markAllNotificationsRead, currentOrgId])
 
   return (
     <div className="flex flex-col h-full">
@@ -412,36 +561,120 @@ export default function DashboardPage() {
             className="text-sm text-muted-foreground mt-0.5"
           />
         </div>
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-2">
           {unreadCount > 0 && (
-            <Link href="/notifications">
-              <div className="flex items-center gap-2 rounded-lg border bg-red-500/5 border-red-500/10 px-3 py-1.5 hover:bg-red-500/10 transition-colors cursor-pointer">
-                <Bell className="size-3 text-red-500" />
-                <ShinyText
-                  text={`${unreadCount}`}
-                  speed={2}
-                  color="#dc2626"
-                  shineColor="#f87171"
-                  className="text-xs font-medium tabular-nums"
-                />
-                <span className="text-[10px] text-red-500/70">unread</span>
-              </div>
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-2 rounded-lg border bg-red-500/5 border-red-500/10 px-3 py-1.5 hover:bg-red-500/10 transition-colors cursor-pointer"
+                >
+                  <Bell className="size-3 text-red-500" />
+                  <ShinyText
+                    text={`${unreadCount}`}
+                    speed={2}
+                    color="#dc2626"
+                    shineColor="#f87171"
+                    className="text-xs font-medium tabular-nums"
+                  />
+                  <span className="text-[10px] text-red-500/70">unread</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Click to mark all as read</TooltipContent>
+            </Tooltip>
           )}
           <div className="flex items-center gap-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 px-3 py-1.5">
             <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs font-medium tabular-nums"><CountUp to={onlineCount} duration={1} /></span>
             <span className="text-[10px] text-muted-foreground">online</span>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5">
-            <Users className="size-3 text-muted-foreground" />
-            <span className="text-xs font-medium tabular-nums">{orgMembers.length}</span>
-            <span className="text-[10px] text-muted-foreground">members</span>
-          </div>
+          {tasksCompletedToday > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border bg-violet-500/5 border-violet-500/10 px-3 py-1.5">
+              <Flame className="size-3 text-violet-500" />
+              <span className="text-xs font-medium tabular-nums">{tasksCompletedToday}</span>
+              <span className="text-[10px] text-muted-foreground">done today</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Live Globe — shows real-time message activity */}
+      {/* Quick Actions Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs gap-1.5 shrink-0"
+          onClick={() => setQuickTaskOpen(true)}
+        >
+          <Plus className="size-3" />
+          New Task
+        </Button>
+        <Link href="/canvas">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 shrink-0">
+            <FileEdit className="size-3" />
+            New Doc
+          </Button>
+        </Link>
+        <Link href="/messages">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 shrink-0">
+            <MessageSquare className="size-3" />
+            Messages
+          </Button>
+        </Link>
+        <Link href="/calendar">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 shrink-0">
+            <Calendar className="size-3" />
+            Calendar
+          </Button>
+        </Link>
+        <Link href="/tickets">
+          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 shrink-0">
+            <KanbanSquare className="size-3" />
+            Board
+          </Button>
+        </Link>
+      </div>
+
+      {/* Quick Task Dialog */}
+      <Dialog open={quickTaskOpen} onOpenChange={setQuickTaskOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-amber-500/10">
+                <KanbanSquare className="size-4 text-amber-500" />
+              </div>
+              Quick Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="What needs to be done?"
+              value={quickTaskTitle}
+              onChange={(e) => setQuickTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleQuickTask()}
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <Select value={quickTaskPriority} onValueChange={setQuickTaskPriority}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Low">Low</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="h-8 text-xs ml-auto" onClick={handleQuickTask} disabled={!quickTaskTitle.trim()}>
+                Create
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Live Globe */}
       <div className="relative -mx-4 md:mx-0">
         <LiveGlobe />
       </div>
@@ -480,76 +713,69 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-      {/* Prominent Messages CTA (mobile) */}
-      <Link href="/messages" className="block md:hidden">
-        <Card className="border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-violet-500/20">
-              <MessageSquare className="size-6 text-violet-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Messages</p>
-              <p className="text-xs text-muted-foreground">{activeChannelCount} channels &middot; {recentMessageCount} messages</p>
-            </div>
-            <ArrowRight className="size-5 text-violet-400" />
-          </CardContent>
-        </Card>
-      </Link>
 
       {/* Key Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SpotlightCard className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-amber-500/10">
-              <KanbanSquare className="size-3.5 text-amber-500" />
+        <Link href="/tickets">
+          <SpotlightCard className="p-4 cursor-pointer hover:ring-1 hover:ring-ring/20 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-md bg-amber-500/10">
+                <KanbanSquare className="size-3.5 text-amber-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Open Tasks</span>
             </div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Open Tasks</span>
-          </div>
-          <p className="text-2xl font-bold tabular-nums"><CountUp to={openTaskCount} duration={1} /></p>
-          {overdueTasks.length > 0 && (
-            <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-              <AlertCircle className="size-3" />
-              {overdueTasks.length} overdue
-            </p>
-          )}
-        </SpotlightCard>
+            <p className="text-2xl font-bold tabular-nums"><CountUp to={openTaskCount} duration={1} /></p>
+            {overdueTasks.length > 0 && (
+              <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="size-3" />
+                {overdueTasks.length} overdue
+              </p>
+            )}
+          </SpotlightCard>
+        </Link>
 
-        <SpotlightCard className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-violet-500/10">
-              <MessageSquare className="size-3.5 text-violet-500" />
+        <Link href="/messages">
+          <SpotlightCard className="p-4 cursor-pointer hover:ring-1 hover:ring-ring/20 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-md bg-violet-500/10">
+                <MessageSquare className="size-3.5 text-violet-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Messages</span>
             </div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Messages</span>
-          </div>
-          <p className="text-2xl font-bold tabular-nums"><CountUp to={recentMessageCount} duration={1} /></p>
-          <p className="text-[10px] text-muted-foreground mt-1">{activeChannelCount} channels</p>
-        </SpotlightCard>
+            <p className="text-2xl font-bold tabular-nums"><CountUp to={recentMessageCount} duration={1} /></p>
+            <p className="text-[10px] text-muted-foreground mt-1">{activeChannelCount} channels</p>
+          </SpotlightCard>
+        </Link>
 
-        <SpotlightCard className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-blue-500/10">
-              <PenTool className="size-3.5 text-blue-500" />
+        <Link href="/canvas">
+          <SpotlightCard className="p-4 cursor-pointer hover:ring-1 hover:ring-ring/20 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-md bg-blue-500/10">
+                <PenTool className="size-3.5 text-blue-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Documents</span>
             </div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Documents</span>
-          </div>
-          <p className="text-2xl font-bold tabular-nums"><CountUp to={docCount} duration={1} /></p>
-        </SpotlightCard>
+            <p className="text-2xl font-bold tabular-nums"><CountUp to={docCount} duration={1} /></p>
+          </SpotlightCard>
+        </Link>
 
-        <SpotlightCard className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-emerald-500/10">
-              <TrendingUp className="size-3.5 text-emerald-500" />
+        <Link href="/sales">
+          <SpotlightCard className="p-4 cursor-pointer hover:ring-1 hover:ring-ring/20 transition-all">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-md bg-emerald-500/10">
+                <TrendingUp className="size-3.5 text-emerald-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Pipeline</span>
             </div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Pipeline</span>
-          </div>
-          <p className="text-2xl font-bold tabular-nums">${Math.round(dealStats.totalValue / 100).toLocaleString()}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">{dealStats.total} deals</p>
-        </SpotlightCard>
+            <p className="text-2xl font-bold tabular-nums">${Math.round(dealStats.totalValue / 100).toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{dealStats.total} deals</p>
+          </SpotlightCard>
+        </Link>
       </div>
 
-      {/* My Work + Sprint Progress (side by side on desktop) */}
+      {/* My Work + Upcoming (side by side) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* My Work */}
+        {/* My Work — now with inline complete action */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -561,45 +787,55 @@ export default function DashboardPage() {
             </Link>
           </div>
           {myTasks.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {myTasks.map((task) => {
                 const ext = extensionMap.get(task.id.toString())
+                const isCompleting = completingTask === task.id.toString()
                 return (
-                  <Link key={task.id.toString()} href="/tickets" className="block">
-                    <Card className="hover:bg-muted/30 transition-colors cursor-pointer">
-                      <CardContent className="p-3 flex items-center gap-3">
-                        <div className={`size-2 rounded-full shrink-0 ${
-                          task.priority.tag === 'Urgent' ? 'bg-red-500' :
-                          task.priority.tag === 'High' ? 'bg-orange-500' :
-                          task.priority.tag === 'Medium' ? 'bg-amber-400' : 'bg-blue-400'
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground font-mono">T-{task.id.toString()}</span>
-                            <Badge variant="outline" className="text-[9px] h-4 px-1">{task.status.tag.replace(/([A-Z])/g, ' $1').trim()}</Badge>
-                          </div>
+                  <Card key={task.id.toString()} className={`overflow-hidden transition-all duration-300 ${isCompleting ? 'opacity-40 scale-95' : ''}`}>
+                    <CardContent className="p-2.5 flex items-center gap-2.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleCompleteTask(task.id)}
+                            className="size-5 rounded-full border-2 border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors flex items-center justify-center shrink-0 group"
+                          >
+                            <Check className="size-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs">Mark complete</TooltipContent>
+                      </Tooltip>
+                      <div className={`size-1.5 rounded-full shrink-0 ${
+                        task.priority.tag === 'Urgent' ? 'bg-red-500' :
+                        task.priority.tag === 'High' ? 'bg-orange-500' :
+                        task.priority.tag === 'Medium' ? 'bg-amber-400' : 'bg-blue-400'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground font-mono">T-{task.id.toString()}</span>
+                          <Badge variant="outline" className="text-[9px] h-4 px-1">{task.status.tag.replace(/([A-Z])/g, ' $1').trim()}</Badge>
                         </div>
-                        {ext?.storyPoints != null && (
-                          <span className="size-6 rounded-full bg-violet-500/10 text-[10px] font-bold text-violet-500 flex items-center justify-center tabular-nums">
-                            {ext.storyPoints}
-                          </span>
-                        )}
-                        {task.dueAt && (() => {
-                          try {
-                            const due = task.dueAt.toDate()
-                            const isOverdue = due.getTime() < Date.now()
-                            return (
-                              <span className={`text-[10px] ${isOverdue ? 'text-red-500' : 'text-muted-foreground'} flex items-center gap-0.5`}>
-                                <CalendarClock className="size-3" />
-                                {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </span>
-                            )
-                          } catch { return null }
-                        })()}
-                      </CardContent>
-                    </Card>
-                  </Link>
+                      </div>
+                      {ext?.storyPoints != null && (
+                        <span className="size-5 rounded-full bg-violet-500/10 text-[9px] font-bold text-violet-500 flex items-center justify-center tabular-nums">
+                          {ext.storyPoints}
+                        </span>
+                      )}
+                      {task.dueAt && (() => {
+                        try {
+                          const due = task.dueAt.toDate()
+                          const isOverdue = due.getTime() < Date.now()
+                          return (
+                            <span className={`text-[10px] ${isOverdue ? 'text-red-500' : 'text-muted-foreground'} flex items-center gap-0.5`}>
+                              <CalendarClock className="size-3" />
+                              {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )
+                        } catch { return null }
+                      })()}
+                    </CardContent>
+                  </Card>
                 )
               })}
             </div>
@@ -614,8 +850,61 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Charts Panel */}
+        {/* Right column: Upcoming + Charts */}
         <div className="space-y-4">
+          {/* Upcoming Events & Deadlines */}
+          {(upcomingEvents.length > 0 || dueSoonTasks.length > 0 || overdueTasks.length > 0) && (
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <CalendarClock className="size-3" />
+                  Upcoming
+                </h3>
+                <div className="space-y-2">
+                  {/* Overdue tasks first */}
+                  {overdueTasks.slice(0, 3).map((task) => (
+                    <div key={`ov-${task.id}`} className="flex items-center gap-2 p-1.5 rounded-md bg-red-500/5">
+                      <AlertCircle className="size-3.5 text-red-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate text-red-600 dark:text-red-400">{task.title}</p>
+                        <p className="text-[10px] text-red-500/70">Overdue</p>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Due-soon tasks */}
+                  {dueSoonTasks.map((task) => (
+                    <div key={`ds-${task.id}`} className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors">
+                      <Timer className="size-3.5 text-amber-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{task.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Due {(() => { try { return formatEventDate(task.dueAt) } catch { return '' } })()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Calendar events */}
+                  {upcomingEvents.map((event) => (
+                    <Link key={`ev-${event.id}`} href="/calendar" className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors">
+                      <div className={`size-2 rounded-full shrink-0 ${categoryColors[event.category?.tag] || 'bg-neutral-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{event.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatEventDate(event.startTime)} {formatEventTime(event.startTime)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                {(upcomingEvents.length > 0 || dueSoonTasks.length > 0) && (
+                  <Link href="/calendar" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 mt-2">
+                    View calendar <ChevronRight className="size-3" />
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Sprint Progress */}
           {activeSprint && sprintStats && (
             <Card className="overflow-hidden">
@@ -663,7 +952,7 @@ export default function DashboardPage() {
               <div className="flex items-end gap-1.5 h-20">
                 {weeklyVelocity.map((day, i) => (
                   <Tooltip key={i}>
-                    <TooltipTrigger>
+                    <TooltipTrigger asChild>
                       <div className="flex-1 flex flex-col items-center gap-1">
                         <div
                           className={`w-full rounded-t transition-all duration-500 ${
@@ -684,40 +973,75 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Task Status Distribution */}
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                <KanbanSquare className="size-3" />
-                Task Distribution
-              </h3>
-              <div className="space-y-2">
-                {[
-                  { key: 'Unclaimed', label: 'Backlog', color: 'bg-neutral-400' },
-                  { key: 'InProgress', label: 'In Progress', color: 'bg-amber-500' },
-                  { key: 'NeedsReview', label: 'Review', color: 'bg-violet-500' },
-                  { key: 'Completed', label: 'Done', color: 'bg-emerald-500' },
-                ].map(({ key, label, color }) => {
-                  const count = statusDistribution[key as keyof typeof statusDistribution] || 0
-                  const total = orgTasks.length || 1
-                  return (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground w-16 text-right">{label}</span>
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${color} transition-all duration-500`}
-                          style={{ width: `${(count / total) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-medium tabular-nums w-6 text-right">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
         </div>
+      </div>
+
+      {/* Recent Documents + Task Distribution (side by side) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Recent Documents */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <FileText className="size-3" />
+                Recent Documents
+              </h3>
+              <Link href="/canvas" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                View all <ChevronRight className="size-3" />
+              </Link>
+            </div>
+            {recentDocs.length > 0 ? (
+              <div className="space-y-1.5">
+                {recentDocs.map((doc) => (
+                  <Link key={doc.id.toString()} href="/canvas" className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                    <div className="p-1.5 rounded-md bg-blue-500/10">
+                      <FileText className="size-3 text-blue-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{doc.title || 'Untitled'}</p>
+                      <p className="text-[10px] text-muted-foreground">{timeAgo(doc.updatedAt)}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">No documents yet</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Task Status Distribution */}
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+              <KanbanSquare className="size-3" />
+              Task Distribution
+            </h3>
+            <div className="space-y-2">
+              {[
+                { key: 'Unclaimed', label: 'Backlog', color: 'bg-neutral-400' },
+                { key: 'InProgress', label: 'In Progress', color: 'bg-amber-500' },
+                { key: 'NeedsReview', label: 'Review', color: 'bg-violet-500' },
+                { key: 'Completed', label: 'Done', color: 'bg-emerald-500' },
+              ].map(({ key, label, color }) => {
+                const count = statusDistribution[key as keyof typeof statusDistribution] || 0
+                const total = orgTasks.length || 1
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-16 text-right">{label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${color} transition-all duration-500`}
+                        style={{ width: `${(count / total) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-medium tabular-nums w-6 text-right">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Nav */}
@@ -770,9 +1094,11 @@ export default function DashboardPage() {
             <Zap className="size-3" />
             Activity Feed
           </h2>
-          <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/10 tabular-nums">
-            {feedItems.length} updates
-          </Badge>
+          <Link href="/activity">
+            <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/15 tabular-nums cursor-pointer">
+              {feedItems.length} updates <ChevronRight className="size-3 ml-0.5" />
+            </Badge>
+          </Link>
         </div>
 
         {feedItems.length === 0 ? (
@@ -797,7 +1123,6 @@ export default function DashboardPage() {
               return (
                 <Card key={item.id} className="overflow-hidden">
                   <CardContent className="p-3 md:p-4">
-                    {/* Post header */}
                     <div className="flex items-start gap-2.5 md:gap-3">
                       <Avatar className="size-8 md:size-9 shrink-0">
                         {actor?.avatarUrl && <AvatarImage src={actor.avatarUrl} />}
@@ -825,7 +1150,7 @@ export default function DashboardPage() {
                                 #{item.channelName}
                               </Badge>
                             </div>
-                            <p className="text-sm mt-2 text-foreground/90 whitespace-pre-wrap break-words line-clamp-4">
+                            <p className="text-sm mt-2 text-foreground/90 whitespace-pre-wrap break-words line-clamp-3">
                               {item.content}
                             </p>
                           </>

@@ -25,6 +25,15 @@ import {
   Search,
   Download,
   Filter,
+  Flame,
+  PieChart,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Layers,
+  Trophy,
+  Zap,
+  Eye,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -64,11 +73,22 @@ const STATUSES: { label: string; value: ObjStatusFilter }[] = [
 const QUARTERS = ['Q1 2026', 'Q2 2026', 'Q3 2026', 'Q4 2026']
 const UNITS = ['%', 'count', '$', 'hours', 'score', 'NPS']
 
+type TabView = 'objectives' | 'analytics'
+
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
   OnTrack: { label: 'On Track', bg: 'bg-green-500/10', text: 'text-green-600 dark:text-green-400', border: 'border-green-500/20', dot: 'bg-green-500' },
   AtRisk: { label: 'At Risk', bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500' },
   Behind: { label: 'Behind', bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/20', dot: 'bg-red-500' },
   Completed: { label: 'Completed', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20', dot: 'bg-emerald-500' },
+}
+
+const DEPT_COLORS: Record<string, { gradient: string; bg: string; text: string; ring: string }> = {
+  Engineering: { gradient: 'from-blue-500 to-cyan-500', bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', ring: 'text-blue-500' },
+  Sales: { gradient: 'from-emerald-500 to-green-500', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', ring: 'text-emerald-500' },
+  Marketing: { gradient: 'from-purple-500 to-pink-500', bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', ring: 'text-purple-500' },
+  Product: { gradient: 'from-amber-500 to-orange-500', bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', ring: 'text-amber-500' },
+  HR: { gradient: 'from-rose-500 to-red-500', bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', ring: 'text-rose-500' },
+  Operations: { gradient: 'from-slate-500 to-zinc-500', bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', ring: 'text-slate-500' },
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -114,6 +134,7 @@ export default function GoalsPage() {
 
   const createObjective = useReducer(reducers.createObjective)
   const updateObjectiveStatus = useReducer(reducers.updateObjectiveStatus)
+  const updateObjective = useReducer(reducers.updateObjective)
   const deleteObjective = useReducer(reducers.deleteObjective)
   const createKeyResult = useReducer(reducers.createKeyResult)
   const updateKrProgress = useReducer(reducers.updateKrProgress)
@@ -121,6 +142,7 @@ export default function GoalsPage() {
   const addKrCheckIn = useReducer(reducers.addKrCheckIn)
   const deleteKrCheckIn = useReducer(reducers.deleteKrCheckIn)
 
+  const [activeTab, setActiveTab] = useState<TabView>('objectives')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedQuarter, setSelectedQuarter] = useState('Q1 2026')
   const [departmentFilter, setDepartmentFilter] = useState('All')
@@ -129,6 +151,7 @@ export default function GoalsPage() {
   const [editingKR, setEditingKR] = useState<{ krId: bigint } | null>(null)
   const [editKRValue, setEditKRValue] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editObj, setEditObj] = useState<{ id: bigint; title: string; description: string; quarter: string; department: string } | null>(null)
 
   // Check-in dialog state
   const [checkInKR, setCheckInKR] = useState<{ krId: bigint; krTitle: string; currentValue: number; targetValue: number; unit: string } | null>(null)
@@ -178,7 +201,6 @@ export default function GoalsPage() {
       list.push(ci)
       map.set(key, list)
     })
-    // Sort each list by created_at descending
     map.forEach((list) => {
       list.sort((a, b) => {
         const ta = typeof a.createdAt === 'bigint' ? a.createdAt : BigInt(0)
@@ -248,6 +270,54 @@ export default function GoalsPage() {
     return counts
   }, [quarterObjectives])
 
+  // ─── Analytics Data ───────────────────────────────────────────────────
+
+  const deptAnalytics = useMemo(() => {
+    const depts = DEPARTMENTS.filter(d => d !== 'All')
+    return depts.map(dept => {
+      const objs = quarterObjectives.filter(o => o.department === dept)
+      const count = objs.length
+      if (count === 0) return { dept, count: 0, avgProgress: 0, krs: 0, completedKRs: 0, statuses: { OnTrack: 0, AtRisk: 0, Behind: 0, Completed: 0 } }
+      const avgProg = Math.round(objs.reduce((s, o) => s + getObjectiveProgress(o.id), 0) / count)
+      const krs = objs.reduce((s, o) => s + (krsByObjective.get(o.id)?.length ?? 0), 0)
+      const completedKRs = objs.reduce((s, o) => {
+        const oKrs = krsByObjective.get(o.id) ?? []
+        return s + oKrs.filter(kr => getKRProgress(kr.targetValue, kr.currentValue) >= 100).length
+      }, 0)
+      const statuses = { OnTrack: 0, AtRisk: 0, Behind: 0, Completed: 0 }
+      objs.forEach(o => {
+        const tag = o.status?.tag ?? 'OnTrack'
+        if (tag in statuses) statuses[tag as keyof typeof statuses]++
+      })
+      return { dept, count, avgProgress: avgProg, krs, completedKRs, statuses }
+    }).filter(d => d.count > 0)
+  }, [quarterObjectives, krsByObjective, getObjectiveProgress])
+
+  const topPerformers = useMemo(() => {
+    return [...quarterObjectives]
+      .map(o => ({ ...o, progress: getObjectiveProgress(o.id) }))
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 5)
+  }, [quarterObjectives, getObjectiveProgress])
+
+  const atRiskObjectives = useMemo(() => {
+    return quarterObjectives
+      .filter(o => o.status?.tag === 'AtRisk' || o.status?.tag === 'Behind')
+      .map(o => ({ ...o, progress: getObjectiveProgress(o.id) }))
+  }, [quarterObjectives, getObjectiveProgress])
+
+  // Cross-quarter comparison
+  const quarterComparison = useMemo(() => {
+    return QUARTERS.map(q => {
+      const objs = orgObjectives.filter(o => o.quarter === q)
+      const count = objs.length
+      if (count === 0) return { quarter: q, count: 0, avgProgress: 0, completedPct: 0 }
+      const avg = Math.round(objs.reduce((s, o) => s + getObjectiveProgress(o.id), 0) / count)
+      const completed = objs.filter(o => o.status?.tag === 'Completed').length
+      return { quarter: q, count, avgProgress: avg, completedPct: count > 0 ? Math.round((completed / count) * 100) : 0 }
+    })
+  }, [orgObjectives, getObjectiveProgress])
+
   // ─── Handlers ──────────────────────────────────────────────────────────
 
   const toggleExpand = useCallback((id: bigint) => {
@@ -286,9 +356,6 @@ export default function GoalsPage() {
         quarter: newQuarter,
         department: newDepartment,
       })
-      // Create KRs — we need the objective ID. Since SpacetimeDB is async,
-      // the objective will appear in the next subscription update.
-      // For now, we'll create KRs in a follow-up step from the UI.
       setShowCreateDialog(false)
       setNewTitle('')
       setNewDescription('')
@@ -297,6 +364,22 @@ export default function GoalsPage() {
       console.error('Failed to create objective:', e)
     }
   }, [newTitle, newDescription, newQuarter, newDepartment, currentOrgId, createObjective])
+
+  const handleEditSave = useCallback(async () => {
+    if (!editObj) return
+    try {
+      await updateObjective({
+        objectiveId: editObj.id,
+        title: editObj.title.trim(),
+        description: editObj.description.trim(),
+        quarter: editObj.quarter,
+        department: editObj.department,
+      })
+    } catch (e) {
+      console.error('Failed to update objective:', e)
+    }
+    setEditObj(null)
+  }, [editObj, updateObjective])
 
   const handleDeleteObjective = useCallback(async (id: bigint) => {
     try {
@@ -375,6 +458,16 @@ export default function GoalsPage() {
 
   const removeKRField = useCallback((index: number) => {
     setNewKRs(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const openEditDialog = useCallback((obj: any) => {
+    setEditObj({
+      id: obj.id,
+      title: obj.title,
+      description: obj.description,
+      quarter: obj.quarter,
+      department: obj.department,
+    })
   }, [])
 
   // ─── Render ────────────────────────────────────────────────────────────
@@ -577,370 +670,671 @@ export default function GoalsPage() {
             </div>
           )}
 
-          {/* Quarter Tabs + Filters */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            {/* Quarter tabs */}
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
-              {QUARTERS.map(q => (
-                <button
-                  key={q}
-                  onClick={() => setSelectedQuarter(q)}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    selectedQuarter === q
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-
-            {/* Department filter pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {DEPARTMENTS.map(d => (
-                <button
-                  key={d}
-                  onClick={() => setDepartmentFilter(d)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    departmentFilter === d
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                      : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground/30'
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-
-            {/* Status filter */}
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted ml-auto">
-              {STATUSES.map(s => (
-                <button
-                  key={s.value}
-                  onClick={() => setStatusFilter(s.value)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    statusFilter === s.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+          {/* Tab Switcher */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+            <button
+              onClick={() => setActiveTab('objectives')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'objectives'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Target className="size-3.5" />
+              Objectives
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'analytics'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <PieChart className="size-3.5" />
+              Analytics
+            </button>
           </div>
 
-          {/* Objectives List */}
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                <Target className="size-7 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-1">No objectives found</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                Create your first objective to start tracking team goals and key results.
-              </p>
-              <Button onClick={() => setShowCreateDialog(true)} className="gap-1.5 bg-gradient-to-r from-amber-500 to-lime-500 text-white">
-                <Plus className="size-4" />
-                New Objective
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {filtered.map(obj => {
-                const krs = krsByObjective.get(obj.id) ?? []
-                const progress = getObjectiveProgress(obj.id)
-                const expanded = expandedIds.has(obj.id)
-                const statusTag = obj.status?.tag ?? 'OnTrack'
-                const statusCfg = STATUS_CONFIG[statusTag] ?? STATUS_CONFIG.OnTrack
-                const ownerEmp = employeeMap.get(obj.owner.toHexString())
-
-                return (
-                  <div key={obj.id.toString()} className="rounded-2xl border bg-card overflow-hidden transition-shadow hover:shadow-sm">
-                    {/* Objective header */}
-                    <div
-                      className="flex items-center gap-4 px-5 py-4 cursor-pointer"
-                      onClick={() => toggleExpand(obj.id)}
+          {activeTab === 'objectives' ? (
+            <>
+              {/* Quarter Tabs + Filters */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+                  {QUARTERS.map(q => (
+                    <button
+                      key={q}
+                      onClick={() => setSelectedQuarter(q)}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        selectedQuarter === q
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
-                      {/* Expand arrow */}
-                      {expanded ? (
-                        <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                      )}
+                      {q}
+                    </button>
+                  ))}
+                </div>
 
-                      {/* Progress ring */}
-                      <div className="relative size-10 shrink-0">
-                        <svg viewBox="0 0 40 40" className="size-full -rotate-90">
-                          <circle cx="20" cy="20" r="16" fill="none" strokeWidth="3" stroke="currentColor" className="text-muted" />
-                          <circle
-                            cx="20" cy="20" r="16" fill="none" strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeDasharray={`${(progress / 100) * 100.5} 100.5`}
-                            stroke="currentColor"
-                            className={progress >= 70 ? 'text-green-500' : progress >= 40 ? 'text-amber-500' : 'text-red-500'}
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-[9px] font-bold tabular-nums">{progress}%</span>
-                        </div>
-                      </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {DEPARTMENTS.map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDepartmentFilter(d)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        departmentFilter === d
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
 
-                      {/* Title + meta */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold truncate">{obj.title}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Building2 className="size-3" />
-                            {obj.department}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <User className="size-3" />
-                            {ownerEmp?.name ?? 'You'}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {krs.length} KR{krs.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </div>
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-muted ml-auto">
+                  {STATUSES.map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => setStatusFilter(s.value)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        statusFilter === s.value
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                      {/* Status badge */}
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}>
-                        <span className={`size-1.5 rounded-full ${statusCfg.dot}`} />
-                        {statusCfg.label}
-                      </span>
+              {/* Objectives List */}
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                    <Target className="size-7 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">No objectives found</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                    Create your first objective to start tracking team goals and key results.
+                  </p>
+                  <Button onClick={() => setShowCreateDialog(true)} className="gap-1.5 bg-gradient-to-r from-amber-500 to-lime-500 text-white">
+                    <Plus className="size-4" />
+                    New Objective
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {filtered.map(obj => {
+                    const krs = krsByObjective.get(obj.id) ?? []
+                    const progress = getObjectiveProgress(obj.id)
+                    const expanded = expandedIds.has(obj.id)
+                    const statusTag = obj.status?.tag ?? 'OnTrack'
+                    const statusCfg = STATUS_CONFIG[statusTag] ?? STATUS_CONFIG.OnTrack
+                    const ownerEmp = employeeMap.get(obj.owner.toHexString())
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                        {/* Status change buttons */}
-                        <div className="relative group/statusdd">
-                          <button className="h-7 px-2.5 rounded-md border bg-background text-[10px] font-medium flex items-center gap-1.5 hover:border-primary/30 transition-colors">
+                    return (
+                      <div key={obj.id.toString()} className="rounded-2xl border bg-card overflow-hidden transition-shadow hover:shadow-sm">
+                        {/* Objective header */}
+                        <div
+                          className="flex items-center gap-4 px-5 py-4 cursor-pointer"
+                          onClick={() => toggleExpand(obj.id)}
+                        >
+                          {expanded ? (
+                            <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                          )}
+
+                          {/* Progress ring */}
+                          <div className="relative size-10 shrink-0">
+                            <svg viewBox="0 0 40 40" className="size-full -rotate-90">
+                              <circle cx="20" cy="20" r="16" fill="none" strokeWidth="3" stroke="currentColor" className="text-muted" />
+                              <circle
+                                cx="20" cy="20" r="16" fill="none" strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeDasharray={`${(progress / 100) * 100.5} 100.5`}
+                                stroke="currentColor"
+                                className={progress >= 70 ? 'text-green-500' : progress >= 40 ? 'text-amber-500' : 'text-red-500'}
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[9px] font-bold tabular-nums">{progress}%</span>
+                            </div>
+                          </div>
+
+                          {/* Title + meta */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold truncate">{obj.title}</h3>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Building2 className="size-3" />
+                                {obj.department}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <User className="size-3" />
+                                {ownerEmp?.name ?? 'You'}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {krs.length} KR{krs.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status badge */}
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}>
                             <span className={`size-1.5 rounded-full ${statusCfg.dot}`} />
                             {statusCfg.label}
-                            <ChevronDown className="size-3 text-muted-foreground" />
-                          </button>
-                          <div className="absolute top-full right-0 mt-1 z-50 hidden group-hover/statusdd:block">
-                            <div className="bg-popover border rounded-lg shadow-lg p-1 min-w-[120px]">
-                              {(['OnTrack', 'AtRisk', 'Behind', 'Completed'] as const).map(s => {
-                                const sc = STATUS_CONFIG[s]
+                          </span>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                            {/* Edit button */}
+                            <button
+                              onClick={() => openEditDialog(obj)}
+                              className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                              title="Edit objective"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+
+                            {/* Status change buttons */}
+                            <div className="relative group/statusdd">
+                              <button className="h-7 px-2.5 rounded-md border bg-background text-[10px] font-medium flex items-center gap-1.5 hover:border-primary/30 transition-colors">
+                                <span className={`size-1.5 rounded-full ${statusCfg.dot}`} />
+                                {statusCfg.label}
+                                <ChevronDown className="size-3 text-muted-foreground" />
+                              </button>
+                              <div className="absolute top-full right-0 mt-1 z-50 hidden group-hover/statusdd:block">
+                                <div className="bg-popover border rounded-lg shadow-lg p-1 min-w-[120px]">
+                                  {(['OnTrack', 'AtRisk', 'Behind', 'Completed'] as const).map(s => {
+                                    const sc = STATUS_CONFIG[s]
+                                    return (
+                                      <button
+                                        key={s}
+                                        onClick={() => handleStatusChange(obj.id, s)}
+                                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors ${statusTag === s ? 'bg-muted' : ''}`}
+                                      >
+                                        <span className={`size-2 rounded-full ${sc.dot}`} />
+                                        <span>{sc.label}</span>
+                                        {statusTag === s && <Check className="size-3 ml-auto text-primary" />}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteObjective(obj.id)}
+                              className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress bar below header */}
+                        <div className="px-5 pb-3 -mt-1">
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${progressColor(progress)}`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Expanded: Key Results */}
+                        {expanded && (
+                          <div className="border-t">
+                            {obj.description && (
+                              <div className="px-5 py-3 bg-muted/30">
+                                <p className="text-xs text-muted-foreground">{obj.description}</p>
+                              </div>
+                            )}
+                            <div className="divide-y">
+                              {krs.map(kr => {
+                                const krProgress = getKRProgress(kr.targetValue, kr.currentValue)
+                                const isEditing = editingKR?.krId === kr.id
+                                const krCheckIns = checkInsByKR.get(kr.id.toString()) ?? []
+                                const historyOpen = expandedKRHistory.has(kr.id.toString())
+
                                 return (
-                                  <button
-                                    key={s}
-                                    onClick={() => handleStatusChange(obj.id, s)}
-                                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors ${statusTag === s ? 'bg-muted' : ''}`}
-                                  >
-                                    <span className={`size-2 rounded-full ${sc.dot}`} />
-                                    <span>{sc.label}</span>
-                                    {statusTag === s && <Check className="size-3 ml-auto text-primary" />}
-                                  </button>
+                                  <div key={kr.id.toString()}>
+                                    <div className="flex items-center gap-4 px-5 py-3 group hover:bg-muted/30 transition-colors">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xs font-medium truncate">{kr.title}</span>
+                                          <span className={`text-[10px] font-bold tabular-nums ${progressTextColor(krProgress)}`}>
+                                            {krProgress}%
+                                          </span>
+                                          {krCheckIns.length >= 2 && (
+                                            <svg className="w-12 h-4 shrink-0" viewBox={`0 0 ${Math.max(krCheckIns.length - 1, 1) * 10} 16`}>
+                                              <polyline
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="text-amber-500"
+                                                points={[...krCheckIns].reverse().slice(-8).map((ci, i) => {
+                                                  const pct = kr.targetValue > 0 ? ci.progressValue / kr.targetValue : 0
+                                                  const y = 14 - Math.min(pct, 1) * 12
+                                                  return `${i * 10},${y}`
+                                                }).join(' ')}
+                                              />
+                                            </svg>
+                                          )}
+                                        </div>
+                                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full transition-all duration-500 ${progressColor(krProgress)}`}
+                                            style={{ width: `${krProgress}%` }}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {isEditing ? (
+                                          <div className="flex items-center gap-1">
+                                            <input
+                                              type="number"
+                                              value={editKRValue}
+                                              onChange={e => setEditKRValue(e.target.value)}
+                                              className="w-16 h-6 px-1.5 rounded border bg-background text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                                              autoFocus
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter') handleKRSave()
+                                                if (e.key === 'Escape') setEditingKR(null)
+                                              }}
+                                            />
+                                            <button onClick={handleKRSave} className="size-5 flex items-center justify-center rounded bg-green-500/10 text-green-600 hover:bg-green-500/20">
+                                              <Check className="size-3" />
+                                            </button>
+                                            <button onClick={() => setEditingKR(null)} className="size-5 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80">
+                                              <X className="size-3" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleKREdit(kr.id, kr.currentValue)}
+                                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground tabular-nums transition-colors"
+                                            title="Click to quick-edit progress"
+                                          >
+                                            <span className="font-medium">{kr.currentValue}</span>
+                                            <span>/</span>
+                                            <span>{kr.targetValue}</span>
+                                            <span className="text-[10px]">{kr.unit}</span>
+                                            <Pencil className="size-3 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      <button
+                                        onClick={() => openCheckInDialog(kr)}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors shrink-0"
+                                        title="Log a check-in with notes"
+                                      >
+                                        <MessageSquarePlus className="size-3" />
+                                        Check-in
+                                      </button>
+
+                                      {krCheckIns.length > 0 && (
+                                        <button
+                                          onClick={() => toggleKRHistory(kr.id.toString())}
+                                          className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] tabular-nums transition-colors shrink-0 ${
+                                            historyOpen
+                                              ? 'text-foreground bg-muted'
+                                              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                          }`}
+                                          title="View check-in history"
+                                        >
+                                          <History className="size-3" />
+                                          {krCheckIns.length}
+                                        </button>
+                                      )}
+
+                                      <button
+                                        onClick={() => handleDeleteKR(kr.id)}
+                                        className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </button>
+                                    </div>
+
+                                    {historyOpen && krCheckIns.length > 0 && (
+                                      <div className="px-5 pb-3 ml-4 border-l-2 border-amber-500/20">
+                                        <div className="flex flex-col gap-2 pt-1">
+                                          {krCheckIns.slice(0, 10).map(ci => {
+                                            const ciDate = timestampToDate(ci.createdAt)
+                                            const ciPct = kr.targetValue > 0 ? Math.round((ci.progressValue / kr.targetValue) * 100) : 0
+                                            const authorEmp = employeeMap.get(ci.createdBy.toHexString())
+                                            return (
+                                              <div key={ci.id.toString()} className="flex items-start gap-3 group/ci">
+                                                <div className="relative mt-1.5">
+                                                  <div className={`size-2 rounded-full ${progressColor(ciPct)}`} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className={`text-[11px] font-bold tabular-nums ${progressTextColor(ciPct)}`}>
+                                                      {ci.progressValue}/{kr.targetValue} {kr.unit} ({ciPct}%)
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                                      <Clock className="size-2.5" />
+                                                      {formatDate(ciDate)}
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                      {authorEmp?.name ?? 'You'}
+                                                    </span>
+                                                    <button
+                                                      onClick={() => handleDeleteCheckIn(ci.id)}
+                                                      className="size-4 flex items-center justify-center rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover/ci:opacity-100 transition-opacity"
+                                                    >
+                                                      <Trash2 className="size-2.5" />
+                                                    </button>
+                                                  </div>
+                                                  {ci.note && (
+                                                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{ci.note}</p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                          {krCheckIns.length > 10 && (
+                                            <span className="text-[10px] text-muted-foreground ml-5">
+                                              +{krCheckIns.length - 10} older check-ins
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 )
                               })}
                             </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteObjective(obj.id)}
-                          className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Progress bar below header */}
-                    <div className="px-5 pb-3 -mt-1">
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${progressColor(progress)}`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Expanded: Key Results */}
-                    {expanded && (
-                      <div className="border-t">
-                        {obj.description && (
-                          <div className="px-5 py-3 bg-muted/30">
-                            <p className="text-xs text-muted-foreground">{obj.description}</p>
+                            <AddKRInline objectiveId={obj.id} onAdd={handleAddKR} />
                           </div>
                         )}
-                        <div className="divide-y">
-                          {krs.map(kr => {
-                            const krProgress = getKRProgress(kr.targetValue, kr.currentValue)
-                            const isEditing = editingKR?.krId === kr.id
-                            const krCheckIns = checkInsByKR.get(kr.id.toString()) ?? []
-                            const historyOpen = expandedKRHistory.has(kr.id.toString())
-
-                            return (
-                              <div key={kr.id.toString()}>
-                                <div className="flex items-center gap-4 px-5 py-3 group hover:bg-muted/30 transition-colors">
-                                  {/* KR title + progress bar */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-xs font-medium truncate">{kr.title}</span>
-                                      <span className={`text-[10px] font-bold tabular-nums ${progressTextColor(krProgress)}`}>
-                                        {krProgress}%
-                                      </span>
-                                      {/* Mini sparkline for recent check-ins */}
-                                      {krCheckIns.length >= 2 && (
-                                        <svg className="w-12 h-4 shrink-0" viewBox={`0 0 ${Math.max(krCheckIns.length - 1, 1) * 10} 16`}>
-                                          <polyline
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="text-amber-500"
-                                            points={[...krCheckIns].reverse().slice(-8).map((ci, i) => {
-                                              const pct = kr.targetValue > 0 ? ci.progressValue / kr.targetValue : 0
-                                              const y = 14 - Math.min(pct, 1) * 12
-                                              return `${i * 10},${y}`
-                                            }).join(' ')}
-                                          />
-                                        </svg>
-                                      )}
-                                    </div>
-                                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full transition-all duration-500 ${progressColor(krProgress)}`}
-                                        style={{ width: `${krProgress}%` }}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {/* Current / Target */}
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-1">
-                                        <input
-                                          type="number"
-                                          value={editKRValue}
-                                          onChange={e => setEditKRValue(e.target.value)}
-                                          className="w-16 h-6 px-1.5 rounded border bg-background text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                                          autoFocus
-                                          onKeyDown={e => {
-                                            if (e.key === 'Enter') handleKRSave()
-                                            if (e.key === 'Escape') setEditingKR(null)
-                                          }}
-                                        />
-                                        <button onClick={handleKRSave} className="size-5 flex items-center justify-center rounded bg-green-500/10 text-green-600 hover:bg-green-500/20">
-                                          <Check className="size-3" />
-                                        </button>
-                                        <button onClick={() => setEditingKR(null)} className="size-5 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80">
-                                          <X className="size-3" />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleKREdit(kr.id, kr.currentValue)}
-                                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground tabular-nums transition-colors"
-                                        title="Click to quick-edit progress"
-                                      >
-                                        <span className="font-medium">{kr.currentValue}</span>
-                                        <span>/</span>
-                                        <span>{kr.targetValue}</span>
-                                        <span className="text-[10px]">{kr.unit}</span>
-                                        <Pencil className="size-3 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* Check-in button */}
-                                  <button
-                                    onClick={() => openCheckInDialog(kr)}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors shrink-0"
-                                    title="Log a check-in with notes"
-                                  >
-                                    <MessageSquarePlus className="size-3" />
-                                    Check-in
-                                  </button>
-
-                                  {/* History toggle */}
-                                  {krCheckIns.length > 0 && (
-                                    <button
-                                      onClick={() => toggleKRHistory(kr.id.toString())}
-                                      className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] tabular-nums transition-colors shrink-0 ${
-                                        historyOpen
-                                          ? 'text-foreground bg-muted'
-                                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                                      }`}
-                                      title="View check-in history"
-                                    >
-                                      <History className="size-3" />
-                                      {krCheckIns.length}
-                                    </button>
-                                  )}
-
-                                  {/* Delete KR */}
-                                  <button
-                                    onClick={() => handleDeleteKR(kr.id)}
-                                    className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                  >
-                                    <Trash2 className="size-3" />
-                                  </button>
-                                </div>
-
-                                {/* Check-in history timeline */}
-                                {historyOpen && krCheckIns.length > 0 && (
-                                  <div className="px-5 pb-3 ml-4 border-l-2 border-amber-500/20">
-                                    <div className="flex flex-col gap-2 pt-1">
-                                      {krCheckIns.slice(0, 10).map(ci => {
-                                        const ciDate = timestampToDate(ci.createdAt)
-                                        const ciPct = kr.targetValue > 0 ? Math.round((ci.progressValue / kr.targetValue) * 100) : 0
-                                        const authorEmp = employeeMap.get(ci.createdBy.toHexString())
-                                        return (
-                                          <div key={ci.id.toString()} className="flex items-start gap-3 group/ci">
-                                            <div className="relative mt-1.5">
-                                              <div className={`size-2 rounded-full ${progressColor(ciPct)}`} />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                              <div className="flex items-center gap-2">
-                                                <span className={`text-[11px] font-bold tabular-nums ${progressTextColor(ciPct)}`}>
-                                                  {ci.progressValue}/{kr.targetValue} {kr.unit} ({ciPct}%)
-                                                </span>
-                                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                                  <Clock className="size-2.5" />
-                                                  {formatDate(ciDate)}
-                                                </span>
-                                                <span className="text-[10px] text-muted-foreground">
-                                                  {authorEmp?.name ?? 'You'}
-                                                </span>
-                                                <button
-                                                  onClick={() => handleDeleteCheckIn(ci.id)}
-                                                  className="size-4 flex items-center justify-center rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover/ci:opacity-100 transition-opacity"
-                                                >
-                                                  <Trash2 className="size-2.5" />
-                                                </button>
-                                              </div>
-                                              {ci.note && (
-                                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{ci.note}</p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
-                                      {krCheckIns.length > 10 && (
-                                        <span className="text-[10px] text-muted-foreground ml-5">
-                                          +{krCheckIns.length - 10} older check-ins
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-
-                        {/* Add Key Result inline */}
-                        <AddKRInline objectiveId={obj.id} onAdd={handleAddKR} />
                       </div>
-                    )}
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            /* ─── Analytics Tab ─────────────────────────────────────────── */
+            <div className="flex flex-col gap-6">
+              {/* Quarter selector for analytics */}
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+                {QUARTERS.map(q => (
+                  <button
+                    key={q}
+                    onClick={() => setSelectedQuarter(q)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      selectedQuarter === q
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+
+              {/* Department Performance Grid */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Layers className="size-4 text-amber-500" />
+                  Department Performance
+                </h3>
+                {deptAnalytics.length === 0 ? (
+                  <div className="rounded-xl border bg-card p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No objectives this quarter. Create some to see analytics.</p>
                   </div>
-                )
-              })}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {deptAnalytics.map(da => {
+                      const dc = DEPT_COLORS[da.dept] ?? DEPT_COLORS.Operations
+                      return (
+                        <SpotlightCard key={da.dept} className="!p-5 !rounded-xl" spotlightColor="rgba(245, 158, 11, 0.08)">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className={`size-9 rounded-lg bg-gradient-to-br ${dc.gradient} flex items-center justify-center`}>
+                              <Building2 className="size-4 text-white" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-semibold">{da.dept}</h4>
+                              <p className="text-[10px] text-muted-foreground">{da.count} objective{da.count !== 1 ? 's' : ''} · {da.krs} KRs</p>
+                            </div>
+                          </div>
+
+                          {/* Progress ring */}
+                          <div className="flex items-center gap-4 mb-3">
+                            <div className="relative size-16 shrink-0">
+                              <svg viewBox="0 0 64 64" className="size-full -rotate-90">
+                                <circle cx="32" cy="32" r="26" fill="none" strokeWidth="5" stroke="currentColor" className="text-muted" />
+                                <circle
+                                  cx="32" cy="32" r="26" fill="none" strokeWidth="5"
+                                  strokeLinecap="round"
+                                  strokeDasharray={`${(da.avgProgress / 100) * 163.4} 163.4`}
+                                  stroke="currentColor"
+                                  className={dc.ring}
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-sm font-bold tabular-nums">{da.avgProgress}%</span>
+                              </div>
+                            </div>
+                            <div className="flex-1 space-y-1.5">
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-muted-foreground">KR Completion</span>
+                                <span className="font-bold tabular-nums">{da.completedKRs}/{da.krs}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full bg-gradient-to-r ${dc.gradient} transition-all duration-700`}
+                                  style={{ width: `${da.krs > 0 ? (da.completedKRs / da.krs) * 100 : 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status breakdown mini bar */}
+                          <div className="flex items-center gap-2">
+                            {Object.entries(da.statuses).filter(([, v]) => v > 0).map(([status, count]) => {
+                              const sc = STATUS_CONFIG[status]
+                              return (
+                                <span key={status} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium ${sc?.bg ?? ''} ${sc?.text ?? ''}`}>
+                                  <span className={`size-1 rounded-full ${sc?.dot ?? ''}`} />
+                                  {count}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        </SpotlightCard>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Quarter Comparison */}
+              <div className="rounded-xl border bg-card p-5">
+                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <BarChart3 className="size-4 text-blue-500" />
+                  Quarter Comparison
+                </h3>
+                <div className="grid grid-cols-4 gap-3">
+                  {quarterComparison.map(qc => {
+                    const isSelected = qc.quarter === selectedQuarter
+                    return (
+                      <button
+                        key={qc.quarter}
+                        onClick={() => setSelectedQuarter(qc.quarter)}
+                        className={`rounded-xl p-4 border transition-all text-left ${
+                          isSelected
+                            ? 'border-amber-500/40 bg-amber-500/5 ring-1 ring-amber-500/20'
+                            : 'border-border hover:border-muted-foreground/30'
+                        }`}
+                      >
+                        <div className="text-xs font-semibold mb-2">{qc.quarter}</div>
+                        {qc.count === 0 ? (
+                          <p className="text-[10px] text-muted-foreground">No objectives</p>
+                        ) : (
+                          <>
+                            <div className="flex items-end gap-2 mb-2">
+                              <span className="text-2xl font-bold tabular-nums">{qc.avgProgress}</span>
+                              <span className="text-[10px] text-muted-foreground mb-1">% avg</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
+                              <div
+                                className={`h-full rounded-full transition-all duration-700 ${progressColor(qc.avgProgress)}`}
+                                style={{ width: `${qc.avgProgress}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span>{qc.count} obj{qc.count !== 1 ? 's' : ''}</span>
+                              <span className={progressTextColor(qc.completedPct)}>{qc.completedPct}% done</span>
+                            </div>
+                          </>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Two-column: Top Performers + At Risk */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Top Performers */}
+                <div className="rounded-xl border bg-card p-5">
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Trophy className="size-4 text-amber-500" />
+                    Top Performing Objectives
+                  </h3>
+                  {topPerformers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4 text-center">No objectives this quarter</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {topPerformers.map((obj, i) => (
+                        <div key={obj.id.toString()} className="flex items-center gap-3">
+                          <div className={`size-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                            i === 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                            i === 1 ? 'bg-slate-300/20 text-slate-600 dark:text-slate-400' :
+                            i === 2 ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{obj.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">{obj.department}</span>
+                              <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${progressColor(obj.progress)}`}
+                                  style={{ width: `${obj.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold tabular-nums ${progressTextColor(obj.progress)}`}>
+                            {obj.progress}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* At Risk */}
+                <div className="rounded-xl border bg-card p-5">
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Flame className="size-4 text-red-500" />
+                    Needs Attention
+                    {atRiskObjectives.length > 0 && (
+                      <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
+                        {atRiskObjectives.length}
+                      </Badge>
+                    )}
+                  </h3>
+                  {atRiskObjectives.length === 0 ? (
+                    <div className="flex flex-col items-center py-6 text-center">
+                      <div className="size-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-2">
+                        <Check className="size-5 text-green-500" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">All objectives are on track!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {atRiskObjectives.map(obj => {
+                        const statusTag = obj.status?.tag ?? 'AtRisk'
+                        const sc = STATUS_CONFIG[statusTag] ?? STATUS_CONFIG.AtRisk
+                        return (
+                          <div key={obj.id.toString()} className="flex items-center gap-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${sc.bg} ${sc.text} ${sc.border} border shrink-0`}>
+                              <span className={`size-1.5 rounded-full ${sc.dot}`} />
+                              {sc.label}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{obj.title}</p>
+                              <span className="text-[10px] text-muted-foreground">{obj.department}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${progressColor(obj.progress)}`}
+                                  style={{ width: `${obj.progress}%` }}
+                                />
+                              </div>
+                              <span className={`text-[10px] font-bold tabular-nums ${progressTextColor(obj.progress)}`}>
+                                {obj.progress}%
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* KR Health Summary */}
+              <div className="rounded-xl border bg-card p-5">
+                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <Zap className="size-4 text-amber-500" />
+                  Key Results Health
+                </h3>
+                {(() => {
+                  const allQKRs = quarterObjectives.flatMap(o => krsByObjective.get(o.id) ?? [])
+                  if (allQKRs.length === 0) return <p className="text-xs text-muted-foreground text-center py-4">No key results this quarter</p>
+                  const completed = allQKRs.filter(kr => getKRProgress(kr.targetValue, kr.currentValue) >= 100).length
+                  const onTrack = allQKRs.filter(kr => { const p = getKRProgress(kr.targetValue, kr.currentValue); return p >= 40 && p < 100 }).length
+                  const behind = allQKRs.filter(kr => getKRProgress(kr.targetValue, kr.currentValue) < 40).length
+                  const totalKRProgress = Math.round(allQKRs.reduce((s, kr) => s + getKRProgress(kr.targetValue, kr.currentValue), 0) / allQKRs.length)
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="rounded-lg bg-muted/50 p-3 text-center">
+                        <p className="text-2xl font-bold tabular-nums">{allQKRs.length}</p>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Total KRs</p>
+                      </div>
+                      <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
+                        <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{completed}</p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium uppercase tracking-wider mt-1">Completed</p>
+                      </div>
+                      <div className="rounded-lg bg-amber-500/10 p-3 text-center">
+                        <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{onTrack}</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wider mt-1">In Progress</p>
+                      </div>
+                      <div className="rounded-lg bg-red-500/10 p-3 text-center">
+                        <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{behind}</p>
+                        <p className="text-[10px] text-red-600 dark:text-red-400 font-medium uppercase tracking-wider mt-1">Behind</p>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
           )}
         </div>
@@ -1005,6 +1399,68 @@ export default function GoalsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Objective Dialog */}
+      <Dialog open={!!editObj} onOpenChange={v => { if (!v) setEditObj(null) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-5 text-amber-500" />
+              Edit Objective
+            </DialogTitle>
+          </DialogHeader>
+          {editObj && (
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-sm">Title</Label>
+                <Input
+                  value={editObj.title}
+                  onChange={e => setEditObj({ ...editObj, title: e.target.value })}
+                  className="mt-1"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label className="text-sm">Description</Label>
+                <Textarea
+                  value={editObj.description}
+                  onChange={e => setEditObj({ ...editObj, description: e.target.value })}
+                  className="mt-1 min-h-[80px] text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">Quarter</Label>
+                  <select
+                    value={editObj.quarter}
+                    onChange={e => setEditObj({ ...editObj, quarter: e.target.value })}
+                    className="mt-1 w-full h-9 px-3 rounded-md border bg-background text-sm"
+                  >
+                    {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-sm">Department</Label>
+                  <select
+                    value={editObj.department}
+                    onChange={e => setEditObj({ ...editObj, department: e.target.value })}
+                    className="mt-1 w-full h-9 px-3 rounded-md border bg-background text-sm"
+                  >
+                    {DEPARTMENTS.filter(d => d !== 'All').map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditObj(null)}>Cancel</Button>
+            <Button onClick={handleEditSave} className="bg-gradient-to-r from-amber-500 to-lime-500 text-white gap-1.5">
+              <Check className="size-3.5" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create Objective Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-lg">
@@ -1063,6 +1519,9 @@ export default function GoalsPage() {
                   + Add Key Result
                 </button>
               </div>
+              <p className="text-[10px] text-muted-foreground mb-2">
+                You can also add key results after creating the objective using the inline &quot;+ Add Key Result&quot; button.
+              </p>
               <div className="space-y-2">
                 {newKRs.map((kr, i) => (
                   <div key={i} className="flex items-center gap-2">

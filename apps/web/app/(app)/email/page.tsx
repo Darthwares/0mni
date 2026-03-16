@@ -37,6 +37,7 @@ import {
   ArchiveRestore,
   Undo2,
   Download,
+  CheckCircle2,
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
@@ -174,6 +175,8 @@ export default function EmailPage() {
   const [searchFocused, setSearchFocused] = useState(false)
   const [showCc, setShowCc] = useState(false)
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
+  const [newLabelName, setNewLabelName] = useState('')
+  const [showNewLabel, setShowNewLabel] = useState(false)
   const composeBodyRef = useRef<HTMLTextAreaElement>(null)
 
   // Reducers
@@ -287,6 +290,24 @@ export default function EmailPage() {
     setComposeBody(`\n\n---\nForwarded message from ${senderName}:\n\n${body}`)
   }
 
+  const LABEL_COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316']
+
+  const handleCreateLabel = useCallback(() => {
+    if (!newLabelName.trim() || currentOrgId === null) return
+    const color = LABEL_COLORS[labels.length % LABEL_COLORS.length]
+    createEmailLabel({ orgId: BigInt(currentOrgId), name: newLabelName.trim(), color })
+    setNewLabelName('')
+    setShowNewLabel(false)
+  }, [newLabelName, currentOrgId, labels.length, createEmailLabel])
+
+  const handleDeleteLabel = useCallback((labelId: bigint) => {
+    deleteEmailLabel({ labelId })
+    if (view === 'labels') {
+      setView('inbox')
+      setActiveLabel(null)
+    }
+  }, [deleteEmailLabel, view])
+
   const employeeMap = useMemo(
     () => new Map(allEmployees.map((e) => [e.id.toHexString(), e])),
     [allEmployees]
@@ -368,18 +389,15 @@ export default function EmailPage() {
   }
 
   const handleExportEmails = useCallback(() => {
-    exportCSV('emails', ['From', 'Subject', 'To', 'Date', 'Starred', 'Read', 'Labels'],
-      filteredEmails.map(e => {
-        const { subject, to } = parseEmailContent(e.content)
-        const meta = getMeta(e.id)
-        return [
-          getSenderName(e.sender), subject || '(no subject)', to,
-          formatFullDate(e.sentAt),
-          meta?.starred ? 'Yes' : 'No', meta?.read ? 'Yes' : 'No',
-          meta?.labelName ?? '',
-        ]
-      })
-    )
+    exportCSV('emails', [
+      { header: 'From', accessor: (e: any) => getSenderName(e.sender) },
+      { header: 'Subject', accessor: (e: any) => parseEmailContent(e.content).subject || '(no subject)' },
+      { header: 'To', accessor: (e: any) => parseEmailContent(e.content).to },
+      { header: 'Date', accessor: (e: any) => formatFullDate(e.sentAt) },
+      { header: 'Starred', accessor: (e: any) => getMeta(e.id)?.starred ? 'Yes' : 'No' },
+      { header: 'Read', accessor: (e: any) => getMeta(e.id)?.read ? 'Yes' : 'No' },
+      { header: 'Label', accessor: (e: any) => getMeta(e.id)?.label?.value ?? '' },
+    ], filteredEmails)
   }, [filteredEmails, getMeta, getSenderName])
 
   const navItems = [
@@ -452,31 +470,70 @@ export default function EmailPage() {
           ))}
 
           {/* Labels section */}
-          {labels.length > 0 && (
-            <>
-              <div className="px-3 pt-4 pb-1">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Labels</p>
-              </div>
-              {labels.map((label) => (
-                <button
-                  key={String(label.id)}
-                  onClick={() => { setView('labels'); setActiveLabel(label.name); setSelectedMessageId(null) }}
-                  className={[
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
-                    view === 'labels' && activeLabel === label.name
-                      ? 'bg-white dark:bg-neutral-800 text-foreground font-medium shadow-sm'
-                      : 'text-muted-foreground hover:bg-white/60 dark:hover:bg-neutral-800/60 hover:text-foreground',
-                  ].join(' ')}
-                >
-                  <div
-                    className="size-3 rounded-full shrink-0"
-                    style={{ backgroundColor: label.color }}
-                  />
-                  <span className="flex-1 text-left truncate">{label.name}</span>
-                </button>
-              ))}
-            </>
+          <div className="px-3 pt-4 pb-1 flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Labels</p>
+            <button
+              onClick={() => setShowNewLabel(!showNewLabel)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Create label"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          </div>
+          {showNewLabel && (
+            <div className="px-3 pb-2 flex items-center gap-1.5">
+              <Input
+                placeholder="Label name..."
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateLabel()}
+                className="h-7 text-xs"
+                autoFocus
+              />
+              <button
+                onClick={handleCreateLabel}
+                disabled={!newLabelName.trim()}
+                className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-40"
+              >
+                <CheckCircle2 className="size-3.5" />
+              </button>
+              <button
+                onClick={() => { setShowNewLabel(false); setNewLabelName('') }}
+                className="p-1 rounded text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           )}
+          {labels.map((label) => (
+            <div
+              key={String(label.id)}
+              className={[
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all group/lbl',
+                view === 'labels' && activeLabel === label.name
+                  ? 'bg-white dark:bg-neutral-800 text-foreground font-medium shadow-sm'
+                  : 'text-muted-foreground hover:bg-white/60 dark:hover:bg-neutral-800/60 hover:text-foreground',
+              ].join(' ')}
+            >
+              <button
+                onClick={() => { setView('labels'); setActiveLabel(label.name); setSelectedMessageId(null) }}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+              >
+                <div
+                  className="size-3 rounded-full shrink-0"
+                  style={{ backgroundColor: label.color }}
+                />
+                <span className="flex-1 truncate">{label.name}</span>
+              </button>
+              <button
+                onClick={() => handleDeleteLabel(label.id)}
+                className="opacity-0 group-hover/lbl:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
+                title="Delete label"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          ))}
         </nav>
 
         {/* Stats footer */}
@@ -814,7 +871,16 @@ export default function EmailPage() {
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground gap-1.5 text-xs"
-                onClick={() => handleReply(selectedEmail)}
+                onClick={() => {
+                  const { subject, body, to, cc } = parseEmailContent(selectedEmail.content)
+                  const senderName = getSenderName(selectedEmail.sender)
+                  setComposing(true)
+                  setComposeSubject(subject.startsWith('Re: ') ? subject : `Re: ${subject}`)
+                  setComposeTo(senderName)
+                  const allCc = [to, cc].filter(Boolean).join(', ')
+                  if (allCc) { setComposeCc(allCc); setShowCc(true) }
+                  setComposeBody(`\n\n---\nOn ${formatFullDate(selectedEmail.sentAt)}, ${senderName} wrote:\n> ${body.split('\n').join('\n> ')}`)
+                }}
               >
                 <ReplyAll className="size-3.5" />
                 Reply All

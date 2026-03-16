@@ -107,6 +107,7 @@ export default function StandupsPage() {
   const employeeNames = useMemo(() => {
     const map = new Map<string, string>()
     for (const emp of allEmployees) {
+      if (!emp.identity) continue
       map.set(emp.identity.toHexString(), emp.name)
     }
     return map
@@ -199,10 +200,12 @@ export default function StandupsPage() {
 
   // Participation list
   const participationList = useMemo(() => {
-    return orgEmployees.map(emp => {
-      const hex = emp.identity.toHexString()
-      return { name: emp.name, submitted: todayAuthors.has(hex) }
-    })
+    return orgEmployees
+      .filter(emp => emp.identity)
+      .map(emp => {
+        const hex = emp.identity.toHexString()
+        return { name: emp.name, submitted: todayAuthors.has(hex) }
+      })
   }, [orgEmployees, todayAuthors])
 
   // Weekly grouped entries (last 7 days from selected date)

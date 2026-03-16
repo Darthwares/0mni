@@ -919,46 +919,46 @@ export default function TicketsPage() {
 
           <div className="flex rounded-lg border overflow-hidden">
             <Tooltip>
-              <TooltipTrigger>
-                <button
+              <TooltipTrigger
+                render={<button
                   onClick={() => setViewMode('board')}
                   className={`p-1.5 transition-colors ${viewMode === 'board' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <KanbanSquare className="size-4" />
-                </button>
+                />}
+              >
+                <KanbanSquare className="size-4" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Board</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
-                <button
+              <TooltipTrigger
+                render={<button
                   onClick={() => setViewMode('list')}
                   className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <List className="size-4" />
-                </button>
+                />}
+              >
+                <List className="size-4" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">List</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
-                <button
+              <TooltipTrigger
+                render={<button
                   onClick={() => setViewMode('sprints')}
                   className={`p-1.5 transition-colors ${viewMode === 'sprints' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <Target className="size-4" />
-                </button>
+                />}
+              >
+                <Target className="size-4" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Sprints</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
-                <button
+              <TooltipTrigger
+                render={<button
                   onClick={() => setViewMode('timeline')}
                   className={`p-1.5 transition-colors ${viewMode === 'timeline' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <GanttChart className="size-4" />
-                </button>
+                />}
+              >
+                <GanttChart className="size-4" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Timeline</TooltipContent>
             </Tooltip>
@@ -972,26 +972,20 @@ export default function TicketsPage() {
               Ticket
             </Button>
             <Tooltip>
-              <TooltipTrigger>
-                <Button size="sm" variant="outline" onClick={() => setShowCreateSprint(true)} className="h-8 w-8 p-0">
-                  <Target className="size-3.5" />
-                </Button>
+              <TooltipTrigger render={<Button size="sm" variant="outline" onClick={() => setShowCreateSprint(true)} className="h-8 w-8 p-0" />}>
+                <Target className="size-3.5" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">New Sprint</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
-                <Button size="sm" variant="outline" onClick={() => setShowCreateEpic(true)} className="h-8 w-8 p-0">
-                  <Layers className="size-3.5" />
-                </Button>
+              <TooltipTrigger render={<Button size="sm" variant="outline" onClick={() => setShowCreateEpic(true)} className="h-8 w-8 p-0" />}>
+                <Layers className="size-3.5" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">New Epic</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
-                <Button size="sm" variant="outline" onClick={() => setShowManageLabels(true)} className="h-8 w-8 p-0">
-                  <Tag className="size-3.5" />
-                </Button>
+              <TooltipTrigger render={<Button size="sm" variant="outline" onClick={() => setShowManageLabels(true)} className="h-8 w-8 p-0" />}>
+                <Tag className="size-3.5" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">Manage Labels</TooltipContent>
             </Tooltip>

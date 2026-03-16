@@ -203,12 +203,12 @@ export default function AnalyticsPage() {
   }, [orgMembers])
 
   const employeeMap = useMemo(
-    () => new Map(allEmployees.map(e => [e.id.toHexString(), e])),
+    () => new Map(allEmployees.filter(e => e.id).map(e => [e.id.toHexString(), e])),
     [allEmployees],
   )
 
   const orgEmployees = useMemo(
-    () => allEmployees.filter(e => orgMemberHexes.has(e.id.toHexString())),
+    () => allEmployees.filter(e => e.id && orgMemberHexes.has(e.id.toHexString())),
     [allEmployees, orgMemberHexes],
   )
 

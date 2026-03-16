@@ -317,7 +317,7 @@ export function CommandPalette() {
           {allEmployees.length > 0 && (
             <>
               <CommandGroup heading={`People (${allEmployees.length})`}>
-                {allEmployees.slice(0, MAX_RESULTS_PER_GROUP).map((emp) => (
+                {allEmployees.filter(emp => emp.id?.toHexString).slice(0, MAX_RESULTS_PER_GROUP).map((emp) => (
                   <CommandItem
                     key={`person-${emp.id.toHexString()}`}
                     value={`person-${emp.name} ${emp.role} ${emp.department?.tag ?? ""}`}

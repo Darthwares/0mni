@@ -505,7 +505,7 @@ export default function CanvasPage() {
   const docLifecycleMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const lc of allDocLifecycles) {
-      map.set(lc.documentId.toString(), lc.status.tag)
+      map.set(lc.documentId.toString(), lc.status?.tag)
     }
     return map
   }, [allDocLifecycles])
@@ -530,7 +530,7 @@ export default function CanvasPage() {
   // Filter to Canvas/Whiteboard/Folder types only
   const canvasDocuments = useMemo(() => {
     return allDocuments.filter(
-      (d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder'
+      (d) => d.docType?.tag === 'Canvas' || d.docType?.tag === 'Whiteboard' || d.docType?.tag === 'Folder'
     )
   }, [allDocuments])
 
@@ -541,7 +541,7 @@ export default function CanvasPage() {
 
   // All folders
   const folders = useMemo(() => {
-    return canvasDocuments.filter((d) => d.docType.tag === 'Folder')
+    return canvasDocuments.filter((d) => d.docType?.tag === 'Folder')
   }, [canvasDocuments])
 
   // Build folder path for breadcrumbs
@@ -569,8 +569,8 @@ export default function CanvasPage() {
     }
     // Sort: folders first, then by updatedAt descending
     return items.sort((a, b) => {
-      const aFolder = a.docType.tag === 'Folder' ? 0 : 1
-      const bFolder = b.docType.tag === 'Folder' ? 0 : 1
+      const aFolder = a.docType?.tag === 'Folder' ? 0 : 1
+      const bFolder = b.docType?.tag === 'Folder' ? 0 : 1
       if (aFolder !== bFolder) return aFolder - bFolder
       return timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime()
     })
@@ -584,8 +584,8 @@ export default function CanvasPage() {
 
   // Document stats
   const docStats = useMemo(() => {
-    const docs = canvasDocuments.filter((d) => d.docType.tag === 'Canvas')
-    const whiteboards = canvasDocuments.filter((d) => d.docType.tag === 'Whiteboard')
+    const docs = canvasDocuments.filter((d) => d.docType?.tag === 'Canvas')
+    const whiteboards = canvasDocuments.filter((d) => d.docType?.tag === 'Whiteboard')
     const shared = canvasDocuments.filter((d) => (d.sharedWith?.length ?? 0) > 0)
     return { documents: docs.length, whiteboards: whiteboards.length, folders: folders.length, shared: shared.length }
   }, [canvasDocuments, folders])
@@ -593,14 +593,14 @@ export default function CanvasPage() {
   // Recent documents (last 5, non-folder)
   const recentDocs = useMemo(() => {
     return [...canvasDocuments]
-      .filter((d) => d.docType.tag !== 'Folder')
+      .filter((d) => d.docType?.tag !== 'Folder')
       .sort((a, b) => timestampToDate(b.updatedAt).getTime() - timestampToDate(a.updatedAt).getTime())
       .slice(0, 5)
   }, [canvasDocuments])
 
   // Word count for active document
   const activeDocWordCount = useMemo(() => {
-    if (!activeDoc || activeDoc.docType.tag !== 'Canvas') return null
+    if (!activeDoc || activeDoc.docType?.tag !== 'Canvas') return null
     const parsed = parseContent(activeDoc.content)
     if (!parsed || !Array.isArray(parsed)) return null
     let words = 0
@@ -621,14 +621,14 @@ export default function CanvasPage() {
   // Filtered list for type/starred filtering
   const typeFilteredDocuments = useMemo(() => {
     let items = filteredDocuments
-    if (listFilter === 'documents') items = items.filter((d) => d.docType.tag === 'Canvas' || d.docType.tag === 'Folder')
-    else if (listFilter === 'whiteboards') items = items.filter((d) => d.docType.tag === 'Whiteboard' || d.docType.tag === 'Folder')
+    if (listFilter === 'documents') items = items.filter((d) => d.docType?.tag === 'Canvas' || d.docType?.tag === 'Folder')
+    else if (listFilter === 'whiteboards') items = items.filter((d) => d.docType?.tag === 'Whiteboard' || d.docType?.tag === 'Folder')
     else if (listFilter === 'starred') items = items.filter((d) => starredIds.has(d.id))
     // Status filter
     if (statusFilter !== 'all') {
       const statusMap: Record<string, string> = { draft: 'Draft', inReview: 'InReview', published: 'Published', archived: 'Archived' }
       const target = statusMap[statusFilter]
-      items = items.filter((d) => d.docType.tag === 'Folder' || getDocStatus(d.id) === target)
+      items = items.filter((d) => d.docType?.tag === 'Folder' || getDocStatus(d.id) === target)
     }
     // Sort: pinned first, then by updated_at desc
     return [...items].sort((a, b) => {
@@ -991,7 +991,7 @@ ${html}
 
   // ---- Editor View ----
   if (activeDoc) {
-    const isWhiteboard = activeDoc.docType.tag === 'Whiteboard'
+    const isWhiteboard = activeDoc.docType?.tag === 'Whiteboard'
     const parsedContent = parseContent(activeDoc.content)
 
     return (
@@ -1811,7 +1811,7 @@ ${html}
             <GradientText colors={['#8b5cf6', '#6366f1', '#a78bfa']} animationSpeed={6}>Canvas</GradientText>
           </h1>
           <Badge variant="secondary" className="text-xs">
-            {canvasDocuments.filter((d) => d.docType.tag !== 'Folder').length}
+            {canvasDocuments.filter((d) => d.docType?.tag !== 'Folder').length}
           </Badge>
           <BlurText text="Collaborative documents and whiteboards" delay={35} animateBy="words" className="text-xs text-muted-foreground hidden lg:block" />
         </div>
@@ -1975,7 +1975,7 @@ ${html}
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Recently Updated</h3>
               <div className="flex gap-3 overflow-x-auto pb-1">
                 {recentDocs.map((doc) => {
-                  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+                  const isWhiteboard = doc.docType?.tag === 'Whiteboard'
                   return (
                     <button
                       key={doc.id.toString()}
@@ -2014,7 +2014,7 @@ ${html}
                   status={getDocStatus(doc.id)}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
-                    if (doc.docType.tag === 'Folder') {
+                    if (doc.docType?.tag === 'Folder') {
                       setCurrentFolderId(doc.id)
                     } else {
                       setActiveDocId(doc.id)
@@ -2047,7 +2047,7 @@ ${html}
                   status={getDocStatus(doc.id)}
                   onToggleStar={() => toggleStar(doc.id)}
                   onOpen={() => {
-                    if (doc.docType.tag === 'Folder') {
+                    if (doc.docType?.tag === 'Folder') {
                       setCurrentFolderId(doc.id)
                     } else {
                       setActiveDocId(doc.id)
@@ -2359,8 +2359,8 @@ function CanvasCard({
   onDuplicate: () => void
   onTogglePin: () => void
 }) {
-  const isFolder = doc.docType.tag === 'Folder'
-  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+  const isFolder = doc.docType?.tag === 'Folder'
+  const isWhiteboard = doc.docType?.tag === 'Whiteboard'
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
   const isPrivate = doc.visibility?.tag === 'Private'
 
@@ -2572,8 +2572,8 @@ function CanvasListItem({
   onDuplicate: () => void
   onTogglePin: () => void
 }) {
-  const isFolder = doc.docType.tag === 'Folder'
-  const isWhiteboard = doc.docType.tag === 'Whiteboard'
+  const isFolder = doc.docType?.tag === 'Folder'
+  const isWhiteboard = doc.docType?.tag === 'Whiteboard'
   const lastEditor = doc.lastEditedBy ? employeeMap.get(doc.lastEditedBy.toHexString()) : null
 
   return (

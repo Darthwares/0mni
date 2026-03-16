@@ -99,7 +99,7 @@ export default function StandupsPage() {
       .map(e => ({
         ...e,
         date: tsToDate(e.createdAt),
-        moodKey: (e.mood.tag as MoodKey) || 'Good',
+        moodKey: (e.mood?.tag as MoodKey) || 'Good',
       }))
   }, [allStandups, currentOrgId])
 

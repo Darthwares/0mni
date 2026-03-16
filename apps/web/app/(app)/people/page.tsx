@@ -87,8 +87,8 @@ function PersonCard({
   person: any
   isMe: boolean
 }) {
-  const isAI = person.employeeType.tag === 'AiAgent'
-  const status = getStatus(person.status.tag)
+  const isAI = person.employeeType?.tag === 'AiAgent'
+  const status = getStatus(person.status?.tag)
   const skills: string[] = person.skills ?? []
   const hexId = person.id.toHexString()
 
@@ -149,9 +149,9 @@ function PersonCard({
           {/* Department + status */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${getDeptColor(person.department.tag)}`}
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${getDeptColor(person.department?.tag)}`}
             >
-              {person.department.tag}
+              {person.department?.tag}
             </span>
             <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400">
               <span className={`size-1.5 rounded-full ${status.color}`} />
@@ -200,8 +200,8 @@ function PersonRow({
   person: any
   isMe: boolean
 }) {
-  const isAI = person.employeeType.tag === 'AiAgent'
-  const status = getStatus(person.status.tag)
+  const isAI = person.employeeType?.tag === 'AiAgent'
+  const status = getStatus(person.status?.tag)
   const skills: string[] = person.skills ?? []
   const hexId = person.id.toHexString()
 
@@ -249,9 +249,9 @@ function PersonRow({
 
       {/* Department */}
       <span
-        className={`hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0 ${getDeptColor(person.department.tag)}`}
+        className={`hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0 ${getDeptColor(person.department?.tag)}`}
       >
-        {person.department.tag}
+        {person.department?.tag}
       </span>
 
       {/* Email */}
@@ -319,8 +319,8 @@ export default function PeoplePage() {
 
   // Apply filter tab
   const tabFiltered = useMemo(() => {
-    if (tab === 'humans') return orgEmployees.filter((e) => e.employeeType.tag === 'Human')
-    if (tab === 'ai') return orgEmployees.filter((e) => e.employeeType.tag === 'AiAgent')
+    if (tab === 'humans') return orgEmployees.filter((e) => e.employeeType?.tag === 'Human')
+    if (tab === 'ai') return orgEmployees.filter((e) => e.employeeType?.tag === 'AiAgent')
     return orgEmployees
   }, [orgEmployees, tab])
 
@@ -328,7 +328,7 @@ export default function PeoplePage() {
   const deptCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const emp of tabFiltered) {
-      const dept = emp.department.tag
+      const dept = emp.department?.tag
       counts.set(dept, (counts.get(dept) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
@@ -336,13 +336,13 @@ export default function PeoplePage() {
 
   // Apply department filter
   const deptFiltered = useMemo(
-    () => (deptFilter ? tabFiltered.filter((e) => e.department.tag === deptFilter) : tabFiltered),
+    () => (deptFilter ? tabFiltered.filter((e) => e.department?.tag === deptFilter) : tabFiltered),
     [tabFiltered, deptFilter]
   )
 
   // Apply status filter
   const statusFiltered = useMemo(
-    () => (statusFilter === 'all' ? deptFiltered : deptFiltered.filter((e) => e.status.tag === statusFilter)),
+    () => (statusFilter === 'all' ? deptFiltered : deptFiltered.filter((e) => e.status?.tag === statusFilter)),
     [deptFiltered, statusFilter]
   )
 
@@ -356,7 +356,7 @@ export default function PeoplePage() {
         e.name.toLowerCase().includes(q) ||
         e.role.toLowerCase().includes(q) ||
         (e.email?.toLowerCase().includes(q) ?? false) ||
-        e.department.tag.toLowerCase().includes(q) ||
+        e.department?.tag.toLowerCase().includes(q) ||
         skills.some((s) => s.toLowerCase().includes(q))
       )
     })
@@ -373,14 +373,14 @@ export default function PeoplePage() {
           cmp = a.name.localeCompare(b.name)
           break
         case 'department':
-          cmp = a.department.tag.localeCompare(b.department.tag) || a.name.localeCompare(b.name)
+          cmp = a.department?.tag.localeCompare(b.department?.tag) || a.name.localeCompare(b.name)
           break
         case 'role':
           cmp = a.role.localeCompare(b.role) || a.name.localeCompare(b.name)
           break
         case 'status':
         default:
-          cmp = (statusOrder[a.status.tag] ?? 3) - (statusOrder[b.status.tag] ?? 3) || a.name.localeCompare(b.name)
+          cmp = (statusOrder[a.status?.tag] ?? 3) - (statusOrder[b.status?.tag] ?? 3) || a.name.localeCompare(b.name)
           break
       }
       return cmp * dir
@@ -390,7 +390,7 @@ export default function PeoplePage() {
   // Status counts for filter pills
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { Online: 0, Busy: 0, InCall: 0, Offline: 0 }
-    for (const e of deptFiltered) counts[e.status.tag] = (counts[e.status.tag] ?? 0) + 1
+    for (const e of deptFiltered) counts[e.status?.tag] = (counts[e.status?.tag] ?? 0) + 1
     return counts
   }, [deptFiltered])
 
@@ -417,9 +417,9 @@ export default function PeoplePage() {
         { header: 'Name', accessor: (e: any) => e.name },
         { header: 'Role', accessor: (e: any) => e.role },
         { header: 'Email', accessor: (e: any) => e.email ?? '' },
-        { header: 'Department', accessor: (e: any) => e.department.tag },
-        { header: 'Status', accessor: (e: any) => e.status.tag },
-        { header: 'Type', accessor: (e: any) => e.employeeType.tag === 'AiAgent' ? 'AI Agent' : 'Human' },
+        { header: 'Department', accessor: (e: any) => e.department?.tag },
+        { header: 'Status', accessor: (e: any) => e.status?.tag },
+        { header: 'Type', accessor: (e: any) => e.employeeType?.tag === 'AiAgent' ? 'AI Agent' : 'Human' },
         { header: 'Skills', accessor: (e: any) => (e.skills ?? []).join('; ') },
       ],
       sorted
@@ -433,10 +433,10 @@ export default function PeoplePage() {
 
   // Stats
   const onlineCount = orgEmployees.filter(
-    (e) => e.status.tag === 'Online' || e.status.tag === 'Busy' || e.status.tag === 'InCall'
+    (e) => e.status?.tag === 'Online' || e.status?.tag === 'Busy' || e.status?.tag === 'InCall'
   ).length
-  const aiCount = orgEmployees.filter((e) => e.employeeType.tag === 'AiAgent').length
-  const uniqueDepts = new Set(orgEmployees.map((e) => e.department.tag)).size
+  const aiCount = orgEmployees.filter((e) => e.employeeType?.tag === 'AiAgent').length
+  const uniqueDepts = new Set(orgEmployees.map((e) => e.department?.tag)).size
 
   return (
     <div className="flex flex-col h-full">

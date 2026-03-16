@@ -262,7 +262,7 @@ export default function SupportPage() {
         t.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (customer?.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (customer?.email ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === 'All' || t.status.tag === statusFilter
+      const matchesStatus = statusFilter === 'All' || t.status?.tag === statusFilter
       return matchesSearch && matchesStatus
     })
   }, [sortedTickets, allCustomers, searchQuery, statusFilter])
@@ -279,7 +279,7 @@ export default function SupportPage() {
   const ticketMessages = useMemo(() => {
     if (!selectedTicket) return []
     return [...allMessages]
-      .filter((m) => m.contextType.tag === 'Customer' && m.contextId === selectedTicket.id)
+      .filter((m) => m.contextType?.tag === 'Customer' && m.contextId === selectedTicket.id)
       .sort((a, b) => Number(a.sentAt.toMillis()) - Number(b.sentAt.toMillis()))
   }, [allMessages, selectedTicket])
 
@@ -309,9 +309,9 @@ export default function SupportPage() {
   }, [ticketMessages.length])
 
   // Stats
-  const openCount = sortedTickets.filter((t) => t.status.tag === 'Open' || t.status.tag === 'New').length
-  const pendingCount = sortedTickets.filter((t) => t.status.tag === 'Pending').length
-  const resolvedCount = sortedTickets.filter((t) => t.status.tag === 'Resolved').length
+  const openCount = sortedTickets.filter((t) => t.status?.tag === 'Open' || t.status?.tag === 'New').length
+  const pendingCount = sortedTickets.filter((t) => t.status?.tag === 'Pending').length
+  const resolvedCount = sortedTickets.filter((t) => t.status?.tag === 'Resolved').length
   const aiResolvedCount = sortedTickets.filter((t) => t.aiAutoResolved).length
 
   async function handleSendMessage() {
@@ -712,7 +712,7 @@ export default function SupportPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span
-                            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${statusDot(ticket.status.tag)}`}
+                            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${statusDot(ticket.status?.tag)}`}
                           />
                           <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
                             {customer?.name ?? 'Unknown Customer'}
@@ -731,14 +731,14 @@ export default function SupportPage() {
                       {/* Row 3: badges */}
                       <div className="flex items-center gap-1.5 pl-3.5 flex-wrap">
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor(ticket.status.tag)}`}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor(ticket.status?.tag)}`}
                         >
-                          {ticket.status.tag}
+                          {ticket.status?.tag}
                         </span>
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${priorityBg(ticket.priority.tag)}`}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${priorityBg(ticket.priority?.tag)}`}
                         >
-                          {ticket.priority.tag}
+                          {ticket.priority?.tag}
                         </span>
                         {ticket.aiAutoResolved && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
@@ -778,10 +778,10 @@ export default function SupportPage() {
 
                       {/* Interactive Status Select */}
                       <Select
-                        value={selectedTicket.status.tag}
+                        value={selectedTicket.status?.tag}
                         onValueChange={(val) => updateTicketStatus({ ticketId: selectedTicket.id, statusTag: val })}
                       >
-                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${statusColor(selectedTicket.status.tag)}`}>
+                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${statusColor(selectedTicket.status?.tag)}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -793,10 +793,10 @@ export default function SupportPage() {
 
                       {/* Interactive Priority Select */}
                       <Select
-                        value={selectedTicket.priority.tag}
+                        value={selectedTicket.priority?.tag}
                         onValueChange={(val) => updateTicketPriority({ ticketId: selectedTicket.id, priorityTag: val })}
                       >
-                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${priorityBg(selectedTicket.priority.tag)}`}>
+                        <SelectTrigger className={`h-6 w-auto px-2 py-0 text-[11px] font-medium border gap-1 ${priorityBg(selectedTicket.priority?.tag)}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -847,7 +847,7 @@ export default function SupportPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {/* Quick action buttons */}
-                    {selectedTicket.status.tag !== 'Resolved' && selectedTicket.status.tag !== 'Closed' && (
+                    {selectedTicket.status?.tag !== 'Resolved' && selectedTicket.status?.tag !== 'Closed' && (
                       <Button
                         size="sm"
                         className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -857,7 +857,7 @@ export default function SupportPage() {
                         Resolve
                       </Button>
                     )}
-                    {(selectedTicket.status.tag === 'Resolved' || selectedTicket.status.tag === 'Closed') && (
+                    {(selectedTicket.status?.tag === 'Resolved' || selectedTicket.status?.tag === 'Closed') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -869,7 +869,7 @@ export default function SupportPage() {
                       </Button>
                     )}
 
-                    {selectedTicket.status.tag !== 'Resolved' && selectedTicket.status.tag !== 'Closed' && (
+                    {selectedTicket.status?.tag !== 'Resolved' && selectedTicket.status?.tag !== 'Closed' && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1220,9 +1220,9 @@ export default function SupportPage() {
                   {selectedCustomer.sentiment && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-neutral-500 dark:text-neutral-400">Sentiment</span>
-                      <div className={`flex items-center gap-1.5 text-xs font-medium ${sentimentColor(selectedCustomer.sentiment.tag)}`}>
-                        {sentimentIcon(selectedCustomer.sentiment.tag)}
-                        {selectedCustomer.sentiment.tag}
+                      <div className={`flex items-center gap-1.5 text-xs font-medium ${sentimentColor(selectedCustomer.sentiment?.tag)}`}>
+                        {sentimentIcon(selectedCustomer.sentiment?.tag)}
+                        {selectedCustomer.sentiment?.tag}
                       </div>
                     </div>
                   )}
@@ -1332,9 +1332,9 @@ export default function SupportPage() {
                         >
                           <div className="flex items-center justify-between gap-1 mb-0.5">
                             <span
-                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${statusColor(t.status.tag)}`}
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${statusColor(t.status?.tag)}`}
                             >
-                              {t.status.tag}
+                              {t.status?.tag}
                             </span>
                             <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
                               {timeAgo(t.createdAt)}

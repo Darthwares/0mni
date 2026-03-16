@@ -437,8 +437,8 @@ export default function SalesPage() {
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
-      if (statusFilter !== 'all' && lead.status.tag !== statusFilter) return false
-      if (sourceFilter !== 'all' && lead.source.tag !== sourceFilter)  return false
+      if (statusFilter !== 'all' && lead.status?.tag !== statusFilter) return false
+      if (sourceFilter !== 'all' && lead.source?.tag !== sourceFilter)  return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const matchName    = lead.name?.toLowerCase().includes(q)
@@ -453,8 +453,8 @@ export default function SalesPage() {
   // ── KPIs (org-scoped)
   const kpis = useMemo(() => {
     const total     = leads.length
-    const qualified = leads.filter((l) => l.status.tag === 'Qualified').length
-    const converted = leads.filter((l) => l.status.tag === 'Converted').length
+    const qualified = leads.filter((l) => l.status?.tag === 'Qualified').length
+    const converted = leads.filter((l) => l.status?.tag === 'Converted').length
     const scored    = leads.filter((l) => l.score != null)
     const avgScore  = scored.length
       ? Math.round(scored.reduce((s, l) => s + (l.score ?? 0), 0) / scored.length)
@@ -479,7 +479,7 @@ export default function SalesPage() {
     const map = new Map<DealStageTag, typeof filteredDeals>()
     for (const stage of DEAL_STAGES) map.set(stage, [])
     for (const deal of filteredDeals) {
-      const tag = deal.stage.tag as DealStageTag
+      const tag = deal.stage?.tag as DealStageTag
       map.get(tag)?.push(deal)
     }
     return map
@@ -487,14 +487,14 @@ export default function SalesPage() {
 
   const pipelineValue = useMemo(
     () => deals
-      .filter((d) => d.stage.tag !== 'ClosedLost')
+      .filter((d) => d.stage?.tag !== 'ClosedLost')
       .reduce((s, d) => s + (d.value ?? 0), 0),
     [deals]
   )
 
   const wonValue = useMemo(
     () => deals
-      .filter((d) => d.stage.tag === 'ClosedWon')
+      .filter((d) => d.stage?.tag === 'ClosedWon')
       .reduce((s, d) => s + (d.value ?? 0), 0),
     [deals]
   )
@@ -508,9 +508,9 @@ export default function SalesPage() {
 
   // ── Forecast metrics
   const forecast = useMemo(() => {
-    const activeDeals = deals.filter(d => !['ClosedWon', 'ClosedLost'].includes(d.stage.tag))
-    const closedWon = deals.filter(d => d.stage.tag === 'ClosedWon')
-    const closedLost = deals.filter(d => d.stage.tag === 'ClosedLost')
+    const activeDeals = deals.filter(d => !['ClosedWon', 'ClosedLost'].includes(d.stage?.tag))
+    const closedWon = deals.filter(d => d.stage?.tag === 'ClosedWon')
+    const closedLost = deals.filter(d => d.stage?.tag === 'ClosedLost')
     const totalClosed = closedWon.length + closedLost.length
 
     const weightedPipeline = activeDeals.reduce((s, d) => s + ((d.value ?? 0) * ((d.probability ?? 0) / 100)), 0)
@@ -524,7 +524,7 @@ export default function SalesPage() {
 
     // Stage funnel data
     const funnel = DEAL_STAGES.map(stage => {
-      const stageDeals = deals.filter(d => d.stage.tag === stage)
+      const stageDeals = deals.filter(d => d.stage?.tag === stage)
       return {
         stage,
         count: stageDeals.length,
@@ -535,10 +535,10 @@ export default function SalesPage() {
     // Source breakdown
     const sourceMap = new Map<string, { count: number; converted: number }>()
     for (const lead of orgLeads) {
-      const tag = lead.source.tag
+      const tag = lead.source?.tag
       const entry = sourceMap.get(tag) || { count: 0, converted: 0 }
       entry.count++
-      if (lead.status.tag === 'Converted') entry.converted++
+      if (lead.status?.tag === 'Converted') entry.converted++
       sourceMap.set(tag, entry)
     }
 
@@ -975,18 +975,18 @@ export default function SalesPage() {
                           <span
                             className={[
                               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
-                              sourceBadgeClass(lead.source.tag),
+                              sourceBadgeClass(lead.source?.tag),
                             ].join(' ')}
                           >
-                            {lead.source.tag === 'AIProspecting' && <Sparkles className="size-3" />}
-                            {sourceLabel(lead.source.tag)}
+                            {lead.source?.tag === 'AIProspecting' && <Sparkles className="size-3" />}
+                            {sourceLabel(lead.source?.tag)}
                           </span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Select value={lead.status.tag} onValueChange={(v) => { try { updateLeadStatus({ leadId: lead.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
-                            <SelectTrigger className={`h-7 w-[120px] text-xs border-0 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 ${leadStatusBadgeClass(lead.status.tag)} rounded-full px-2`}>
+                          <Select value={lead.status?.tag} onValueChange={(v) => { try { updateLeadStatus({ leadId: lead.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                            <SelectTrigger className={`h-7 w-[120px] text-xs border-0 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 ${leadStatusBadgeClass(lead.status?.tag)} rounded-full px-2`}>
                               <span className="flex items-center gap-1.5">
-                                <span className={`size-1.5 rounded-full ${leadStatusDot(lead.status.tag)}`} />
+                                <span className={`size-1.5 rounded-full ${leadStatusDot(lead.status?.tag)}`} />
                                 <SelectValue />
                               </span>
                             </SelectTrigger>
@@ -1204,7 +1204,7 @@ export default function SalesPage() {
 
                           {/* Actions — stage change + edit + delete */}
                           <div className="flex items-center gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity pt-1 border-t border-border/40">
-                            <Select value={deal.stage.tag} onValueChange={(v) => { try { updateDealStage({ dealId: deal.id, newStageTag: v }) } catch (e) { console.error(e) } }}>
+                            <Select value={deal.stage?.tag} onValueChange={(v) => { try { updateDealStage({ dealId: deal.id, newStageTag: v }) } catch (e) { console.error(e) } }}>
                               <SelectTrigger className="h-6 flex-1 text-[11px] border-0 bg-neutral-100 dark:bg-neutral-800 rounded px-1.5">
                                 <SelectValue />
                               </SelectTrigger>
@@ -1425,7 +1425,7 @@ export default function SalesPage() {
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-medium">Closed Lost</p>
                   <p className="text-2xl font-bold tabular-nums text-red-500 dark:text-red-400">
-                    {fmtCurrency(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}
+                    {fmtCurrency(deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}
                   </p>
                   <div className="flex items-center justify-center gap-1 mt-1">
                     <ArrowDownRight className="size-3 text-red-500" />
@@ -1440,22 +1440,22 @@ export default function SalesPage() {
                   {wonValue > 0 && (
                     <div
                       className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all"
-                      style={{ width: `${(wonValue / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      style={{ width: `${(wonValue / Math.max(pipelineValue + deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
                       title={`Won: ${fmtCurrency(wonValue)}`}
                     />
                   )}
                   {forecast.activePipelineValue > 0 && (
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all"
-                      style={{ width: `${(forecast.activePipelineValue / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      style={{ width: `${(forecast.activePipelineValue / Math.max(pipelineValue + deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
                       title={`Active: ${fmtCurrency(forecast.activePipelineValue)}`}
                     />
                   )}
                   {forecast.closedLostCount > 0 && (
                     <div
                       className="h-full bg-gradient-to-r from-red-400 to-red-500 transition-all"
-                      style={{ width: `${(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0) / Math.max(pipelineValue + deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
-                      title={`Lost: ${fmtCurrency(deals.filter(d => d.stage.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}`}
+                      style={{ width: `${(deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0) / Math.max(pipelineValue + deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0), 1)) * 100}%` }}
+                      title={`Lost: ${fmtCurrency(deals.filter(d => d.stage?.tag === 'ClosedLost').reduce((s, d) => s + (d.value ?? 0), 0))}`}
                     />
                   )}
                 </div>

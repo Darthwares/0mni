@@ -215,8 +215,8 @@ export default function NotificationsPage() {
   // Filtered + sorted
   const filtered = useMemo(() => {
     let list = notifications.filter((n) => {
-      const matchesType = typeFilter === 'All' || n.notificationType.tag === typeFilter
-      const matchesPriority = priorityFilter === 'All' || n.priority.tag === priorityFilter
+      const matchesType = typeFilter === 'All' || n.notificationType?.tag === typeFilter
+      const matchesPriority = priorityFilter === 'All' || n.priority?.tag === priorityFilter
       const matchesRead = !showUnreadOnly || !n.read
       if (!matchesType || !matchesPriority || !matchesRead) return false
       if (searchQuery) {
@@ -229,13 +229,13 @@ export default function NotificationsPage() {
     // Sort
     if (sortField === 'priority') {
       list = [...list].sort((a, b) => {
-        const aw = priorityConfig[a.priority.tag as PriorityTag]?.weight ?? 0
-        const bw = priorityConfig[b.priority.tag as PriorityTag]?.weight ?? 0
+        const aw = priorityConfig[a.priority?.tag as PriorityTag]?.weight ?? 0
+        const bw = priorityConfig[b.priority?.tag as PriorityTag]?.weight ?? 0
         return sortDir === 'desc' ? bw - aw : aw - bw
       })
     } else if (sortField === 'type') {
       list = [...list].sort((a, b) => {
-        const cmp = a.notificationType.tag.localeCompare(b.notificationType.tag)
+        const cmp = a.notificationType?.tag.localeCompare(b.notificationType?.tag)
         return sortDir === 'desc' ? -cmp : cmp
       })
     }
@@ -263,7 +263,7 @@ export default function NotificationsPage() {
   // Stats
   const unreadCount = notifications.filter((n) => !n.read).length
   const todayCount = notifications.filter((n) => getDateGroup(n.createdAt) === 'Today').length
-  const urgentCount = notifications.filter((n) => n.priority.tag === 'Urgent' || n.priority.tag === 'High').length
+  const urgentCount = notifications.filter((n) => n.priority?.tag === 'Urgent' || n.priority?.tag === 'High').length
 
   // Selection helpers
   const allFilteredIds = useMemo(() => new Set(filtered.map(n => String(n.id))), [filtered])
@@ -332,8 +332,8 @@ export default function NotificationsPage() {
     exportCSV('notifications', [
       { header: 'Title', accessor: (n: any) => n.title },
       { header: 'Body', accessor: (n: any) => n.body },
-      { header: 'Type', accessor: (n: any) => n.notificationType.tag },
-      { header: 'Priority', accessor: (n: any) => n.priority.tag },
+      { header: 'Type', accessor: (n: any) => n.notificationType?.tag },
+      { header: 'Priority', accessor: (n: any) => n.priority?.tag },
       { header: 'Read', accessor: (n: any) => n.read ? 'Yes' : 'No' },
       { header: 'Time', accessor: (n: any) => formatTimestamp(n.createdAt) },
     ], filtered)
@@ -602,9 +602,9 @@ export default function NotificationsPage() {
                   {/* Notifications in group */}
                   <div className="space-y-px">
                     {group.items.map((notification) => {
-                      const config = typeConfig[notification.notificationType.tag as NotificationTypeTag]
+                      const config = typeConfig[notification.notificationType?.tag as NotificationTypeTag]
                       const Icon = config?.icon ?? Bell
-                      const priorityCfg = priorityConfig[notification.priority.tag as PriorityTag]
+                      const priorityCfg = priorityConfig[notification.priority?.tag as PriorityTag]
                       const isUnread = !notification.read
                       const isSelected = selectedIds.has(String(notification.id))
 
@@ -653,12 +653,12 @@ export default function NotificationsPage() {
                             {/* Meta row */}
                             <div className="flex items-center gap-2 mt-1.5">
                               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config?.cls ?? ''}`}>
-                                {config?.label ?? notification.notificationType.tag}
+                                {config?.label ?? notification.notificationType?.tag}
                               </span>
-                              {(notification.priority.tag === 'High' || notification.priority.tag === 'Urgent') && (
+                              {(notification.priority?.tag === 'High' || notification.priority?.tag === 'Urgent') && (
                                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${priorityCfg?.cls ?? ''}`}>
                                   <span className={`size-1 rounded-full ${priorityCfg?.dot ?? ''}`} />
-                                  {notification.priority.tag}
+                                  {notification.priority?.tag}
                                 </span>
                               )}
                               {notification.link && (

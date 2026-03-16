@@ -468,7 +468,7 @@ export default function TicketsPage() {
   }, [allEpics, currentOrgId])
 
   const activeSprint = useMemo(() => {
-    return orgSprints.find((s) => s.status.tag === 'Active') || null
+    return orgSprints.find((s) => s.status?.tag === 'Active') || null
   }, [orgSprints])
 
   const filteredTasks = useMemo(() => {
@@ -477,7 +477,7 @@ export default function TicketsPage() {
     if (currentOrgId !== null) {
       tasks = tasks.filter((t) => Number(t.orgId) === currentOrgId)
     }
-    tasks = tasks.filter((t) => t.status.tag !== 'Cancelled' && t.status.tag !== 'Blocked')
+    tasks = tasks.filter((t) => t.status?.tag !== 'Cancelled' && t.status?.tag !== 'Blocked')
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       tasks = tasks.filter(
@@ -485,10 +485,10 @@ export default function TicketsPage() {
       )
     }
     if (filterPriority !== 'all') {
-      tasks = tasks.filter((t) => t.priority.tag === filterPriority)
+      tasks = tasks.filter((t) => t.priority?.tag === filterPriority)
     }
     if (filterType !== 'all') {
-      tasks = tasks.filter((t) => t.taskType.tag === filterType)
+      tasks = tasks.filter((t) => t.taskType?.tag === filterType)
     }
     if (filterEpic !== 'all') {
       tasks = tasks.filter((t) => {
@@ -519,8 +519,8 @@ export default function TicketsPage() {
       let cmp = 0
       switch (listSortField) {
         case 'title': cmp = a.title.localeCompare(b.title); break
-        case 'priority': cmp = priorityOrder.indexOf(a.priority.tag) - priorityOrder.indexOf(b.priority.tag); break
-        case 'status': cmp = statusOrder.indexOf(a.status.tag) - statusOrder.indexOf(b.status.tag); break
+        case 'priority': cmp = priorityOrder.indexOf(a.priority?.tag) - priorityOrder.indexOf(b.priority?.tag); break
+        case 'status': cmp = statusOrder.indexOf(a.status?.tag) - statusOrder.indexOf(b.status?.tag); break
         case 'created': {
           try { cmp = a.createdAt.toDate().getTime() - b.createdAt.toDate().getTime() } catch { cmp = 0 }
           break
@@ -550,13 +550,13 @@ export default function TicketsPage() {
   // Sprint burndown data
   const sprintStats = useMemo(() => {
     const total = sprintTasks.length
-    const completed = sprintTasks.filter((t) => t.status.tag === 'Completed').length
-    const inProgress = sprintTasks.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'SelfChecking').length
+    const completed = sprintTasks.filter((t) => t.status?.tag === 'Completed').length
+    const inProgress = sprintTasks.filter((t) => t.status?.tag === 'InProgress' || t.status?.tag === 'SelfChecking').length
     const totalPoints = sprintTasks.reduce((sum, t) => {
       const ext = extensionMap.get(t.id.toString())
       return sum + (ext?.storyPoints ?? 0)
     }, 0)
-    const completedPoints = sprintTasks.filter((t) => t.status.tag === 'Completed').reduce((sum, t) => {
+    const completedPoints = sprintTasks.filter((t) => t.status?.tag === 'Completed').reduce((sum, t) => {
       const ext = extensionMap.get(t.id.toString())
       return sum + (ext?.storyPoints ?? 0)
     }, 0)
@@ -569,10 +569,10 @@ export default function TicketsPage() {
       map.set(
         col.id,
         filteredTasks
-          .filter((t) => col.statusTags.includes(t.status.tag))
+          .filter((t) => col.statusTags.includes(t.status?.tag))
           .sort((a, b) => {
             const pOrder = ['Urgent', 'High', 'Medium', 'Low']
-            return pOrder.indexOf(a.priority.tag) - pOrder.indexOf(b.priority.tag)
+            return pOrder.indexOf(a.priority?.tag) - pOrder.indexOf(b.priority?.tag)
           })
       )
     })
@@ -705,7 +705,7 @@ export default function TicketsPage() {
 
     // Don't move if already in target status
     const task = allTasks.find((t) => t.id === taskId)
-    if (!task || task.status.tag === targetStatus) return
+    if (!task || task.status?.tag === targetStatus) return
 
     try {
       await updateTaskStatus({
@@ -785,15 +785,15 @@ export default function TicketsPage() {
     const orgTasks = currentOrgId !== null
       ? allTasks.filter((t) => Number(t.orgId) === currentOrgId)
       : allTasks
-    const active = orgTasks.filter((t) => t.status.tag !== 'Cancelled' && t.status.tag !== 'Blocked')
-    const inProgress = active.filter((t) => t.status.tag === 'InProgress' || t.status.tag === 'SelfChecking')
+    const active = orgTasks.filter((t) => t.status?.tag !== 'Cancelled' && t.status?.tag !== 'Blocked')
+    const inProgress = active.filter((t) => t.status?.tag === 'InProgress' || t.status?.tag === 'SelfChecking')
     const overdue = active.filter((t) => getDueDateStatus(t.dueAt) === 'overdue')
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
     const completedThisWeek = orgTasks.filter((t) => {
-      if (t.status.tag !== 'Completed') return false
+      if (t.status?.tag !== 'Completed') return false
       try { return t.completedAt?.toDate()?.getTime() > weekAgo } catch { return false }
     })
-    const urgent = active.filter((t) => t.priority.tag === 'Urgent')
+    const urgent = active.filter((t) => t.priority?.tag === 'Urgent')
     return {
       total: active.length,
       inProgress: inProgress.length,
@@ -836,7 +836,7 @@ export default function TicketsPage() {
               const label = status === 'all' ? 'All' : status === 'Unclaimed' ? 'Backlog' : status === 'InProgress' ? 'Active' : status === 'NeedsReview' ? 'Review' : 'Done'
               const count = status === 'all'
                 ? filteredTasks.length
-                : filteredTasks.filter((t) => t.status.tag === status).length
+                : filteredTasks.filter((t) => t.status?.tag === status).length
               return (
                 <button
                   key={status}
@@ -1041,7 +1041,7 @@ export default function TicketsPage() {
           {orgEpics.length > 0 && (
             <div className="flex items-center gap-2 rounded-lg border bg-indigo-500/5 border-indigo-500/10 px-3 py-1.5">
               <Layers className="size-3.5 text-indigo-500" />
-              <span className="text-xs font-medium tabular-nums">{orgEpics.filter((e) => e.status.tag === 'Active').length}</span>
+              <span className="text-xs font-medium tabular-nums">{orgEpics.filter((e) => e.status?.tag === 'Active').length}</span>
               <span className="text-[10px] text-muted-foreground">Epics</span>
             </div>
           )}
@@ -1099,9 +1099,9 @@ export default function TicketsPage() {
                             data={{ id: task.id.toString(), taskId: task.id.toString() }}
                             onClick={() => setSelectedTask(task)}
                             className={`w-full border-l-2 ${
-                              task.priority.tag === 'Urgent' ? 'border-l-red-500' :
-                              task.priority.tag === 'High' ? 'border-l-orange-500' :
-                              task.priority.tag === 'Medium' ? 'border-l-amber-400' :
+                              task.priority?.tag === 'Urgent' ? 'border-l-red-500' :
+                              task.priority?.tag === 'High' ? 'border-l-orange-500' :
+                              task.priority?.tag === 'Medium' ? 'border-l-amber-400' :
                               'border-l-blue-400'
                             }`}
                           >
@@ -1121,7 +1121,7 @@ export default function TicketsPage() {
                                     <Bot className="size-2.5 text-violet-400" />
                                   </div>
                                 )}
-                                {priorityIcon(task.priority.tag)}
+                                {priorityIcon(task.priority?.tag)}
                               </div>
                             </div>
 
@@ -1141,7 +1141,7 @@ export default function TicketsPage() {
                             {/* Type badge + Due date */}
                             <div className="flex items-center gap-1.5 w-full">
                               <Badge variant="outline" className="text-[10px] h-5 w-fit">
-                                {taskTypeLabel(task.taskType.tag)}
+                                {taskTypeLabel(task.taskType?.tag)}
                               </Badge>
                               {task.dueAt && (() => {
                                 const status = getDueDateStatus(task.dueAt)
@@ -1357,12 +1357,12 @@ export default function TicketsPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <StatusBadge tag={task.status.tag} />
+                            <StatusBadge tag={task.status?.tag} />
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
-                              {priorityIcon(task.priority.tag)}
-                              <span className="text-xs">{task.priority.tag}</span>
+                              {priorityIcon(task.priority?.tag)}
+                              <span className="text-xs">{task.priority?.tag}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -1499,8 +1499,8 @@ export default function TicketsPage() {
                     {/* Simple Burndown Visualization */}
                     <div className="mt-4 flex items-end gap-1 h-16">
                       {sprintTasks.map((task, i) => {
-                        const isCompleted = task.status.tag === 'Completed'
-                        const isInProgress = task.status.tag === 'InProgress' || task.status.tag === 'SelfChecking'
+                        const isCompleted = task.status?.tag === 'Completed'
+                        const isInProgress = task.status?.tag === 'InProgress' || task.status?.tag === 'SelfChecking'
                         return (
                           <Tooltip key={task.id.toString()}>
                             <TooltipTrigger>
@@ -1515,7 +1515,7 @@ export default function TicketsPage() {
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
                               <p className="font-medium truncate max-w-[200px]">{task.title}</p>
-                              <p className="text-muted-foreground">{task.status.tag}</p>
+                              <p className="text-muted-foreground">{task.status?.tag}</p>
                             </TooltipContent>
                           </Tooltip>
                         )
@@ -1567,7 +1567,7 @@ export default function TicketsPage() {
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              <StatusBadge tag={task.status.tag} />
+                              <StatusBadge tag={task.status?.tag} />
                             </td>
                             <td className="px-4 py-3">
                               {epic ? (
@@ -1581,8 +1581,8 @@ export default function TicketsPage() {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1.5">
-                                {priorityIcon(task.priority.tag)}
-                                <span className="text-xs">{task.priority.tag}</span>
+                                {priorityIcon(task.priority?.tag)}
+                                <span className="text-xs">{task.priority?.tag}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3">
@@ -1636,11 +1636,11 @@ export default function TicketsPage() {
                       const ext = extensionMap.get(t.id.toString())
                       return ext?.sprintId?.toString() === sId
                     })
-                    const sCompleted = sTasks.filter((t) => t.status.tag === 'Completed').length
+                    const sCompleted = sTasks.filter((t) => t.status?.tag === 'Completed').length
                     return (
                       <div key={sId} className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
-                          <Target className={`size-4 ${sprint.status.tag === 'Active' ? 'text-emerald-500' : sprint.status.tag === 'Completed' ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                          <Target className={`size-4 ${sprint.status?.tag === 'Active' ? 'text-emerald-500' : sprint.status?.tag === 'Completed' ? 'text-blue-500' : 'text-muted-foreground'}`} />
                           <div>
                             <p className="text-sm font-medium">{sprint.name}</p>
                             {sprint.goal && <p className="text-xs text-muted-foreground truncate max-w-md">{sprint.goal}</p>}
@@ -1649,14 +1649,14 @@ export default function TicketsPage() {
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground tabular-nums">{sCompleted}/{sTasks.length} done</span>
                           <Badge className={`text-[10px] ${
-                            sprint.status.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
-                            sprint.status.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
-                            sprint.status.tag === 'Planning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' :
+                            sprint.status?.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                            sprint.status?.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                            sprint.status?.tag === 'Planning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' :
                             'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
                           } hover:bg-inherit`}>
-                            {sprint.status.tag}
+                            {sprint.status?.tag}
                           </Badge>
-                          {sprint.status.tag === 'Planning' && (
+                          {sprint.status?.tag === 'Planning' && (
                             <Button size="sm" variant="outline" onClick={() => handleStartSprint(sprint.id)} className="h-7 text-xs gap-1">
                               <Play className="size-3" />
                               Start
@@ -1685,12 +1685,12 @@ export default function TicketsPage() {
                       const ext = extensionMap.get(t.id.toString())
                       return ext?.epicId?.toString() === eId
                     })
-                    const eCompleted = eTasks.filter((t) => t.status.tag === 'Completed').length
+                    const eCompleted = eTasks.filter((t) => t.status?.tag === 'Completed').length
                     const ePoints = eTasks.reduce((sum, t) => {
                       const ext = extensionMap.get(t.id.toString())
                       return sum + (ext?.storyPoints ?? 0)
                     }, 0)
-                    const eCompletedPoints = eTasks.filter((t) => t.status.tag === 'Completed').reduce((sum, t) => {
+                    const eCompletedPoints = eTasks.filter((t) => t.status?.tag === 'Completed').reduce((sum, t) => {
                       const ext = extensionMap.get(t.id.toString())
                       return sum + (ext?.storyPoints ?? 0)
                     }, 0)
@@ -1700,11 +1700,11 @@ export default function TicketsPage() {
                           <span className="size-3 rounded-full" style={{ backgroundColor: epic.color }} />
                           <span className="font-medium text-sm">{epic.name}</span>
                           <Badge className={`ml-auto text-[10px] ${
-                            epic.status.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
-                            epic.status.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                            epic.status?.tag === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                            epic.status?.tag === 'Completed' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
                             'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20'
                           } hover:bg-inherit`}>
-                            {epic.status.tag}
+                            {epic.status?.tag}
                           </Badge>
                         </div>
                         {epic.description && (
@@ -1891,7 +1891,7 @@ export default function TicketsPage() {
                                 <TooltipTrigger>
                                   <div
                                     onClick={() => setSelectedTask(task)}
-                                    className={`absolute h-7 rounded-md ${statusColor(task.status.tag)} cursor-pointer hover:opacity-80 transition-opacity flex items-center px-2 shadow-sm z-[5]`}
+                                    className={`absolute h-7 rounded-md ${statusColor(task.status?.tag)} cursor-pointer hover:opacity-80 transition-opacity flex items-center px-2 shadow-sm z-[5]`}
                                     style={{ left, width, top: '50%', transform: 'translateY(-50%)' }}
                                   >
                                     <span className="text-[10px] font-medium text-white truncate">
@@ -1901,7 +1901,7 @@ export default function TicketsPage() {
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-xs max-w-[240px]">
                                   <p className="font-medium truncate">{task.title}</p>
-                                  <p className="text-muted-foreground">{task.status.tag} &middot; {task.priority.tag}</p>
+                                  <p className="text-muted-foreground">{task.status?.tag} &middot; {task.priority?.tag}</p>
                                   {task.dueAt && <p className="text-muted-foreground">Due: {formatDate(task.dueAt)}</p>}
                                 </TooltipContent>
                               </Tooltip>
@@ -2409,7 +2409,7 @@ function TaskDetailPanel({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
   const [editDesc, setEditDesc] = useState(task.description)
-  const [editPriority, setEditPriority] = useState(task.priority.tag)
+  const [editPriority, setEditPriority] = useState(task.priority?.tag)
   const [isSaving, setIsSaving] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [isSendingComment, setIsSendingComment] = useState(false)
@@ -2482,7 +2482,7 @@ function TaskDetailPanel({
   const handleCancel = () => {
     setEditTitle(task.title)
     setEditDesc(task.description)
-    setEditPriority(task.priority.tag)
+    setEditPriority(task.priority?.tag)
     setIsEditing(false)
   }
 
@@ -2561,7 +2561,7 @@ function TaskDetailPanel({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-xs text-muted-foreground">T-{task.id.toString()}</span>
-              <StatusBadge tag={task.status.tag} />
+              <StatusBadge tag={task.status?.tag} />
             </div>
             {isEditing ? (
               <Input
@@ -2635,7 +2635,7 @@ function TaskDetailPanel({
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">Status</p>
               <Select
-                value={task.status.tag}
+                value={task.status?.tag}
                 onValueChange={(val) => onUpdateStatus(task.id, val)}
               >
                 <SelectTrigger className="w-44 h-8 text-xs">
@@ -2670,15 +2670,15 @@ function TaskDetailPanel({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${priorityBadgeClass(task.priority.tag)}`}>
-                    {priorityIcon(task.priority.tag)}
-                    {task.priority.tag}
+                  <div className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${priorityBadgeClass(task.priority?.tag)}`}>
+                    {priorityIcon(task.priority?.tag)}
+                    {task.priority?.tag}
                   </div>
                 )}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Type</p>
-                <Badge variant="outline" className="text-xs">{taskTypeLabel(task.taskType.tag)}</Badge>
+                <Badge variant="outline" className="text-xs">{taskTypeLabel(task.taskType?.tag)}</Badge>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Assignee</p>
@@ -2752,7 +2752,7 @@ function TaskDetailPanel({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No Sprint</SelectItem>
-                      {orgSprints.filter((s) => s.status.tag !== 'Cancelled' && s.status.tag !== 'Completed').map((s) => (
+                      {orgSprints.filter((s) => s.status?.tag !== 'Cancelled' && s.status?.tag !== 'Completed').map((s) => (
                         <SelectItem key={s.id.toString()} value={s.id.toString()}>
                           <span className="flex items-center gap-1.5">
                             <Target className="size-3" />
@@ -2783,7 +2783,7 @@ function TaskDetailPanel({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No Epic</SelectItem>
-                      {orgEpics.filter((e) => e.status.tag === 'Active' || e.status.tag === 'Draft').map((e) => (
+                      {orgEpics.filter((e) => e.status?.tag === 'Active' || e.status?.tag === 'Draft').map((e) => (
                         <SelectItem key={e.id.toString()} value={e.id.toString()}>
                           <span className="flex items-center gap-1.5">
                             <span className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
@@ -2884,14 +2884,14 @@ function TaskDetailPanel({
                 Subtasks
                 {(subtasksForDetail || []).length > 0 && (
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                    {(subtasksForDetail || []).filter((s: any) => s.status.tag === 'Completed').length}/{(subtasksForDetail || []).length}
+                    {(subtasksForDetail || []).filter((s: any) => s.status?.tag === 'Completed').length}/{(subtasksForDetail || []).length}
                   </Badge>
                 )}
               </h3>
               {(subtasksForDetail || []).length > 0 && (
                 <div className="space-y-1.5">
                   {(subtasksForDetail || []).map((subtask: any) => {
-                    const isDone = subtask.status.tag === 'Completed'
+                    const isDone = subtask.status?.tag === 'Completed'
                     return (
                       <div
                         key={subtask.id.toString()}
@@ -2917,7 +2917,7 @@ function TaskDetailPanel({
                           {subtask.title}
                         </span>
                         <span className="text-[9px] text-muted-foreground uppercase">
-                          {subtask.status.tag}
+                          {subtask.status?.tag}
                         </span>
                       </div>
                     )
@@ -2925,7 +2925,7 @@ function TaskDetailPanel({
                   {/* Subtask progress bar */}
                   {(subtasksForDetail || []).length > 0 && (() => {
                     const total = (subtasksForDetail || []).length
-                    const done = (subtasksForDetail || []).filter((s: any) => s.status.tag === 'Completed').length
+                    const done = (subtasksForDetail || []).filter((s: any) => s.status?.tag === 'Completed').length
                     const pct = total > 0 ? (done / total) * 100 : 0
                     return (
                       <div className="flex items-center gap-2 mt-1">
@@ -3254,7 +3254,7 @@ function TaskDetailPanel({
                         <div className="flex-1 min-w-0">
                           <p className="text-xs">
                             <span className="text-muted-foreground">Current status: </span>
-                            <span className="font-medium">{task.status.tag.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            <span className="font-medium">{task.status?.tag.replace(/([A-Z])/g, ' $1').trim()}</span>
                           </p>
                         </div>
                       </div>

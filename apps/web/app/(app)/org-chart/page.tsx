@@ -119,8 +119,8 @@ function PersonNode({
   person: any
   isHighlighted: boolean
 }) {
-  const isAI = person.employeeType.tag === 'AiAgent'
-  const status = getStatus(person.status.tag)
+  const isAI = person.employeeType?.tag === 'AiAgent'
+  const status = getStatus(person.status?.tag)
   const hexId = person.id.toHexString()
 
   return (
@@ -424,8 +424,8 @@ function DepartmentSection({
       {expanded && (
         <div className="border-t border-neutral-100 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800">
           {members.map((person) => {
-            const isAI = person.employeeType.tag === 'AiAgent'
-            const status = getStatus(person.status.tag)
+            const isAI = person.employeeType?.tag === 'AiAgent'
+            const status = getStatus(person.status?.tag)
             const hexId = person.id.toHexString()
             const isHL = highlightedIds.has(hexId)
 
@@ -510,7 +510,7 @@ export default function OrgChartPage() {
   const departments = useMemo(() => {
     const map = new Map<string, any[]>()
     for (const emp of orgEmployees) {
-      const dept = emp.department.tag
+      const dept = emp.department?.tag
       if (!map.has(dept)) map.set(dept, [])
       map.get(dept)!.push(emp)
     }
@@ -535,7 +535,7 @@ export default function OrgChartPage() {
       if (
         emp.name.toLowerCase().includes(q) ||
         emp.role.toLowerCase().includes(q) ||
-        emp.department.tag.toLowerCase().includes(q) ||
+        emp.department?.tag.toLowerCase().includes(q) ||
         (emp.email?.toLowerCase().includes(q) ?? false)
       ) {
         ids.add(emp.id.toHexString())
@@ -547,10 +547,10 @@ export default function OrgChartPage() {
   // Stats
   const totalCount = orgEmployees.length
   const onlineCount = orgEmployees.filter(
-    (e) => e.status.tag === 'Online' || e.status.tag === 'Busy' || e.status.tag === 'InCall'
+    (e) => e.status?.tag === 'Online' || e.status?.tag === 'Busy' || e.status?.tag === 'InCall'
   ).length
-  const aiCount = orgEmployees.filter((e) => e.employeeType.tag === 'AiAgent').length
-  const uniqueDepts = new Set(orgEmployees.map((e) => e.department.tag)).size
+  const aiCount = orgEmployees.filter((e) => e.employeeType?.tag === 'AiAgent').length
+  const uniqueDepts = new Set(orgEmployees.map((e) => e.department?.tag)).size
 
   const [deptFilter, setDeptFilter] = useState<string>('all')
 
@@ -568,9 +568,9 @@ export default function OrgChartPage() {
     exportCSV('org-chart', [
       { header: 'Name', accessor: (e: any) => e.name },
       { header: 'Role', accessor: (e: any) => e.role },
-      { header: 'Department', accessor: (e: any) => e.department.tag },
-      { header: 'Status', accessor: (e: any) => e.status.tag },
-      { header: 'Type', accessor: (e: any) => e.employeeType.tag },
+      { header: 'Department', accessor: (e: any) => e.department?.tag },
+      { header: 'Status', accessor: (e: any) => e.status?.tag },
+      { header: 'Type', accessor: (e: any) => e.employeeType?.tag },
       { header: 'Email', accessor: (e: any) => e.email ?? '' },
       { header: 'Skills', accessor: (e: any) => e.skills?.join(', ') ?? '' },
     ], orgEmployees)

@@ -269,8 +269,8 @@ export default function EngineeringPage() {
 
   const prKpis = useMemo(() => {
     const total = pullRequests.length
-    const open = pullRequests.filter(p => p.status.tag === 'Open').length
-    const underReview = pullRequests.filter(p => p.status.tag === 'UnderReview').length
+    const open = pullRequests.filter(p => p.status?.tag === 'Open').length
+    const underReview = pullRequests.filter(p => p.status?.tag === 'UnderReview').length
     const aiReviewedCount = pullRequests.filter(p => p.aiReviewed).length
     const aiReviewedPct = total > 0 ? Math.round((aiReviewedCount / total) * 100) : 0
     return { total, open, underReview, aiReviewedPct }
@@ -283,8 +283,8 @@ export default function EngineeringPage() {
 
   const bugKpis = useMemo(() => {
     const total = bugs.length
-    const critical = bugs.filter(b => b.severity.tag === 'Critical').length
-    const inProgress = bugs.filter(b => b.status.tag === 'InProgress').length
+    const critical = bugs.filter(b => b.severity?.tag === 'Critical').length
+    const inProgress = bugs.filter(b => b.status?.tag === 'InProgress').length
     const aiTriagedCount = bugs.filter(b => b.aiTriaged).length
     const aiTriagedPct = total > 0 ? Math.round((aiTriagedCount / total) * 100) : 0
     return { total, critical, inProgress, aiTriagedPct }
@@ -295,14 +295,14 @@ export default function EngineeringPage() {
     const q = prSearch.toLowerCase()
     return pullRequests.filter(pr => {
       const repo = reposMap.get(pr.repositoryId)
-      return pr.title.toLowerCase().includes(q) || (pr.externalId?.toLowerCase().includes(q) ?? false) || (repo?.name.toLowerCase().includes(q) ?? false) || pr.status.tag.toLowerCase().includes(q)
+      return pr.title.toLowerCase().includes(q) || (pr.externalId?.toLowerCase().includes(q) ?? false) || (repo?.name.toLowerCase().includes(q) ?? false) || pr.status?.tag.toLowerCase().includes(q)
     })
   }, [pullRequests, prSearch, reposMap])
 
   const filteredBugs = useMemo(() => {
     if (!bugSearch.trim()) return bugs
     const q = bugSearch.toLowerCase()
-    return bugs.filter(b => b.title.toLowerCase().includes(q) || b.severity.tag.toLowerCase().includes(q) || b.priority.tag.toLowerCase().includes(q) || b.status.tag.toLowerCase().includes(q))
+    return bugs.filter(b => b.title.toLowerCase().includes(q) || b.severity?.tag.toLowerCase().includes(q) || b.priority?.tag.toLowerCase().includes(q) || b.status?.tag.toLowerCase().includes(q))
   }, [bugs, bugSearch])
 
   const handleExportPRs = useCallback(() => {
@@ -310,7 +310,7 @@ export default function EngineeringPage() {
       { header: 'Title', accessor: (pr: any) => pr.title },
       { header: 'PR #', accessor: (pr: any) => pr.externalId ?? '' },
       { header: 'Repository', accessor: (pr: any) => reposMap.get(pr.repositoryId)?.name ?? '' },
-      { header: 'Status', accessor: (pr: any) => prStatusClass(pr.status.tag).label },
+      { header: 'Status', accessor: (pr: any) => prStatusClass(pr.status?.tag).label },
       { header: 'AI Reviewed', accessor: (pr: any) => pr.aiReviewed ? 'Yes' : 'No' },
       { header: 'Security Issues', accessor: (pr: any) => pr.securityIssues.length },
       { header: 'Performance Issues', accessor: (pr: any) => pr.performanceIssues.length },
@@ -321,9 +321,9 @@ export default function EngineeringPage() {
   const handleExportBugs = useCallback(() => {
     exportCSV('bugs', [
       { header: 'Title', accessor: (b: any) => b.title },
-      { header: 'Severity', accessor: (b: any) => b.severity.tag },
-      { header: 'Priority', accessor: (b: any) => b.priority.tag },
-      { header: 'Status', accessor: (b: any) => bugStatusClass(b.status.tag).label },
+      { header: 'Severity', accessor: (b: any) => b.severity?.tag },
+      { header: 'Priority', accessor: (b: any) => b.priority?.tag },
+      { header: 'Status', accessor: (b: any) => bugStatusClass(b.status?.tag).label },
       { header: 'AI Triaged', accessor: (b: any) => b.aiTriaged ? 'Yes' : 'No' },
       { header: 'Suggested Fix', accessor: (b: any) => b.aiSuggestedFix ?? '' },
       { header: 'Reported', accessor: (b: any) => formatTimestamp(b.reportedAt) },
@@ -639,7 +639,7 @@ export default function EngineeringPage() {
                             {repo?.name ?? <span className="italic opacity-50">Unknown</span>}
                           </TableCell>
                           <TableCell>
-                            <StatusBadge tag={pr.status.tag} config={prStatusClass(pr.status.tag)} />
+                            <StatusBadge tag={pr.status?.tag} config={prStatusClass(pr.status?.tag)} />
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center">
@@ -669,7 +669,7 @@ export default function EngineeringPage() {
                           </TableCell>
                           <TableCell className="pr-4">
                             <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Select value={pr.status.tag} onValueChange={(v) => { try { updatePrStatus({ prId: pr.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                              <Select value={pr.status?.tag} onValueChange={(v) => { try { updatePrStatus({ prId: pr.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
                                 <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   {['Open', 'UnderReview', 'ChangesRequested', 'Approved', 'Merged', 'Closed'].map((s) => (
@@ -799,10 +799,10 @@ export default function EngineeringPage() {
                           <DotBadge tag={bug.severity.tag} config={severityClass(bug.severity.tag)} />
                         </TableCell>
                         <TableCell>
-                          <DotBadge tag={bug.priority.tag} config={priorityClass(bug.priority.tag)} />
+                          <DotBadge tag={bug.priority?.tag} config={priorityClass(bug.priority?.tag)} />
                         </TableCell>
                         <TableCell>
-                          <StatusBadge tag={bug.status.tag} config={bugStatusClass(bug.status.tag)} />
+                          <StatusBadge tag={bug.status?.tag} config={bugStatusClass(bug.status?.tag)} />
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex justify-center">
@@ -823,7 +823,7 @@ export default function EngineeringPage() {
                         </TableCell>
                         <TableCell className="pr-4">
                           <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Select value={bug.status.tag} onValueChange={(v) => { try { updateBugStatus({ bugId: bug.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
+                            <Select value={bug.status?.tag} onValueChange={(v) => { try { updateBugStatus({ bugId: bug.id, newStatus: { tag: v } as any }) } catch (e) { console.error(e) } }}>
                               <SelectTrigger className="h-6 text-[11px] w-[90px] px-2"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 {['New', 'Triaged', 'InProgress', 'FixInReview', 'Resolved', 'Verified', 'Closed'].map((s) => (

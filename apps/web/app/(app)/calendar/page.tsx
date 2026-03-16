@@ -234,7 +234,7 @@ export default function CalendarPage() {
         ...e,
         start: tsToDate(e.startTime),
         end: tsToDate(e.endTime),
-        cat: (e.category.tag as EventCategoryKey) || 'Other',
+        cat: (e.category?.tag as EventCategoryKey) || 'Other',
       }))
   }, [allCalEvents, currentOrgId])
 

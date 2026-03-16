@@ -241,7 +241,7 @@ export default function ActivityPage() {
   const filteredActivities = useMemo(() => {
     let list = activities
     if (actionFilter !== 'all') {
-      list = list.filter((a) => a.action.tag === actionFilter)
+      list = list.filter((a) => a.action?.tag === actionFilter)
     }
     if (entityTypeFilter !== 'all') {
       list = list.filter((a) => a.entityType.toLowerCase() === entityTypeFilter)
@@ -254,7 +254,7 @@ export default function ActivityPage() {
           actorName.toLowerCase().includes(q) ||
           a.entityType.toLowerCase().includes(q) ||
           (a.metadata ?? '').toLowerCase().includes(q) ||
-          a.action.tag.toLowerCase().includes(q)
+          a.action?.tag.toLowerCase().includes(q)
         )
       })
     }
@@ -300,7 +300,7 @@ export default function ActivityPage() {
   const handleExportActivity = useCallback(() => {
     exportCSV('activity-log', [
       { header: 'Actor', accessor: (a: any) => getActorName(a.actor) },
-      { header: 'Action', accessor: (a: any) => a.action.tag },
+      { header: 'Action', accessor: (a: any) => a.action?.tag },
       { header: 'Entity Type', accessor: (a: any) => a.entityType },
       { header: 'Entity ID', accessor: (a: any) => a.entityId },
       { header: 'Metadata', accessor: (a: any) => a.metadata ?? '' },
@@ -478,8 +478,8 @@ export default function ActivityPage() {
 
                     {/* Events */}
                     {group.items.map((activity, idx) => {
-                      const config = actionConfig[activity.action.tag] ?? defaultConfig
-                      const IconComponent = actionIcons[activity.action.tag] ?? Activity
+                      const config = actionConfig[activity.action?.tag] ?? defaultConfig
+                      const IconComponent = actionIcons[activity.action?.tag] ?? Activity
                       const actorName = getActorName(activity.actor)
                       const actorIsAI = isAI(activity.actor)
 
@@ -516,7 +516,7 @@ export default function ActivityPage() {
                                 </Badge>
                               )}
                               <span className="text-muted-foreground">
-                                {' '}{actionVerb(activity.action.tag)}{' '}
+                                {' '}{actionVerb(activity.action?.tag)}{' '}
                               </span>
                               {(() => {
                                 const route = entityRoute(activity.entityType)

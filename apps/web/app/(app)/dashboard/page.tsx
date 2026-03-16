@@ -243,7 +243,7 @@ export default function DashboardPage() {
     [orgChannels]
   )
   const orgMessages = useMemo(
-    () => allMessages.filter(m => m.contextType.tag === 'Channel' && orgChannelIds.has(m.contextId)),
+    () => allMessages.filter(m => m.contextType?.tag === 'Channel' && orgChannelIds.has(m.contextId)),
     [allMessages, orgChannelIds]
   )
   const orgTasks = useMemo(
@@ -281,9 +281,9 @@ export default function DashboardPage() {
           type: 'activity',
           timestamp: log.timestamp.toDate?.().getTime() ?? 0,
           actorHex: log.actor.toHexString(),
-          content: `${getActionVerb(log.action.tag)} ${log.entityType} #${log.entityId}`,
+          content: `${getActionVerb(log.action?.tag)} ${log.entityType} #${log.entityId}`,
           metadata: log.metadata ?? undefined,
-          action: log.action.tag,
+          action: log.action?.tag,
           entityType: log.entityType,
         })
       } catch {}
@@ -310,12 +310,12 @@ export default function DashboardPage() {
   const recentMessageCount = orgMessages.length
   const activeChannelCount = orgChannels.filter(c => !c.name.startsWith('dm-')).length
   const openTaskCount = orgTasks.filter(t =>
-    t.status.tag !== 'Completed' && t.status.tag !== 'Cancelled'
+    t.status?.tag !== 'Completed' && t.status?.tag !== 'Cancelled'
   ).length
   const docCount = orgDocs.length
   const onlineCount = orgMembers.filter(m => {
     const emp = employeeMap.get(m.identity?.toHexString?.() ?? '')
-    return emp && (emp.status.tag === 'Online' || emp.status.tag === 'Busy')
+    return emp && (emp.status?.tag === 'Online' || emp.status?.tag === 'Busy')
   }).length
 
   const greeting = useMemo(() => {
@@ -340,17 +340,17 @@ export default function DashboardPage() {
     return orgTasks.filter((t) => {
       if (!identity) return false
       return t.assignee?.toHexString() === myHex &&
-        t.status.tag !== 'Completed' && t.status.tag !== 'Cancelled'
+        t.status?.tag !== 'Completed' && t.status?.tag !== 'Cancelled'
     }).sort((a, b) => {
       const pOrder = ['Urgent', 'High', 'Medium', 'Low']
-      return pOrder.indexOf(a.priority.tag) - pOrder.indexOf(b.priority.tag)
+      return pOrder.indexOf(a.priority?.tag) - pOrder.indexOf(b.priority?.tag)
     }).slice(0, 8)
   }, [orgTasks, identity, myHex])
 
   // Active sprint
   const activeSprint = useMemo(() => {
     return allSprints.find((s) =>
-      Number(s.orgId) === currentOrgId && s.status.tag === 'Active'
+      Number(s.orgId) === currentOrgId && s.status?.tag === 'Active'
     ) || null
   }, [allSprints, currentOrgId])
 
@@ -361,9 +361,9 @@ export default function DashboardPage() {
       const ext = extensionMap.get(t.id.toString())
       return ext?.sprintId?.toString() === sprintId
     })
-    const completed = tasks.filter((t) => t.status.tag === 'Completed').length
+    const completed = tasks.filter((t) => t.status?.tag === 'Completed').length
     const totalPoints = tasks.reduce((sum, t) => sum + (extensionMap.get(t.id.toString())?.storyPoints ?? 0), 0)
-    const completedPoints = tasks.filter((t) => t.status.tag === 'Completed')
+    const completedPoints = tasks.filter((t) => t.status?.tag === 'Completed')
       .reduce((sum, t) => sum + (extensionMap.get(t.id.toString())?.storyPoints ?? 0), 0)
     return { total: tasks.length, completed, totalPoints, completedPoints }
   }, [activeSprint, orgTasks, extensionMap])
@@ -372,7 +372,7 @@ export default function DashboardPage() {
   const statusDistribution = useMemo(() => {
     const dist = { Unclaimed: 0, Claimed: 0, InProgress: 0, NeedsReview: 0, Completed: 0, Escalated: 0 }
     orgTasks.forEach((t) => {
-      if (t.status.tag in dist) dist[t.status.tag as keyof typeof dist]++
+      if (t.status?.tag in dist) dist[t.status?.tag as keyof typeof dist]++
     })
     return dist
   }, [orgTasks])
@@ -386,7 +386,7 @@ export default function DashboardPage() {
       const dayEnd = dayStart + 86400000
       const label = new Date(dayStart).toLocaleDateString('en-US', { weekday: 'short' })
       const count = orgTasks.filter((t) => {
-        if (t.status.tag !== 'Completed') return false
+        if (t.status?.tag !== 'Completed') return false
         try {
           const ts = t.completedAt?.toDate()?.getTime() ?? 0
           return ts >= dayStart && ts < dayEnd
@@ -409,7 +409,7 @@ export default function DashboardPage() {
   const overdueTasks = useMemo(() => {
     const now = Date.now()
     return orgTasks.filter((t) => {
-      if (t.status.tag === 'Completed' || t.status.tag === 'Cancelled') return false
+      if (t.status?.tag === 'Completed' || t.status?.tag === 'Cancelled') return false
       try {
         const due = t.dueAt?.toDate()?.getTime()
         return due && due < now
@@ -421,7 +421,7 @@ export default function DashboardPage() {
   const dealStats = useMemo(() => {
     const orgDeals = allDeals.filter((d) => Number(d.orgId) === currentOrgId)
     const totalValue = orgDeals.reduce((sum, d) => sum + Number(d.value), 0)
-    const wonValue = orgDeals.filter((d) => d.stage.tag === 'ClosedWon')
+    const wonValue = orgDeals.filter((d) => d.stage?.tag === 'ClosedWon')
       .reduce((sum, d) => sum + Number(d.value), 0)
     return { total: orgDeals.length, totalValue, wonValue }
   }, [allDeals, currentOrgId])
@@ -451,7 +451,7 @@ export default function DashboardPage() {
     const threeDays = now + 3 * 86400000
     return orgTasks
       .filter((t) => {
-        if (t.status.tag === 'Completed' || t.status.tag === 'Cancelled') return false
+        if (t.status?.tag === 'Completed' || t.status?.tag === 'Cancelled') return false
         try {
           const due = t.dueAt?.toDate()?.getTime()
           return due && due >= now && due <= threeDays
@@ -481,7 +481,7 @@ export default function DashboardPage() {
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     return orgTasks.filter((t) => {
-      if (t.status.tag !== 'Completed') return false
+      if (t.status?.tag !== 'Completed') return false
       try {
         return (t.completedAt?.toDate()?.getTime() ?? 0) >= todayStart.getTime()
       } catch { return false }
@@ -806,15 +806,15 @@ export default function DashboardPage() {
                         <TooltipContent side="left" className="text-xs">Mark complete</TooltipContent>
                       </Tooltip>
                       <div className={`size-1.5 rounded-full shrink-0 ${
-                        task.priority.tag === 'Urgent' ? 'bg-red-500' :
-                        task.priority.tag === 'High' ? 'bg-orange-500' :
-                        task.priority.tag === 'Medium' ? 'bg-amber-400' : 'bg-blue-400'
+                        task.priority?.tag === 'Urgent' ? 'bg-red-500' :
+                        task.priority?.tag === 'High' ? 'bg-orange-500' :
+                        task.priority?.tag === 'Medium' ? 'bg-amber-400' : 'bg-blue-400'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{task.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[10px] text-muted-foreground font-mono">T-{task.id.toString()}</span>
-                          <Badge variant="outline" className="text-[9px] h-4 px-1">{task.status.tag.replace(/([A-Z])/g, ' $1').trim()}</Badge>
+                          <Badge variant="outline" className="text-[9px] h-4 px-1">{task.status?.tag.replace(/([A-Z])/g, ' $1').trim()}</Badge>
                         </div>
                       </div>
                       {ext?.storyPoints != null && (

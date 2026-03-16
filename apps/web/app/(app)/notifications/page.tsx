@@ -7,10 +7,14 @@ import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
-import { useAuth } from 'react-oidc-context'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   Bell,
   CheckCheck,
@@ -28,6 +32,12 @@ import {
   Filter,
   Search,
   Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ListChecks,
+  Trash2,
+  Eye,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { exportCSV } from '@/lib/csv-export'
@@ -64,6 +74,12 @@ const TYPE_FILTERS = [
   'SystemAlert',
 ] as const
 type TypeFilter = (typeof TYPE_FILTERS)[number]
+
+const PRIORITY_FILTERS = ['All', 'Urgent', 'High', 'Normal', 'Low'] as const
+type PriorityFilter = (typeof PRIORITY_FILTERS)[number]
+
+type SortField = 'time' | 'priority' | 'type'
+type SortDir = 'asc' | 'desc'
 
 const typeConfig: Record<NotificationTypeTag, { icon: typeof Bell; label: string; cls: string; dot: string }> = {
   TaskAssigned: {
@@ -122,11 +138,11 @@ const typeConfig: Record<NotificationTypeTag, { icon: typeof Bell; label: string
   },
 }
 
-const priorityConfig: Record<PriorityTag, { cls: string; dot: string }> = {
-  Low: { cls: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20', dot: 'bg-neutral-400' },
-  Normal: { cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', dot: 'bg-blue-500' },
-  High: { cls: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20', dot: 'bg-orange-500' },
-  Urgent: { cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', dot: 'bg-red-500' },
+const priorityConfig: Record<PriorityTag, { cls: string; dot: string; weight: number }> = {
+  Low: { cls: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20', dot: 'bg-neutral-400', weight: 0 },
+  Normal: { cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', dot: 'bg-blue-500', weight: 1 },
+  High: { cls: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20', dot: 'bg-orange-500', weight: 2 },
+  Urgent: { cls: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', dot: 'bg-red-500', weight: 3 },
 }
 
 function typeFilterLabel(tag: TypeFilter): string {
@@ -144,6 +160,13 @@ function timeAgo(ts: any): string {
   } catch {
     return ''
   }
+}
+
+function formatTimestamp(ts: any): string {
+  try {
+    const d = ts.toDate()
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  } catch { return '' }
 }
 
 function getDateGroup(ts: any): string {
@@ -167,15 +190,18 @@ function getDateGroup(ts: any): string {
 
 export default function NotificationsPage() {
   const { currentOrgId } = useOrg()
-  const auth = useAuth()
   const [allNotifications] = useTable(tables.notification)
   const markRead = useSpacetimeReducer(reducers.markNotificationRead)
   const dismiss = useSpacetimeReducer(reducers.dismissNotification)
   const markAllRead = useSpacetimeReducer(reducers.markAllNotificationsRead)
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All')
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('All')
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortField, setSortField] = useState<SortField>('time')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // All notifications for current org, newest first
   const notifications = useMemo(
@@ -186,19 +212,37 @@ export default function NotificationsPage() {
     [allNotifications]
   )
 
-  // Filtered
+  // Filtered + sorted
   const filtered = useMemo(() => {
-    return notifications.filter((n) => {
+    let list = notifications.filter((n) => {
       const matchesType = typeFilter === 'All' || n.notificationType.tag === typeFilter
+      const matchesPriority = priorityFilter === 'All' || n.priority.tag === priorityFilter
       const matchesRead = !showUnreadOnly || !n.read
-      if (!matchesType || !matchesRead) return false
+      if (!matchesType || !matchesPriority || !matchesRead) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q)
       }
       return true
     })
-  }, [notifications, typeFilter, showUnreadOnly, searchQuery])
+
+    // Sort
+    if (sortField === 'priority') {
+      list = [...list].sort((a, b) => {
+        const aw = priorityConfig[a.priority.tag as PriorityTag]?.weight ?? 0
+        const bw = priorityConfig[b.priority.tag as PriorityTag]?.weight ?? 0
+        return sortDir === 'desc' ? bw - aw : aw - bw
+      })
+    } else if (sortField === 'type') {
+      list = [...list].sort((a, b) => {
+        const cmp = a.notificationType.tag.localeCompare(b.notificationType.tag)
+        return sortDir === 'desc' ? -cmp : cmp
+      })
+    }
+    // 'time' is already sorted by default
+
+    return list
+  }, [notifications, typeFilter, priorityFilter, showUnreadOnly, searchQuery, sortField, sortDir])
 
   // Group by date
   const grouped = useMemo(() => {
@@ -221,43 +265,95 @@ export default function NotificationsPage() {
   const todayCount = notifications.filter((n) => getDateGroup(n.createdAt) === 'Today').length
   const urgentCount = notifications.filter((n) => n.priority.tag === 'Urgent' || n.priority.tag === 'High').length
 
-  const handleMarkRead = (notificationId: bigint) => {
-    try {
-      markRead({ notificationId })
-    } catch (err) {
-      console.error('Failed to mark notification read:', err)
+  // Selection helpers
+  const allFilteredIds = useMemo(() => new Set(filtered.map(n => String(n.id))), [filtered])
+  const allSelected = filtered.length > 0 && selectedIds.size === filtered.length && [...allFilteredIds].every(id => selectedIds.has(id))
+  const someSelected = selectedIds.size > 0
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map(n => String(n.id))))
     }
+  }, [allSelected, filtered])
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const selectGroup = useCallback((items: typeof filtered) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      const groupIds = items.map(n => String(n.id))
+      const allInGroup = groupIds.every(id => next.has(id))
+      if (allInGroup) {
+        groupIds.forEach(id => next.delete(id))
+      } else {
+        groupIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }, [])
+
+  // Bulk actions
+  const handleBulkMarkRead = useCallback(() => {
+    for (const n of filtered) {
+      if (selectedIds.has(String(n.id)) && !n.read) {
+        try { markRead({ notificationId: n.id }) } catch {}
+      }
+    }
+    setSelectedIds(new Set())
+  }, [filtered, selectedIds, markRead])
+
+  const handleBulkDismiss = useCallback(() => {
+    for (const n of filtered) {
+      if (selectedIds.has(String(n.id))) {
+        try { dismiss({ notificationId: n.id }) } catch {}
+      }
+    }
+    setSelectedIds(new Set())
+  }, [filtered, selectedIds, dismiss])
+
+  const handleMarkRead = (notificationId: bigint) => {
+    try { markRead({ notificationId }) } catch {}
   }
 
   const handleDismiss = (notificationId: bigint) => {
-    try {
-      dismiss({ notificationId })
-    } catch (err) {
-      console.error('Failed to dismiss notification:', err)
-    }
+    try { dismiss({ notificationId }) } catch {}
   }
 
   const handleExportNotifications = useCallback(() => {
-    const headers = ['Title', 'Body', 'Type', 'Priority', 'Read', 'Time']
-    const rows = filtered.map(n => [
-      n.title,
-      n.body,
-      n.notificationType.tag,
-      n.priority.tag,
-      n.read ? 'Yes' : 'No',
-      timeAgo(n.createdAt),
-    ])
-    exportCSV('notifications', headers, rows)
+    exportCSV('notifications', [
+      { header: 'Title', accessor: (n: any) => n.title },
+      { header: 'Body', accessor: (n: any) => n.body },
+      { header: 'Type', accessor: (n: any) => n.notificationType.tag },
+      { header: 'Priority', accessor: (n: any) => n.priority.tag },
+      { header: 'Read', accessor: (n: any) => n.read ? 'Yes' : 'No' },
+      { header: 'Time', accessor: (n: any) => formatTimestamp(n.createdAt) },
+    ], filtered)
   }, [filtered])
 
   const handleMarkAllRead = () => {
     if (currentOrgId === null) return
-    try {
-      markAllRead({ orgId: BigInt(currentOrgId) })
-    } catch (err) {
-      console.error('Failed to mark all read:', err)
+    try { markAllRead({ orgId: BigInt(currentOrgId) }) } catch {}
+  }
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortField(field)
+      setSortDir('desc')
     }
   }
+
+  const SortIcon = sortDir === 'desc' ? ArrowDown : ArrowUp
 
   return (
     <div className="flex flex-col h-full">
@@ -373,8 +469,30 @@ export default function NotificationsPage() {
           })}
         </div>
 
-        {/* Search + Export */}
-        <div className="flex items-center gap-3 mt-3">
+        {/* Priority filter pills */}
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">Priority:</span>
+          {PRIORITY_FILTERS.map((p) => {
+            const cfg = p !== 'All' ? priorityConfig[p] : null
+            return (
+              <button
+                key={p}
+                onClick={() => setPriorityFilter(p)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all ${
+                  priorityFilter === p
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {cfg && <span className={`size-1 rounded-full ${cfg.dot}`} />}
+                {p}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Search + Sort + Export */}
+        <div className="flex items-center gap-2 mt-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
@@ -384,12 +502,69 @@ export default function NotificationsPage() {
               className="pl-8 h-8 text-sm"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={handleExportNotifications} className="gap-1.5 h-8">
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={sortField === 'time' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2 text-[10px]"
+                  onClick={() => toggleSort('time')}
+                >
+                  Time {sortField === 'time' && <SortIcon className="size-3 ml-0.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Sort by time</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={sortField === 'priority' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2 text-[10px]"
+                  onClick={() => toggleSort('priority')}
+                >
+                  Priority {sortField === 'priority' && <SortIcon className="size-3 ml-0.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Sort by priority</TooltipContent>
+            </Tooltip>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExportNotifications} className="gap-1.5 h-8 ml-auto">
             <Download className="size-3.5" /> Export
           </Button>
           <span className="text-xs text-muted-foreground tabular-nums">{filtered.length} notifications</span>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {someSelected && (
+        <div className="flex-shrink-0 border-b bg-amber-500/5 px-6 py-2 flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+              className="size-4"
+            />
+            <span className="text-xs font-medium tabular-nums">{selectedIds.size} selected</span>
+          </div>
+          <Separator orientation="vertical" className="h-4" />
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleBulkMarkRead}>
+            <Eye className="size-3" />
+            Mark Read
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/10" onClick={handleBulkDismiss}>
+            <Trash2 className="size-3" />
+            Dismiss
+          </Button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-[10px] text-muted-foreground hover:text-foreground ml-auto"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
 
       {/* Notification list */}
       <ScrollArea className="flex-1">
@@ -405,107 +580,136 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto py-2">
-            {grouped.map((group) => (
-              <div key={group.label}>
-                {/* Date group header */}
-                <div className="sticky top-0 z-10 px-6 py-2 backdrop-blur-md bg-background/80">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {group.label}
-                  </span>
-                </div>
+            {grouped.map((group) => {
+              const groupIds = group.items.map(n => String(n.id))
+              const allGroupSelected = groupIds.every(id => selectedIds.has(id))
 
-                {/* Notifications in group */}
-                <div className="space-y-px">
-                  {group.items.map((notification) => {
-                    const config = typeConfig[notification.notificationType.tag as NotificationTypeTag]
-                    const Icon = config?.icon ?? Bell
-                    const priorityCfg = priorityConfig[notification.priority.tag as PriorityTag]
-                    const isUnread = !notification.read
+              return (
+                <div key={group.label}>
+                  {/* Date group header with group select */}
+                  <div className="sticky top-0 z-10 px-6 py-2 backdrop-blur-md bg-background/80 flex items-center gap-2">
+                    <Checkbox
+                      checked={allGroupSelected}
+                      onCheckedChange={() => selectGroup(group.items)}
+                      className="size-3.5"
+                    />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">({group.items.length})</span>
+                  </div>
 
-                    return (
-                      <div
-                        key={String(notification.id)}
-                        className={`group relative flex items-start gap-3 px-6 py-3 transition-colors hover:bg-muted/50 ${
-                          isUnread ? 'bg-amber-500/[0.03]' : ''
-                        }`}
-                      >
-                        {/* Unread dot */}
-                        {isUnread && (
-                          <span className="absolute left-2 top-5 size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        )}
+                  {/* Notifications in group */}
+                  <div className="space-y-px">
+                    {group.items.map((notification) => {
+                      const config = typeConfig[notification.notificationType.tag as NotificationTypeTag]
+                      const Icon = config?.icon ?? Bell
+                      const priorityCfg = priorityConfig[notification.priority.tag as PriorityTag]
+                      const isUnread = !notification.read
+                      const isSelected = selectedIds.has(String(notification.id))
 
-                        {/* Type icon */}
-                        <div className={`rounded-lg p-2 mt-0.5 shrink-0 ${config?.cls ?? 'bg-muted'}`}>
-                          <Icon className="size-4" />
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className={`text-sm leading-snug ${isUnread ? 'font-semibold' : 'font-medium'}`}>
-                                {notification.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                {notification.body}
-                              </p>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
-                              {timeAgo(notification.createdAt)}
-                            </span>
+                      return (
+                        <div
+                          key={String(notification.id)}
+                          className={`group relative flex items-start gap-3 px-6 py-3 transition-colors hover:bg-muted/50 ${
+                            isUnread ? 'bg-amber-500/[0.03]' : ''
+                          } ${isSelected ? 'bg-amber-500/[0.06] ring-1 ring-amber-500/10' : ''}`}
+                        >
+                          {/* Selection checkbox */}
+                          <div className="flex items-center pt-1.5">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelectOne(String(notification.id))}
+                              className="size-3.5"
+                            />
                           </div>
 
-                          {/* Meta row */}
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config?.cls ?? ''}`}>
-                              {config?.label ?? notification.notificationType.tag}
-                            </span>
-                            {(notification.priority.tag === 'High' || notification.priority.tag === 'Urgent') && (
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${priorityCfg?.cls ?? ''}`}>
-                                <span className={`size-1 rounded-full ${priorityCfg?.dot ?? ''}`} />
-                                {notification.priority.tag}
-                              </span>
-                            )}
-                            {notification.link && (
-                              <a
-                                href={notification.link}
-                                className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
-                              >
-                                View Details
-                              </a>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          {/* Unread dot */}
                           {isUnread && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              onClick={() => handleMarkRead(notification.id)}
-                              title="Mark as read"
-                            >
-                              <CheckCheck className="size-3.5" />
-                            </Button>
+                            <span className="absolute left-1 top-5 size-1.5 rounded-full bg-amber-500 animate-pulse" />
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            onClick={() => handleDismiss(notification.id)}
-                            title="Dismiss"
-                          >
-                            <X className="size-3.5" />
-                          </Button>
+
+                          {/* Type icon */}
+                          <div className={`rounded-lg p-2 mt-0.5 shrink-0 ${config?.cls ?? 'bg-muted'}`}>
+                            <Icon className="size-4" />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className={`text-sm leading-snug ${isUnread ? 'font-semibold' : 'font-medium'}`}>
+                                  {notification.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {notification.body}
+                                </p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
+                                {timeAgo(notification.createdAt)}
+                              </span>
+                            </div>
+
+                            {/* Meta row */}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config?.cls ?? ''}`}>
+                                {config?.label ?? notification.notificationType.tag}
+                              </span>
+                              {(notification.priority.tag === 'High' || notification.priority.tag === 'Urgent') && (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${priorityCfg?.cls ?? ''}`}>
+                                  <span className={`size-1 rounded-full ${priorityCfg?.dot ?? ''}`} />
+                                  {notification.priority.tag}
+                                </span>
+                              )}
+                              {notification.link && (
+                                <a
+                                  href={notification.link}
+                                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                  View Details
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            {isUnread && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-7"
+                                    onClick={() => handleMarkRead(notification.id)}
+                                  >
+                                    <CheckCheck className="size-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Mark as read</TooltipContent>
+                              </Tooltip>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={() => handleDismiss(notification.id)}
+                                >
+                                  <X className="size-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Dismiss</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </ScrollArea>

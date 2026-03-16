@@ -30,6 +30,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine,
+  PieChart, Pie, Cell,
+} from 'recharts'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -365,6 +370,8 @@ export default function TimeTrackingPage() {
     [weekEntries]
   )
 
+  const billablePct = hoursThisWeek > 0 ? Math.round((billableHours / hoursThisWeek) * 100) : 0
+
   // Weekly bar chart data (Mon-Sun)
   const weeklyData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -473,10 +480,15 @@ export default function TimeTrackingPage() {
                 </div>
                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Billable Hours</span>
               </div>
-              <p className="text-2xl font-bold tabular-nums text-purple-600 dark:text-purple-400">
-                <CountUp to={parseFloat(billableHours.toFixed(1))} from={0} duration={1.5} />
-                <span className="text-base font-medium text-muted-foreground ml-0.5">h</span>
-              </p>
+              <div className="flex items-end gap-2">
+                <p className="text-2xl font-bold tabular-nums text-purple-600 dark:text-purple-400">
+                  <CountUp to={parseFloat(billableHours.toFixed(1))} from={0} duration={1.5} />
+                  <span className="text-base font-medium text-muted-foreground ml-0.5">h</span>
+                </p>
+                <span className={`text-[10px] font-semibold tabular-nums mb-1 px-1.5 py-0.5 rounded-md ${billablePct >= 70 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : billablePct >= 40 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
+                  {billablePct}%
+                </span>
+              </div>
             </SpotlightCard>
           </div>
 
@@ -910,23 +922,27 @@ export default function TimeTrackingPage() {
                   {weeklyTotal.toFixed(1)}h total
                 </span>
               </div>
-              <div className="flex items-end gap-2 h-[140px]">
-                {weeklyData.map(day => (
-                  <div key={day.label} className="flex-1 flex flex-col items-center gap-1.5">
-                    <div className="w-full flex flex-col items-center justify-end h-[100px]">
-                      <div
-                        className="w-full max-w-[32px] rounded-t-md bg-gradient-to-t from-emerald-500 to-green-400 transition-all duration-500"
-                        style={{ height: `${Math.max(day.pct, day.hours > 0 ? 4 : 0)}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {day.label}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground tabular-nums">
-                      {day.hours > 0 ? `${day.hours.toFixed(1)}h` : '-'}
-                    </span>
-                  </div>
-                ))}
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyData} barSize={28} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} unit="h" />
+                    <RechartsTooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      formatter={(value: number) => [`${value.toFixed(1)}h`, 'Hours']}
+                      cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
+                    />
+                    <ReferenceLine y={8} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: '8h goal', position: 'right', fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                    <Bar dataKey="hours" radius={[6, 6, 0, 0]} fill="url(#weeklyGradient)" />
+                    <defs>
+                      <linearGradient id="weeklyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -939,40 +955,66 @@ export default function TimeTrackingPage() {
               {categoryBreakdown.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No data this week</p>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {categoryBreakdown.items.map(item => {
-                    const pct = (item.totalHours / categoryBreakdown.total) * 100
-                    return (
-                      <div key={item.tag} className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="size-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: item.color }}
-                            />
-                            <span className="text-sm">{item.tag}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {item.totalHours.toFixed(1)}h
-                            </span>
-                            <span className="text-[10px] font-medium text-muted-foreground tabular-nums w-[36px] text-right">
-                              {pct.toFixed(0)}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: item.color,
-                            }}
+                <div className="flex gap-4">
+                  {/* Donut chart */}
+                  <div className="shrink-0 relative">
+                    <div className="size-[130px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoryBreakdown.items}
+                            dataKey="totalHours"
+                            nameKey="tag"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={38}
+                            outerRadius={58}
+                            paddingAngle={3}
+                            strokeWidth={0}
+                          >
+                            {categoryBreakdown.items.map((item) => (
+                              <Cell key={item.tag} fill={item.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                            formatter={(value: number) => [`${value.toFixed(1)}h`, '']}
                           />
-                        </div>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="text-center">
+                        <span className="text-lg font-bold tabular-nums">{categoryBreakdown.total.toFixed(0)}</span>
+                        <span className="block text-[9px] text-muted-foreground -mt-0.5">hours</span>
                       </div>
-                    )
-                  })}
+                    </div>
+                  </div>
+                  {/* Legend bars */}
+                  <div className="flex-1 flex flex-col gap-2.5 justify-center min-w-0">
+                    {categoryBreakdown.items.map(item => {
+                      const pct = (item.totalHours / categoryBreakdown.total) * 100
+                      return (
+                        <div key={item.tag} className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                              <span className="text-xs truncate">{item.tag}</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-2">
+                              {item.totalHours.toFixed(1)}h · {pct.toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%`, backgroundColor: item.color }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

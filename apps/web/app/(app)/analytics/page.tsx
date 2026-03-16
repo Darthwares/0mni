@@ -17,6 +17,11 @@ import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import { exportCSV } from '@/lib/csv-export'
 import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis,
+} from 'recharts'
+import {
   Users,
   TicketCheck,
   FileText,
@@ -162,6 +167,26 @@ function DonutChart({ segments, size = 120, thickness = 16 }: {
     </svg>
   )
 }
+
+// ── chart theme ────────────────────────────────────────────────────────────────
+
+function ChartTooltipContent({ active, payload, label, formatter }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg px-3 py-2 text-xs">
+      <p className="font-medium text-muted-foreground mb-1">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-bold tabular-nums">{formatter ? formatter(entry.value) : entry.value.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const CHART_GRID = { stroke: 'rgba(120,120,120,0.1)', strokeDasharray: '3 3' }
 
 // ── page ───────────────────────────────────────────────────────────────────────
 
@@ -351,6 +376,84 @@ export default function AnalyticsPage() {
   }, [orgTasks, range, now])
 
   const maxVelocity = Math.max(1, ...velocityData.map(d => d.count))
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TICKET RESOLUTION TREND (for overview chart)
+  // ════════════════════════════════════════════════════════════════════════════
+  const ticketTrend = useMemo(() => {
+    const days = range === '7d' ? 7 : range === '30d' ? 14 : 30
+    return Array.from({ length: days }, (_, i) => {
+      const dayStart = now - (days - 1 - i) * 86_400_000
+      const dayEnd = dayStart + 86_400_000
+      const d = new Date(dayStart)
+      return {
+        name: days <= 14
+          ? d.toLocaleDateString('en-US', { weekday: 'short' })
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        opened: orgTickets.filter(t => { const ms = tsToMs(t.createdAt); return ms >= dayStart && ms < dayEnd }).length,
+        resolved: orgTickets.filter(t => {
+          if (t.status?.tag !== 'Resolved' && t.status?.tag !== 'Closed') return false
+          const ms = tsToMs(t.createdAt)
+          return ms >= dayStart && ms < dayEnd
+        }).length,
+      }
+    })
+  }, [orgTickets, range, now])
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // MESSAGE VOLUME TREND
+  // ════════════════════════════════════════════════════════════════════════════
+  const messageTrend = useMemo(() => {
+    const days = range === '7d' ? 7 : range === '30d' ? 14 : 30
+    return Array.from({ length: days }, (_, i) => {
+      const dayStart = now - (days - 1 - i) * 86_400_000
+      const dayEnd = dayStart + 86_400_000
+      const d = new Date(dayStart)
+      return {
+        name: days <= 14
+          ? d.toLocaleDateString('en-US', { weekday: 'short' })
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        messages: orgMessages.filter(m => { const ms = tsToMs(m.sentAt); return ms >= dayStart && ms < dayEnd }).length,
+      }
+    })
+  }, [orgMessages, range, now])
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // REVENUE TREND (cumulative deals won)
+  // ════════════════════════════════════════════════════════════════════════════
+  const revenueTrend = useMemo(() => {
+    const days = range === '7d' ? 7 : range === '30d' ? 14 : 30
+    let cumulative = 0
+    return Array.from({ length: days }, (_, i) => {
+      const dayStart = now - (days - 1 - i) * 86_400_000
+      const dayEnd = dayStart + 86_400_000
+      const d = new Date(dayStart)
+      const dayWon = orgDeals.filter(deal => {
+        if (deal.stage?.tag !== 'ClosedWon') return false
+        const ms = tsToMs(deal.createdAt)
+        return ms >= dayStart && ms < dayEnd
+      }).reduce((s, deal) => s + deal.value, 0)
+      cumulative += dayWon
+      return {
+        name: days <= 14
+          ? d.toLocaleDateString('en-US', { weekday: 'short' })
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        cumulative: Math.round(cumulative),
+        daily: Math.round(dayWon),
+      }
+    })
+  }, [orgDeals, range, now])
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // DEPARTMENT RADAR DATA
+  // ════════════════════════════════════════════════════════════════════════════
+  const deptRadarData = useMemo(() => {
+    return departments.slice(0, 8).map(([dept, data]) => ({
+      department: dept.length > 10 ? dept.slice(0, 10) + '…' : dept,
+      headcount: data.total,
+      ai: data.ai,
+    }))
+  }, [departments])
 
   // ════════════════════════════════════════════════════════════════════════════
   // SUPPORT METRICS
@@ -692,6 +795,59 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
+              {/* Ticket + Message Trends */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <TicketCheck className="size-4 text-amber-500" />
+                      <h2 className="text-sm font-semibold">Ticket Flow</h2>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">opened vs resolved</span>
+                  </div>
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={ticketTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <CartesianGrid {...CHART_GRID} />
+                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="opened" name="Opened" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                        <Bar dataKey="resolved" name="Resolved" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="size-4 text-violet-500" />
+                      <h2 className="text-sm font-semibold">Message Volume</h2>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {messageTrend.reduce((s, d) => s + d.messages, 0).toLocaleString()} total
+                    </span>
+                  </div>
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={messageTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="msgGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid {...CHART_GRID} />
+                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        <Area type="monotone" dataKey="messages" name="Messages" stroke="#8b5cf6" strokeWidth={2} fill="url(#msgGrad)" dot={false} activeDot={{ r: 4, stroke: '#8b5cf6', strokeWidth: 2, fill: 'white' }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
               {/* Two-column: Task Donut + Support */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Task Distribution Donut */}
@@ -910,7 +1066,7 @@ export default function AnalyticsPage() {
                 </SpotlightCard>
               </div>
 
-              {/* Velocity Chart */}
+              {/* Velocity Chart — Recharts */}
               <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -921,32 +1077,22 @@ export default function AnalyticsPage() {
                     {velocityData.reduce((s, d) => s + d.count, 0)} tasks completed
                   </span>
                 </div>
-                <div className="flex items-end gap-1 h-32">
-                  {velocityData.map((day, i) => (
-                    <Tooltip key={i}>
-                      <TooltipTrigger className="flex-1">
-                        <div className="flex flex-col items-center gap-1 h-full justify-end">
-                          <span className="text-[9px] font-medium tabular-nums text-muted-foreground">
-                            {day.count > 0 ? day.count : ''}
-                          </span>
-                          <div
-                            className={`w-full rounded-t transition-all duration-500 ${
-                              day.count > 0
-                                ? 'bg-gradient-to-t from-violet-500/70 to-violet-400/70'
-                                : 'bg-muted/20'
-                            }`}
-                            style={{ height: `${Math.max(2, (day.count / maxVelocity) * 80)}px` }}
-                          />
-                          {velocityData.length <= 14 && (
-                            <span className="text-[8px] text-muted-foreground truncate w-full text-center">{day.label}</span>
-                          )}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        {day.count} completed on {day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={velocityData.map(d => ({ name: d.label, tasks: d.count }))} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid {...CHART_GRID} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <RechartsTooltip content={<ChartTooltipContent />} />
+                      <Area type="monotone" dataKey="tasks" name="Tasks" stroke="#8b5cf6" strokeWidth={2} fill="url(#velocityGrad)" dot={false} activeDot={{ r: 4, stroke: '#8b5cf6', strokeWidth: 2, fill: 'white' }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
@@ -1120,6 +1266,35 @@ export default function AnalyticsPage() {
                 </SpotlightCard>
               </div>
 
+              {/* Revenue Trend */}
+              <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="size-4 text-emerald-500" />
+                    <h2 className="text-sm font-semibold">Revenue Trend</h2>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">cumulative deals won</span>
+                </div>
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={revenueTrend} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid {...CHART_GRID} />
+                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`} />
+                      <RechartsTooltip content={<ChartTooltipContent formatter={(v: number) => `$${v.toLocaleString()}`} />} />
+                      <Area type="monotone" dataKey="cumulative" name="Revenue" stroke="#10b981" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4, stroke: '#10b981', strokeWidth: 2, fill: 'white' }} />
+                      <Area type="monotone" dataKey="daily" name="Daily" stroke="#3b82f6" strokeWidth={1.5} fill="none" dot={false} strokeDasharray="4 4" activeDot={{ r: 3, stroke: '#3b82f6', strokeWidth: 2, fill: 'white' }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               {/* Deal Funnel */}
               <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
                 <div className="flex items-center justify-between mb-4">
@@ -1134,35 +1309,39 @@ export default function AnalyticsPage() {
                     </Badge>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {(() => {
-                    const maxFunnel = Math.max(1, ...dealMetrics.funnel.map(f => f.count))
-                    const stageColors: Record<string, string> = {
-                      Discovery: 'bg-blue-500', Demo: 'bg-indigo-500', Proposal: 'bg-violet-500',
-                      Negotiation: 'bg-amber-500', ClosedWon: 'bg-emerald-500', ClosedLost: 'bg-red-500',
-                    }
-                    const stageLabels: Record<string, string> = {
-                      Discovery: 'Discovery', Demo: 'Demo', Proposal: 'Proposal',
-                      Negotiation: 'Negotiation', ClosedWon: 'Closed Won', ClosedLost: 'Closed Lost',
-                    }
-                    return dealMetrics.funnel.map(f => (
-                      <div key={f.stage} className="flex items-center gap-3">
-                        <span className="text-xs font-medium w-28 shrink-0 text-muted-foreground">{stageLabels[f.stage]}</span>
-                        <div className="flex-1 h-6 rounded bg-neutral-100 dark:bg-neutral-800 overflow-hidden relative">
-                          <div
-                            className={`h-full rounded ${stageColors[f.stage]} opacity-80 transition-all duration-700`}
-                            style={{ width: `${pct(f.count, maxFunnel)}%` }}
-                          />
-                          {f.count > 0 && (
-                            <span className="absolute inset-0 flex items-center px-2 text-[10px] font-bold text-white mix-blend-difference">
-                              {f.count} — ${formatCompact(Math.round(f.value))}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  })()}
-                </div>
+                {(() => {
+                  const stageLabels: Record<string, string> = {
+                    Discovery: 'Discovery', Demo: 'Demo', Proposal: 'Proposal',
+                    Negotiation: 'Negotiation', ClosedWon: 'Won', ClosedLost: 'Lost',
+                  }
+                  const stageColors: Record<string, string> = {
+                    Discovery: '#3b82f6', Demo: '#6366f1', Proposal: '#8b5cf6',
+                    Negotiation: '#f59e0b', ClosedWon: '#10b981', ClosedLost: '#ef4444',
+                  }
+                  const chartData = dealMetrics.funnel.map(f => ({
+                    name: stageLabels[f.stage],
+                    deals: f.count,
+                    value: Math.round(f.value),
+                    fill: stageColors[f.stage],
+                  }))
+                  return (
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 40, left: 10, bottom: 4 }}>
+                          <CartesianGrid {...CHART_GRID} horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={80} />
+                          <RechartsTooltip content={<ChartTooltipContent formatter={(v: number, _: any, entry: any) => entry?.payload?.value ? `${v} deals — $${entry.payload.value.toLocaleString()}` : v} />} />
+                          <Bar dataKey="deals" name="Deals" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                            {chartData.map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} fillOpacity={0.85} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Invoice + Expense side by side */}
@@ -1298,9 +1477,9 @@ export default function AnalyticsPage() {
                 </SpotlightCard>
               </div>
 
-              {/* Department + AI side by side */}
+              {/* Department Radar + Distribution */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Department Distribution */}
+                {/* Department Radar */}
                 <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -1311,31 +1490,34 @@ export default function AnalyticsPage() {
                       {orgEmployees.length} employees
                     </Badge>
                   </div>
-                  {departments.length === 0 ? (
+                  {deptRadarData.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No department data</p>
+                  ) : deptRadarData.length >= 3 ? (
+                    <div className="h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart data={deptRadarData} cx="50%" cy="50%" outerRadius="75%">
+                          <PolarGrid stroke="rgba(120,120,120,0.15)" />
+                          <PolarAngleAxis dataKey="department" tick={{ fontSize: 10, fill: '#a3a3a3' }} />
+                          <Radar name="Headcount" dataKey="headcount" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
+                          {deptRadarData.some(d => d.ai > 0) && (
+                            <Radar name="AI Agents" dataKey="ai" stroke="#a855f7" fill="#a855f7" fillOpacity={0.15} strokeWidth={1.5} strokeDasharray="4 3" />
+                          )}
+                          <RechartsTooltip content={<ChartTooltipContent />} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
-                      {departments.map(([dept, data]) => (
-                        <div key={dept} className="flex items-center gap-3">
-                          <span className="text-xs font-medium w-24 shrink-0 truncate text-muted-foreground">{dept}</span>
-                          <div className="flex-1 h-3 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden relative">
-                            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-700"
-                              style={{ width: `${pct(data.total, maxDeptCount)}%` }} />
-                            {data.ai > 0 && (
-                              <div className="absolute top-0 h-full rounded-full bg-purple-400/60"
-                                style={{ left: `${pct(data.total - data.ai, maxDeptCount)}%`, width: `${pct(data.ai, maxDeptCount)}%` }} />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 w-16 justify-end shrink-0">
-                            <span className="text-xs font-bold tabular-nums">{data.total}</span>
-                            {data.ai > 0 && (
-                              <span className="flex items-center gap-0.5 text-[10px] text-purple-600 dark:text-purple-400">
-                                <Bot className="size-2.5" />{data.ai}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={departments.map(([dept, data]) => ({ name: dept, total: data.total, ai: data.ai }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+                          <CartesianGrid {...CHART_GRID} />
+                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <RechartsTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="total" name="Total" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.8} />
+                          <Bar dataKey="ai" name="AI" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.5} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   )}
                 </div>

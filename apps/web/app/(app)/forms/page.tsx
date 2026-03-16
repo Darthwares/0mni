@@ -145,7 +145,7 @@ export default function FormsPage() {
   // Employee lookup
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>()
-    for (const e of employees) map.set(e.id.toHexString(), e)
+    for (const e of employees) { if (e.id) map.set(e.id.toHexString(), e) }
     return map
   }, [employees])
 

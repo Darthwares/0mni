@@ -523,7 +523,7 @@ export default function CanvasPage() {
   // Employee lookup
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>()
-    employees.forEach((e) => map.set(e.id.toHexString(), e))
+    employees.filter(e => e.id).forEach((e) => map.set(e.id.toHexString(), e))
     return map
   }, [employees])
 
@@ -2291,6 +2291,7 @@ ${html}
                       <div className="space-y-1 max-h-40 overflow-y-auto">
                         {employees
                           .filter((e) => {
+                            if (!e.id) return false
                             const hex = e.id.toHexString()
                             return hex !== identity?.toHexString() && !shareDoc.sharedWith.includes(hex)
                           })

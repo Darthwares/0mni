@@ -205,7 +205,7 @@ export default function SupportPage() {
 
   // Agents available for assignment (employees in current org)
   const orgAgents = useMemo(
-    () => allEmployees.filter((e) => e.orgId === BigInt(currentOrgId)),
+    () => currentOrgId === null ? [] : allEmployees.filter((e) => e.orgId === BigInt(currentOrgId)),
     [allEmployees, currentOrgId]
   )
 

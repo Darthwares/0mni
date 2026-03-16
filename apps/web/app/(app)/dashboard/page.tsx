@@ -490,7 +490,7 @@ export default function DashboardPage() {
 
   // Quick task creation
   const handleQuickTask = useCallback(async () => {
-    if (!quickTaskTitle.trim()) return
+    if (!quickTaskTitle.trim() || currentOrgId === null) return
     try {
       await createTask({
         taskType: { tag: 'FeatureRequest' },
@@ -519,6 +519,7 @@ export default function DashboardPage() {
 
   // Mark all notifications read
   const handleMarkAllRead = useCallback(async () => {
+    if (currentOrgId === null) return
     try {
       await markAllNotificationsRead({ orgId: BigInt(currentOrgId) })
     } catch {}

@@ -19,9 +19,15 @@ import {
   X,
   Tag,
   Download,
+  Search,
+  AlertTriangle,
+  BarChart3,
+  Filter,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { PresenceBar } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
@@ -111,6 +117,23 @@ function getDayOfWeek(d: Date): number {
   return day === 0 ? 6 : day - 1 // Mon=0 ... Sun=6
 }
 
+function getDateGroupKey(d: Date): string {
+  return d.toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
+function formatDateLabel(dateKey: string): string {
+  const d = new Date(dateKey + 'T12:00:00')
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayKey = yesterday.toISOString().slice(0, 10)
+
+  if (dateKey === today) return 'Today'
+  if (dateKey === yesterdayKey) return 'Yesterday'
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function TimeTrackingPage() {
@@ -134,6 +157,13 @@ export default function TimeTrackingPage() {
   const [timerBillable, setTimerBillable] = useState(true)
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Search & filter state
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+
+  // Delete confirmation
+  const [deleteConfirmId, setDeleteConfirmId] = useState<bigint | null>(null)
 
   // Edit state
   const [editingId, setEditingId] = useState<bigint | null>(null)
@@ -214,13 +244,19 @@ export default function TimeTrackingPage() {
     }
   }, [activeTimer, stopTimeEntry])
 
-  const handleDelete = useCallback(async (entryId: bigint) => {
+  const handleDelete = useCallback((entryId: bigint) => {
+    setDeleteConfirmId(entryId)
+  }, [])
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteConfirmId === null) return
     try {
-      await deleteTimeEntry({ entryId })
+      await deleteTimeEntry({ entryId: deleteConfirmId })
     } catch (e) {
       console.error('Failed to delete entry:', e)
     }
-  }, [deleteTimeEntry])
+    setDeleteConfirmId(null)
+  }, [deleteConfirmId, deleteTimeEntry])
 
   const handleManualLog = useCallback(async () => {
     if (currentOrgId === null) return
@@ -255,10 +291,51 @@ export default function TimeTrackingPage() {
       dateFilter === 'today' ? isToday
         : dateFilter === 'week' ? isThisWeek
         : isThisMonth
-    return completedEntries
-      .filter(e => filterFn(timestampToDate(e.startedAt)))
-      .sort((a, b) => timestampToDate(b.startedAt).getTime() - timestampToDate(a.startedAt).getTime())
-  }, [completedEntries, dateFilter])
+    let entries = completedEntries.filter(e => filterFn(timestampToDate(e.startedAt)))
+
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      entries = entries.filter(e =>
+        e.description.toLowerCase().includes(q) ||
+        (e.category?.tag ?? 'Other').toLowerCase().includes(q)
+      )
+    }
+
+    // Category filter
+    if (categoryFilter) {
+      entries = entries.filter(e => (e.category?.tag ?? 'Other') === categoryFilter)
+    }
+
+    return entries.sort((a, b) => timestampToDate(b.startedAt).getTime() - timestampToDate(a.startedAt).getTime())
+  }, [completedEntries, dateFilter, search, categoryFilter])
+
+  // Group entries by date for section headers
+  const groupedEntries = useMemo(() => {
+    const groups: { dateKey: string; label: string; entries: typeof filteredEntries; totalMs: number }[] = []
+    const map = new Map<string, typeof filteredEntries>()
+    for (const e of filteredEntries) {
+      const key = getDateGroupKey(timestampToDate(e.startedAt))
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(e)
+    }
+    for (const [dateKey, entries] of map) {
+      groups.push({
+        dateKey,
+        label: formatDateLabel(dateKey),
+        entries,
+        totalMs: entries.reduce((sum, e) => sum + getDurationMs(e), 0),
+      })
+    }
+    return groups
+  }, [filteredEntries])
+
+  // Active categories in current filter for chips
+  const activeCategories = useMemo(() => {
+    const cats = new Set<string>()
+    filteredEntries.forEach(e => cats.add(e.category?.tag ?? 'Other'))
+    return [...cats].sort()
+  }, [filteredEntries])
 
   const todayEntries = useMemo(
     () => completedEntries.filter(e => isToday(timestampToDate(e.startedAt))),
@@ -580,21 +657,70 @@ export default function TimeTrackingPage() {
             </div>
           </div>
 
-          {/* Date filter */}
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
-            {(['today', 'week', 'month'] as DateFilter[]).map(f => (
-              <button
-                key={f}
-                onClick={() => setDateFilter(f)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  dateFilter === f
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'This Month'}
-              </button>
-            ))}
+          {/* Filters bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {/* Date filter pills */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+              {(['today', 'week', 'month'] as DateFilter[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setDateFilter(f)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    dateFilter === f
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'This Month'}
+                </button>
+              ))}
+            </div>
+
+            {/* Search input */}
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search entries..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full h-8 pl-8 pr-3 rounded-lg border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+            </div>
+
+            {/* Category filter chips */}
+            {activeCategories.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Filter className="size-3.5 text-muted-foreground shrink-0" />
+                <button
+                  onClick={() => setCategoryFilter(null)}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    categoryFilter === null
+                      ? 'bg-foreground/10 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  All
+                </button>
+                {activeCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                      categoryFilter === cat
+                        ? 'bg-foreground/10 text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{ backgroundColor: getCategoryColor(cat) }}
+                    />
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Time entries list */}
@@ -631,117 +757,144 @@ export default function TimeTrackingPage() {
                 <div className="flex items-center justify-center size-14 rounded-2xl bg-muted mb-4">
                   <Clock className="size-6 opacity-40" />
                 </div>
-                <p className="font-medium">No entries for this period</p>
-                <p className="text-sm mt-1">Start the timer to track your work.</p>
+                <p className="font-medium">
+                  {search.trim() || categoryFilter ? 'No matching entries' : 'No entries for this period'}
+                </p>
+                <p className="text-sm mt-1">
+                  {search.trim() || categoryFilter
+                    ? 'Try adjusting your search or filters.'
+                    : 'Start the timer to track your work.'}
+                </p>
+                {(search.trim() || categoryFilter) && (
+                  <button
+                    onClick={() => { setSearch(''); setCategoryFilter(null) }}
+                    className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="divide-y">
-                {filteredEntries.map(entry => {
-                  const duration = getDurationMs(entry)
-                  const catTag = entry.category?.tag ?? 'Other'
-                  const color = getCategoryColor(catTag)
-                  const isEditing = editingId === entry.id
-
-                  return (
-                    <div
-                      key={entry.id.toString()}
-                      className="flex items-center gap-4 px-5 py-3 hover:bg-muted/50 transition-colors group"
-                    >
-                      {/* Time range */}
-                      <div className="w-[120px] shrink-0">
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatTimeRange(timestampToDate(entry.startedAt), entry.endedAt ? timestampToDate(entry.endedAt) : null)}
-                        </span>
+              <div>
+                {groupedEntries.map(group => (
+                  <div key={group.dateKey}>
+                    {/* Date group header */}
+                    {groupedEntries.length > 1 && (
+                      <div className="flex items-center justify-between px-5 py-2 bg-muted/40 border-b">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatHours(group.totalMs)}h</span>
                       </div>
+                    )}
+                    <div className="divide-y">
+                      {group.entries.map(entry => {
+                        const duration = getDurationMs(entry)
+                        const catTag = entry.category?.tag ?? 'Other'
+                        const color = getCategoryColor(catTag)
+                        const isEditing = editingId === entry.id
 
-                      {/* Duration */}
-                      <div className="w-[70px] shrink-0">
-                        <span className="text-sm font-medium tabular-nums">
-                          {formatHours(duration)}h
-                        </span>
-                      </div>
+                        return (
+                          <div
+                            key={entry.id.toString()}
+                            className="flex items-center gap-4 px-5 py-3 hover:bg-muted/50 transition-colors group"
+                          >
+                            {/* Time range */}
+                            <div className="w-[120px] shrink-0">
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatTimeRange(timestampToDate(entry.startedAt), entry.endedAt ? timestampToDate(entry.endedAt) : null)}
+                              </span>
+                            </div>
 
-                      {/* Description */}
-                      <div className="flex-1 min-w-0">
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={editDescription}
-                              onChange={e => setEditDescription(e.target.value)}
-                              className="flex-1 h-7 px-2 rounded border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                              autoFocus
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
-                                  setEditingId(null)
-                                }
-                                if (e.key === 'Escape') setEditingId(null)
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
-                                setEditingId(null)
-                              }}
-                              className="size-6 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                            >
-                              <Check className="size-3" />
-                            </button>
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="size-6 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80"
-                            >
-                              <X className="size-3" />
-                            </button>
+                            {/* Duration */}
+                            <div className="w-[70px] shrink-0">
+                              <span className="text-sm font-medium tabular-nums">
+                                {formatHours(duration)}h
+                              </span>
+                            </div>
+
+                            {/* Description */}
+                            <div className="flex-1 min-w-0">
+                              {isEditing ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={editDescription}
+                                    onChange={e => setEditDescription(e.target.value)}
+                                    className="flex-1 h-7 px-2 rounded border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                                    autoFocus
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
+                                        setEditingId(null)
+                                      }
+                                      if (e.key === 'Escape') setEditingId(null)
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      updateTimeEntry({ entryId: entry.id, description: editDescription, categoryTag: catTag, durationMinutes: entry.durationMinutes, billable: entry.billable })
+                                      setEditingId(null)
+                                    }}
+                                    className="size-6 flex items-center justify-center rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                                  >
+                                    <Check className="size-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    className="size-6 flex items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/80"
+                                  >
+                                    <X className="size-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-sm truncate block">{entry.description}</span>
+                              )}
+                            </div>
+
+                            {/* Category */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className="size-2 rounded-full shrink-0"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="text-xs text-muted-foreground">{catTag}</span>
+                            </div>
+
+                            {/* Billable */}
+                            {entry.billable ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shrink-0">
+                                <DollarSign className="size-2.5" />
+                                Billable
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-muted text-muted-foreground border-border shrink-0">
+                                Non-billable
+                              </span>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingId(entry.id)
+                                  setEditDescription(entry.description)
+                                }}
+                                className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              >
+                                <Pencil className="size-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(entry.id)}
+                                className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-sm truncate block">{entry.description}</span>
-                        )}
-                      </div>
-
-                      {/* Category */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span
-                          className="size-2 rounded-full shrink-0"
-                          style={{ backgroundColor: color }}
-                        />
-                        <span className="text-xs text-muted-foreground">{catTag}</span>
-                      </div>
-
-                      {/* Billable */}
-                      {entry.billable ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shrink-0">
-                          <DollarSign className="size-2.5" />
-                          Billable
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-muted text-muted-foreground border-border shrink-0">
-                          Non-billable
-                        </span>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button
-                          onClick={() => {
-                            setEditingId(entry.id)
-                            setEditDescription(entry.description)
-                          }}
-                          className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        >
-                          <Pencil className="size-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(entry.id)}
-                          className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -825,6 +978,29 @@ export default function TimeTrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmId !== null} onOpenChange={open => { if (!open) setDeleteConfirmId(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex items-center justify-center size-8 rounded-full bg-red-500/10">
+                <Trash2 className="size-4 text-red-500" />
+              </div>
+              Delete Time Entry
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            This action cannot be undone. The time entry will be permanently deleted.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white border-0">
+              Delete Entry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

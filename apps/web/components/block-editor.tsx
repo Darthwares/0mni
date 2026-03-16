@@ -13,13 +13,23 @@ export interface HeadingItem {
   level: number
 }
 
+export interface DocumentStats {
+  words: number
+  characters: number
+  paragraphs: number
+  headings: number
+  readingTime: number // minutes
+}
+
 interface BlockEditorProps {
   initialContent?: any
   onChange?: (content: any) => void
   onHeadingsChange?: (headings: HeadingItem[]) => void
   onEditorReady?: (editor: any) => void
+  onStatsChange?: (stats: DocumentStats) => void
   editable?: boolean
   fullWidth?: boolean
+  focusMode?: boolean
 }
 
 function extractHeadingsFromBlocks(blocks: any[]): HeadingItem[] {
@@ -45,13 +55,38 @@ function extractHeadingsFromBlocks(blocks: any[]): HeadingItem[] {
   return headings
 }
 
+function computeStats(blocks: any[]): DocumentStats {
+  let words = 0
+  let characters = 0
+  let paragraphs = 0
+  let headingCount = 0
+  const walk = (items: any[]) => {
+    for (const block of items) {
+      if (block.type === 'heading') headingCount++
+      if (block.type === 'paragraph' || block.type === 'heading' || block.type === 'bulletListItem' || block.type === 'numberedListItem' || block.type === 'checkListItem') {
+        paragraphs++
+      }
+      if (block.content && Array.isArray(block.content)) {
+        for (const inline of block.content) {
+          if (inline.text) {
+            const txt = inline.text
+            characters += txt.length
+            words += txt.trim().split(/\s+/).filter(Boolean).length
+          }
+        }
+      }
+      if (block.children?.length) walk(block.children)
+    }
+  }
+  walk(blocks)
+  return { words, characters, paragraphs, headings: headingCount, readingTime: Math.max(1, Math.ceil(words / 200)) }
+}
+
 /** Scroll to a BlockNote block by its ID */
 export function scrollToBlock(blockId: string) {
-  // BlockNote renders blocks with data-id attributes
   const el = document.querySelector(`[data-id="${blockId}"]`)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // Flash highlight
     el.classList.add('ring-2', 'ring-violet-500/50', 'rounded-lg', 'transition-all')
     setTimeout(() => el.classList.remove('ring-2', 'ring-violet-500/50', 'rounded-lg', 'transition-all'), 1500)
   }
@@ -95,20 +130,36 @@ export function extractHeadingsFromContent(content: string): HeadingItem[] {
   }
 }
 
+/** Compute document statistics from content JSON string */
+export function computeStatsFromContent(content: string): DocumentStats | null {
+  if (!content) return null
+  try {
+    const parsed = JSON.parse(content)
+    if (!Array.isArray(parsed)) return null
+    return computeStats(parsed)
+  } catch {
+    return null
+  }
+}
+
 export default function BlockEditor({
   initialContent,
   onChange,
   onHeadingsChange,
   onEditorReady,
+  onStatsChange,
   editable = true,
   fullWidth = false,
+  focusMode = false,
 }: BlockEditorProps) {
   const { resolvedTheme } = useTheme()
   const headingsTimerRef = useRef<NodeJS.Timeout | null>(null)
   const onHeadingsChangeRef = useRef(onHeadingsChange)
   const onEditorReadyRef = useRef(onEditorReady)
+  const onStatsChangeRef = useRef(onStatsChange)
   onHeadingsChangeRef.current = onHeadingsChange
   onEditorReadyRef.current = onEditorReady
+  onStatsChangeRef.current = onStatsChange
 
   const editor = useCreateBlockNote({
     initialContent: initialContent || undefined,
@@ -119,24 +170,34 @@ export default function BlockEditor({
     onEditorReadyRef.current?.(editor)
   }, [editor])
 
-  // Extract headings on mount
+  // Extract headings + stats on mount
   useEffect(() => {
-    if (onHeadingsChangeRef.current && editor.document) {
-      const h = extractHeadingsFromBlocks(editor.document)
-      onHeadingsChangeRef.current(h)
+    if (editor.document) {
+      if (onHeadingsChangeRef.current) {
+        const h = extractHeadingsFromBlocks(editor.document)
+        onHeadingsChangeRef.current(h)
+      }
+      if (onStatsChangeRef.current) {
+        const s = computeStats(editor.document)
+        onStatsChangeRef.current(s)
+      }
     }
   }, [editor])
 
   const handleChange = useCallback(() => {
     onChange?.(editor.document)
-    // Debounce heading extraction
-    if (onHeadingsChangeRef.current) {
-      if (headingsTimerRef.current) clearTimeout(headingsTimerRef.current)
-      headingsTimerRef.current = setTimeout(() => {
+    // Debounce heading + stats extraction
+    if (headingsTimerRef.current) clearTimeout(headingsTimerRef.current)
+    headingsTimerRef.current = setTimeout(() => {
+      if (onHeadingsChangeRef.current) {
         const h = extractHeadingsFromBlocks(editor.document)
-        onHeadingsChangeRef.current?.(h)
-      }, 300)
-    }
+        onHeadingsChangeRef.current(h)
+      }
+      if (onStatsChangeRef.current) {
+        const s = computeStats(editor.document)
+        onStatsChangeRef.current(s)
+      }
+    }, 300)
   }, [editor, onChange])
 
   useEffect(() => {
@@ -155,6 +216,14 @@ export default function BlockEditor({
         fullWidth ? '' : '[&_.bn-editor]:max-w-4xl [&_.bn-editor]:mx-auto',
         // Premium typography
         '[&_.bn-block-group]:leading-relaxed',
+        // Code block styling
+        '[&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/50',
+        '[&_code]:text-[13px] [&_code]:font-mono',
+        // Table styling
+        '[&_table]:border-collapse [&_td]:border [&_td]:px-3 [&_td]:py-1.5',
+        '[&_th]:border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted/50 [&_th]:font-semibold',
+        // Focus mode — larger text, more padding
+        focusMode ? '[&_.bn-editor]:text-lg [&_.bn-editor]:leading-loose [&_.bn-editor]:py-12 [&_.bn-editor]:px-12' : '',
       ].filter(Boolean).join(' ')}
     >
       <BlockNoteView

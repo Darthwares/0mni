@@ -204,7 +204,7 @@ export default function EmailPage() {
 
   // Labels for current org
   const labels = useMemo(
-    () => allEmailLabels.filter((l) => l.orgId === BigInt(currentOrgId)),
+    () => currentOrgId === null ? [] : allEmailLabels.filter((l) => l.orgId === BigInt(currentOrgId)),
     [allEmailLabels, currentOrgId]
   )
 
@@ -300,13 +300,13 @@ export default function EmailPage() {
     setShowNewLabel(false)
   }, [newLabelName, currentOrgId, labels.length, createEmailLabel])
 
-  const handleDeleteLabel = useCallback((labelId: bigint) => {
+  const handleDeleteLabel = useCallback((labelId: bigint, labelName: string) => {
     deleteEmailLabel({ labelId })
-    if (view === 'labels') {
+    if (view === 'labels' && activeLabel === labelName) {
       setView('inbox')
       setActiveLabel(null)
     }
-  }, [deleteEmailLabel, view])
+  }, [deleteEmailLabel, view, activeLabel])
 
   const employeeMap = useMemo(
     () => new Map(allEmployees.filter(e => e.id).map((e) => [e.id.toHexString(), e])),
@@ -347,7 +347,7 @@ export default function EmailPage() {
         break
       case 'labels':
         if (activeLabel) {
-          list = list.filter((e) => getMeta(e.id)?.label?.value === activeLabel)
+          list = list.filter((e) => getMeta(e.id)?.label === activeLabel)
         }
         break
     }
@@ -396,7 +396,7 @@ export default function EmailPage() {
       { header: 'Date', accessor: (e: any) => formatFullDate(e.sentAt) },
       { header: 'Starred', accessor: (e: any) => getMeta(e.id)?.starred ? 'Yes' : 'No' },
       { header: 'Read', accessor: (e: any) => getMeta(e.id)?.read ? 'Yes' : 'No' },
-      { header: 'Label', accessor: (e: any) => getMeta(e.id)?.label?.value ?? '' },
+      { header: 'Label', accessor: (e: any) => getMeta(e.id)?.label ?? '' },
     ], filteredEmails)
   }, [filteredEmails, getMeta, getSenderName])
 
@@ -526,7 +526,7 @@ export default function EmailPage() {
                 <span className="flex-1 truncate">{label.name}</span>
               </button>
               <button
-                onClick={() => handleDeleteLabel(label.id)}
+                onClick={() => handleDeleteLabel(label.id, label.name)}
                 className="opacity-0 group-hover/lbl:opacity-100 p-0.5 rounded text-muted-foreground hover:text-red-500 transition-all"
                 title="Delete label"
               >
@@ -652,7 +652,7 @@ export default function EmailPage() {
                 const meta = getMeta(email.id)
                 const isStarred = meta?.starred ?? false
                 const isRead = meta?.read ?? false
-                const emailLabel = meta?.label?.value
+                const emailLabel = meta?.label
                 const { subject } = parseEmailContent(email.content)
                 const preview = getPreview(email.content)
                 const isMine = email.sender.toHexString() === myHex
@@ -965,7 +965,7 @@ export default function EmailPage() {
                       <Tag className="size-3.5" />
                     </Button>
                     <div className="absolute top-full left-0 mt-1 bg-white dark:bg-neutral-900 border border-border rounded-lg shadow-lg py-1 min-w-[140px] hidden group-hover/label:block z-50">
-                      {selectedMeta?.label?.value && (
+                      {selectedMeta?.label && (
                         <button
                           onClick={() => setEmailLabel({ messageId: selectedEmail.id, label: '' })}
                           className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2"
@@ -980,7 +980,7 @@ export default function EmailPage() {
                           onClick={() => setEmailLabel({ messageId: selectedEmail.id, label: label.name })}
                           className={[
                             'w-full text-left px-3 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2',
-                            selectedMeta?.label?.value === label.name ? 'font-medium text-foreground' : 'text-muted-foreground',
+                            selectedMeta?.label === label.name ? 'font-medium text-foreground' : 'text-muted-foreground',
                           ].join(' ')}
                         >
                           <div className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
@@ -1025,10 +1025,10 @@ export default function EmailPage() {
                           AI Generated
                         </Badge>
                       )}
-                      {selectedMeta?.label?.value && (
+                      {selectedMeta?.label && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           <Tag className="size-2.5 mr-0.5" />
-                          {selectedMeta.label.value}
+                          {selectedMeta.label}
                         </Badge>
                       )}
                     </div>
@@ -1069,12 +1069,13 @@ export default function EmailPage() {
             {/* Quick reply */}
             <div className="px-8 py-4 border-t border-border/40 bg-neutral-50/50 dark:bg-neutral-900/50">
               <div className="max-w-3xl mx-auto flex items-center gap-3">
-                <Input
-                  placeholder="Reply..."
-                  className="flex-1 bg-white dark:bg-neutral-900"
-                  onFocus={() => handleReply(selectedEmail)}
-                />
-                <Button size="sm" variant="ghost" className="text-muted-foreground">
+                <button
+                  onClick={() => handleReply(selectedEmail)}
+                  className="flex-1 text-left px-3 py-2 rounded-md border bg-white dark:bg-neutral-900 text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors cursor-text"
+                >
+                  Click to reply...
+                </button>
+                <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => handleReply(selectedEmail)}>
                   <Send className="size-4" />
                 </Button>
               </div>

@@ -206,10 +206,11 @@ function AgentCard({
   const confPct = Math.round(conf * 100)
   const initials = agent.name
     .split(' ')
-    .map((n) => n[0])
+    .filter(Boolean)
+    .map((n) => n.slice(0, 1))
     .join('')
     .toUpperCase()
-    .slice(0, 2)
+    .slice(0, 2) || '??'
 
   return (
     <button
@@ -483,6 +484,9 @@ export default function AIEmployeesPage() {
     setNewDescription('')
     setNewSystemPrompt('')
     setNewCapabilities('')
+    setNewDepartment('Support')
+    setNewModel('claude-sonnet-4-5-20250514')
+    setNewThreshold(80)
   }, [newName, newDescription, newDepartment, newModel, newSystemPrompt, newCapabilities, newThreshold, newGradientColor, currentOrgId, createAgentConfig])
 
   // Agent configs for current org
@@ -505,7 +509,7 @@ export default function AIEmployeesPage() {
 
   // Tasks assigned to AI agents (by assignee identity hex)
   const agentIdSet = useMemo(
-    () => new Set(aiAgents.map((a) => a.id.toHexString())),
+    () => new Set(aiAgents.filter(a => a.id).map((a) => a.id.toHexString())),
     [aiAgents]
   )
 
@@ -519,7 +523,7 @@ export default function AIEmployeesPage() {
 
   // Agent map for task lookup
   const agentMap = useMemo(
-    () => new Map(aiAgents.map((a) => [a.id.toHexString(), a])),
+    () => new Map(aiAgents.filter(a => a.id).map((a) => [a.id.toHexString(), a])),
     [aiAgents]
   )
 
@@ -775,7 +779,7 @@ export default function AIEmployeesPage() {
                         <div>
                           <p className="text-[10px] text-neutral-400 mb-1">Capabilities</p>
                           <div className="flex flex-wrap gap-1">
-                            {selectedAgent.aiConfig.capabilities.map((cap) => (
+                            {(selectedAgent.aiConfig.capabilities ?? []).map((cap) => (
                               <span
                                 key={cap}
                                 className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300"
@@ -861,7 +865,7 @@ export default function AIEmployeesPage() {
                   <div className="px-5 py-4 space-y-3">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Current Activity</h3>
                     {selectedAgent.currentTaskId ? (() => {
-                      const t = taskMap.get(selectedAgent.currentTaskId!)
+                      const t = selectedAgent.currentTaskId ? taskMap.get(selectedAgent.currentTaskId) : null
                       if (!t) return <p className="text-sm text-neutral-400 italic">Task not found</p>
                       return (
                         <div className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50 dark:bg-violet-950/20 px-3 py-3 space-y-2">

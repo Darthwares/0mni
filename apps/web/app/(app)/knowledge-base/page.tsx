@@ -93,9 +93,20 @@ const CATEGORY_CONFIG: Record<string, { icon: LucideIcon; color: string; label: 
 
 const CATEGORY_KEYS = Object.keys(CATEGORY_CONFIG)
 
+const KB_COLOR_CLASSES: Record<string, string> = {
+  violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+  blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  pink: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
+  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+  orange: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+  red: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+  neutral: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20',
+}
+
 function categoryBadgeClass(cat: string): string {
   const c = CATEGORY_CONFIG[cat]?.color ?? 'neutral'
-  return `bg-${c}-500/10 text-${c}-600 dark:text-${c}-400 border-${c}-500/20`
+  return KB_COLOR_CLASSES[c] ?? KB_COLOR_CLASSES.neutral
 }
 
 // ---- Helpers ----------------------------------------------------------------

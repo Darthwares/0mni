@@ -72,6 +72,20 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Headphones, TrendingUp, Users, Code2, Brain, Zap, Bot, Sparkles,
 }
 
+const DEPT_ICON_MAP: Record<string, LucideIcon> = {
+  Support: Headphones,
+  Sales: TrendingUp,
+  Recruitment: Users,
+  Engineering: Code2,
+  Operations: Zap,
+  Marketing: Sparkles,
+  Finance: TrendingUp,
+}
+
+function getAgentIcon(agent: { department: string; gradientColor?: string }): LucideIcon {
+  return DEPT_ICON_MAP[agent.department] ?? Bot
+}
+
 const TEMPLATES = [
   { name: 'Support Agent', description: 'Handles customer tickets, auto-resolves common issues, escalates complex ones', icon: 'Headphones', department: 'Support', capabilities: 'customer_support,ticket_resolution,sentiment_analysis', model: 'claude-opus-4.6', threshold: 85, color: 'from-blue-500 to-cyan-500' },
   { name: 'Sales Assistant', description: 'Qualifies leads, enriches data, generates proposals, follows up automatically', icon: 'TrendingUp', department: 'Sales', capabilities: 'lead_qualification,data_enrichment,proposal_generation,follow_up', model: 'claude-sonnet-4.6', threshold: 80, color: 'from-green-500 to-emerald-500' },
@@ -103,6 +117,7 @@ export default function AgentStudioPage() {
   const [customThreshold, setCustomThreshold] = useState(85)
 
   const [showDetail, setShowDetail] = useState<number | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
   const [agentSearch, setAgentSearch] = useState('')
   const [statusFilterAgent, setStatusFilterAgent] = useState<'all' | 'Active' | 'Paused' | 'Draft'>('all')
   const [editingAgent, setEditingAgent] = useState<number | null>(null)
@@ -221,6 +236,13 @@ export default function AgentStudioPage() {
     setCustomName(''); setCustomDept(''); setCustomDesc(''); setCustomPrompt('')
   }, [customName, customDept, customDesc, customPrompt, customModel, customThreshold, currentOrgId, createAgentConfig])
 
+  const confirmDelete = useCallback(() => {
+    if (deleteConfirmId === null) return
+    deleteAgentConfig({ agentId: BigInt(deleteConfirmId) })
+    if (showDetail === deleteConfirmId) setShowDetail(null)
+    setDeleteConfirmId(null)
+  }, [deleteConfirmId, showDetail, deleteAgentConfig])
+
   const detailAgent = agents.find(a => Number(a.id) === showDetail) || null
 
   return (
@@ -338,14 +360,17 @@ export default function AgentStudioPage() {
                 {filteredAgents.map(agent => {
                   const status = getTag(agent.status)
                   const caps = agent.capabilities ? agent.capabilities.split(',').filter(Boolean) : []
-                  const Icon = ICON_MAP[agent.gradientColor?.split(' ')[0] || ''] || Bot
+                  const Icon = getAgentIcon(agent)
+                  const runs = Number(agent.runsTotal)
+                  const successes = Number(agent.runsSuccess)
+                  const rate = runs > 0 ? Math.round(successes / runs * 100) : 0
                   return (
                     <Card key={Number(agent.id)} className="group cursor-pointer transition-all hover:shadow-md" onClick={() => setShowDetail(Number(agent.id))}>
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3">
                             <div className={`rounded-lg p-2 bg-gradient-to-br ${agent.gradientColor || 'from-purple-500 to-indigo-500'} text-white`}>
-                              <Bot className="size-5" />
+                              <Icon className="size-5" />
                             </div>
                             <div>
                               <CardTitle className="text-base">{agent.name}</CardTitle>
@@ -354,7 +379,8 @@ export default function AgentStudioPage() {
                               </Badge>
                             </div>
                           </div>
-                          <Badge variant={status === 'Active' ? 'default' : 'secondary'} className={`text-[10px] ${status === 'Active' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' : 'bg-neutral-500/10'}`}>
+                          <Badge variant={status === 'Active' ? 'default' : 'secondary'} className={`text-[10px] ${status === 'Active' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' : status === 'Paused' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20' : 'bg-neutral-500/10'}`}>
+                            {status === 'Active' && <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />}
                             {status}
                           </Badge>
                         </div>
@@ -371,10 +397,55 @@ export default function AgentStudioPage() {
                             {caps.length > 3 && <Badge variant="secondary" className="text-[10px]">+{caps.length - 3}</Badge>}
                           </div>
                         )}
+                        {/* Run stats */}
+                        {runs > 0 && (
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Zap className="size-3" />
+                              <span className="tabular-nums">{runs.toLocaleString()} runs</span>
+                            </div>
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${rate >= 80 ? 'bg-emerald-500' : rate >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                style={{ width: `${rate}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-medium tabular-nums ${rate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : rate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {rate}%
+                            </span>
+                          </div>
+                        )}
+                        {/* Confidence threshold bar */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-[10px] text-muted-foreground shrink-0">Confidence</span>
+                          <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-purple-500/60" style={{ width: `${agent.threshold}%` }} />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground tabular-nums">{agent.threshold}%</span>
+                        </div>
                         <Separator className="my-3" />
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>Model: {agent.model.split('-').slice(-2).join('-')}</span>
-                          <span>Threshold: {agent.threshold}%</span>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={e => { e.stopPropagation(); toggleAgentStatus({ agentId: agent.id }); }}
+                              className="size-6 flex items-center justify-center rounded-md hover:bg-muted"
+                            >
+                              {status === 'Active' ? <Pause className="size-3" /> : <Play className="size-3" />}
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); startEditAgent(agent); }}
+                              className="size-6 flex items-center justify-center rounded-md hover:bg-muted"
+                            >
+                              <Edit3 className="size-3" />
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); setDeleteConfirmId(Number(agent.id)); }}
+                              className="size-6 flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -547,6 +618,8 @@ export default function AgentStudioPage() {
                     <div><span className="text-muted-foreground">Model:</span> <span className="font-medium">{detailAgent.model}</span></div>
                     <div><span className="text-muted-foreground">Threshold:</span> <span className="font-medium">{detailAgent.threshold}%</span></div>
                     <div><span className="text-muted-foreground">Status:</span> <Badge variant={getTag(detailAgent.status) === 'Active' ? 'default' : 'secondary'} className="ml-1 text-[10px]">{getTag(detailAgent.status)}</Badge></div>
+                    <div><span className="text-muted-foreground">Total Runs:</span> <span className="font-medium tabular-nums">{Number(detailAgent.runsTotal).toLocaleString()}</span></div>
+                    <div><span className="text-muted-foreground">Success Rate:</span> <span className="font-medium tabular-nums">{Number(detailAgent.runsTotal) > 0 ? `${Math.round(Number(detailAgent.runsSuccess) / Number(detailAgent.runsTotal) * 100)}%` : 'N/A'}</span></div>
                   </div>
                   {detailAgent.systemPrompt && (
                     <div>
@@ -563,7 +636,7 @@ export default function AgentStudioPage() {
                   )}
                 </div>
                 <DialogFooter className="gap-2">
-                  <Button variant="destructive" size="sm" onClick={() => { deleteAgentConfig({ agentId: BigInt(showDetail!) }); setShowDetail(null) }}>
+                  <Button variant="destructive" size="sm" onClick={() => { setDeleteConfirmId(showDetail); setShowDetail(null) }}>
                     <Trash2 className="mr-1.5 size-3.5" />Delete
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => { startEditAgent(detailAgent); setShowDetail(null) }}>
@@ -618,6 +691,29 @@ export default function AgentStudioPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingAgent(null)}>Cancel</Button>
               <Button onClick={handleSaveEdit} disabled={!editName.trim()}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmId !== null} onOpenChange={open => { if (!open) setDeleteConfirmId(null) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="flex items-center justify-center size-8 rounded-full bg-red-500/10">
+                  <Trash2 className="size-4 text-red-500" />
+                </div>
+                Delete Agent
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground py-2">
+              This will permanently delete the agent and all its configuration. This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+              <Button onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white border-0">
+                Delete Agent
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

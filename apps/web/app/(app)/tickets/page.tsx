@@ -105,12 +105,20 @@ import {
   GanttChart,
   ArrowLeft,
   Download,
+  UserCircle,
+  Sparkles,
 } from 'lucide-react'
 import { Checkbox as CheckboxUI } from '@/components/ui/checkbox'
 import { exportCSV } from '@/lib/csv-export'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
+  AreaChart, Area,
+} from 'recharts'
 
 // ---- Types ------------------------------------------------------------------
 
+type FilterPreset = 'none' | 'my-tasks' | 'overdue' | 'high-priority' | 'this-sprint' | 'unassigned'
 type ViewMode = 'board' | 'list' | 'sprints' | 'timeline'
 
 const EPIC_COLORS = [
@@ -350,6 +358,7 @@ export default function TicketsPage() {
   const [filterEpic, setFilterEpic] = useState<string>('all')
   const [filterSprint, setFilterSprint] = useState<string>('all')
   const [filterLabel, setFilterLabel] = useState<string>('all')
+  const [filterPreset, setFilterPreset] = useState<FilterPreset>('none')
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateSprint, setShowCreateSprint] = useState(false)
@@ -499,6 +508,8 @@ export default function TicketsPage() {
     return orgSprints.find((s) => s.status?.tag === 'Active') || null
   }, [orgSprints])
 
+  const myHex = useMemo(() => identity?.toHexString() ?? '', [identity])
+
   const filteredTasks = useMemo(() => {
     let tasks = [...allTasks]
     // Scope tasks to current org
@@ -506,6 +517,26 @@ export default function TicketsPage() {
       tasks = tasks.filter((t) => Number(t.orgId) === currentOrgId)
     }
     tasks = tasks.filter((t) => t.status?.tag !== 'Cancelled' && t.status?.tag !== 'Blocked')
+
+    // Apply filter presets
+    if (filterPreset === 'my-tasks') {
+      tasks = tasks.filter((t) => t.assignee && t.assignee.toHexString() === myHex)
+    } else if (filterPreset === 'overdue') {
+      tasks = tasks.filter((t) => getDueDateStatus(t.dueAt) === 'overdue')
+    } else if (filterPreset === 'high-priority') {
+      tasks = tasks.filter((t) => t.priority?.tag === 'Urgent' || t.priority?.tag === 'High')
+    } else if (filterPreset === 'this-sprint') {
+      if (activeSprint) {
+        const sprintId = activeSprint.id.toString()
+        tasks = tasks.filter((t) => {
+          const ext = extensionMap.get(t.id.toString())
+          return ext?.sprintId?.toString() === sprintId
+        })
+      }
+    } else if (filterPreset === 'unassigned') {
+      tasks = tasks.filter((t) => !t.assignee)
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       tasks = tasks.filter(
@@ -537,7 +568,7 @@ export default function TicketsPage() {
       })
     }
     return tasks
-  }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, filterLabel, currentOrgId, extensionMap, taskLabelsMap])
+  }, [allTasks, searchQuery, filterPriority, filterType, filterEpic, filterSprint, filterLabel, filterPreset, currentOrgId, extensionMap, taskLabelsMap, myHex, activeSprint])
 
   const sortedFilteredTasks = useMemo(() => {
     if (!listSortField) return filteredTasks
@@ -590,6 +621,28 @@ export default function TicketsPage() {
     }, 0)
     return { total, completed, inProgress, totalPoints, completedPoints }
   }, [sprintTasks, extensionMap])
+
+  // Velocity chart data — story points by status breakdown
+  const velocityData = useMemo(() => {
+    if (!activeSprint) return []
+    const statusGroups: Record<string, { done: number; inProgress: number; todo: number; review: number }> = {}
+    // Group by assignee for velocity breakdown
+    const assigneeGroups = new Map<string, { name: string; done: number; inProgress: number; todo: number; review: number }>()
+    assigneeGroups.set('Unassigned', { name: 'Unassigned', done: 0, inProgress: 0, todo: 0, review: 0 })
+    sprintTasks.forEach((t) => {
+      const ext = extensionMap.get(t.id.toString())
+      const sp = Number(ext?.storyPoints ?? 1)
+      const assignee = t.assignee ? employeeMap.get(t.assignee.toHexString()) : null
+      const key = assignee?.name || 'Unassigned'
+      if (!assigneeGroups.has(key)) assigneeGroups.set(key, { name: key, done: 0, inProgress: 0, todo: 0, review: 0 })
+      const g = assigneeGroups.get(key)!
+      if (t.status?.tag === 'Completed') g.done += sp
+      else if (t.status?.tag === 'InProgress' || t.status?.tag === 'SelfChecking') g.inProgress += sp
+      else if (t.status?.tag === 'NeedsReview' || t.status?.tag === 'Escalated') g.review += sp
+      else g.todo += sp
+    })
+    return [...assigneeGroups.values()].filter((g) => g.done + g.inProgress + g.todo + g.review > 0)
+  }, [sprintTasks, extensionMap, activeSprint, employeeMap])
 
   const columnTasks = useMemo(() => {
     const map = new Map<string, any[]>()
@@ -803,6 +856,55 @@ export default function TicketsPage() {
         } catch (e: any) {
           console.error('Failed to update task priority:', e)
         }
+      }
+    }
+    setSelectedTaskIds(new Set())
+  }
+
+  const handleBulkAssign = async (assigneeHex: string) => {
+    for (const taskId of selectedTaskIds) {
+      try {
+        if (assigneeHex === '__unassign') {
+          await claimTask({ taskId })
+        } else {
+          await claimTask({ taskId })
+        }
+      } catch (e: any) {
+        console.error('Failed to assign task:', e)
+      }
+    }
+    setSelectedTaskIds(new Set())
+  }
+
+  const handleBulkSetSprint = async (sprintId: string) => {
+    for (const taskId of selectedTaskIds) {
+      try {
+        const ext = extensionMap.get(taskId.toString())
+        await setTaskExtension({
+          taskId,
+          storyPoints: ext?.storyPoints ?? BigInt(0),
+          epicId: ext?.epicId ?? BigInt(0),
+          sprintId: sprintId === '__none' ? BigInt(0) : BigInt(sprintId),
+        })
+      } catch (e: any) {
+        console.error('Failed to set sprint:', e)
+      }
+    }
+    setSelectedTaskIds(new Set())
+  }
+
+  const handleBulkSetEpic = async (epicId: string) => {
+    for (const taskId of selectedTaskIds) {
+      try {
+        const ext = extensionMap.get(taskId.toString())
+        await setTaskExtension({
+          taskId,
+          storyPoints: ext?.storyPoints ?? BigInt(0),
+          epicId: epicId === '__none' ? BigInt(0) : BigInt(epicId),
+          sprintId: ext?.sprintId ?? BigInt(0),
+        })
+      } catch (e: any) {
+        console.error('Failed to set epic:', e)
       }
     }
     setSelectedTaskIds(new Set())
@@ -1087,6 +1189,45 @@ export default function TicketsPage() {
               <span className="text-xs font-medium tabular-nums">{orgEpics.filter((e) => e.status?.tag === 'Active').length}</span>
               <span className="text-[10px] text-muted-foreground">Epics</span>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Filter Presets */}
+      <div className="border-b px-4 py-1.5 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground font-medium mr-1">
+            <Sparkles className="size-3 inline mr-0.5 -mt-0.5" />
+            Quick
+          </span>
+          {([
+            { key: 'none' as FilterPreset, label: 'All', icon: KanbanSquare },
+            { key: 'my-tasks' as FilterPreset, label: 'My Tasks', icon: User },
+            { key: 'high-priority' as FilterPreset, label: 'High Priority', icon: Flame },
+            { key: 'overdue' as FilterPreset, label: 'Overdue', icon: AlertCircle },
+            { key: 'this-sprint' as FilterPreset, label: 'This Sprint', icon: Target },
+            { key: 'unassigned' as FilterPreset, label: 'Unassigned', icon: UserCircle },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setFilterPreset(filterPreset === key ? 'none' : key)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                filterPreset === key
+                  ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 ring-1 ring-violet-500/25'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <Icon className="size-3" />
+              {label}
+            </button>
+          ))}
+          {filterPreset !== 'none' && (
+            <button
+              onClick={() => setFilterPreset('none')}
+              className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="size-3" />
+            </button>
           )}
         </div>
       </div>
@@ -1590,6 +1731,41 @@ export default function TicketsPage() {
                     <SelectItem value="Low">Low</SelectItem>
                   </SelectContent>
                 </Select>
+                {orgSprints.length > 0 && (
+                  <Select onValueChange={handleBulkSetSprint}>
+                    <SelectTrigger className="h-8 w-40 text-xs">
+                      <Target className="size-3 mr-1" />
+                      <SelectValue placeholder="Set Sprint" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">No Sprint</SelectItem>
+                      {orgSprints.map((s) => (
+                        <SelectItem key={s.id.toString()} value={s.id.toString()}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {orgEpics.length > 0 && (
+                  <Select onValueChange={handleBulkSetEpic}>
+                    <SelectTrigger className="h-8 w-40 text-xs">
+                      <Layers className="size-3 mr-1" />
+                      <SelectValue placeholder="Set Epic" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">No Epic</SelectItem>
+                      {orgEpics.map((e) => (
+                        <SelectItem key={e.id.toString()} value={e.id.toString()}>
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
+                            {e.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => setSelectedTaskIds(new Set())} className="h-8 text-xs">
                   <X className="size-3 mr-1" />
                   Clear
@@ -1666,33 +1842,43 @@ export default function TicketsPage() {
                       </div>
                     </div>
 
-                    {/* Simple Burndown Visualization */}
-                    <div className="mt-4 flex items-end gap-1 h-16">
-                      {sprintTasks.map((task, i) => {
-                        const isCompleted = task.status?.tag === 'Completed'
-                        const isInProgress = task.status?.tag === 'InProgress' || task.status?.tag === 'SelfChecking'
-                        return (
-                          <Tooltip key={task.id.toString()}>
-                            <TooltipTrigger>
-                              <div
-                                className={`flex-1 rounded-t transition-all duration-300 cursor-pointer hover:opacity-80 ${
-                                  isCompleted ? 'bg-emerald-500/60' :
-                                  isInProgress ? 'bg-amber-500/60' :
-                                  'bg-muted-foreground/20'
-                                }`}
-                                style={{ height: `${Math.max(20, 100 - (isCompleted ? 100 : isInProgress ? 50 : 0))}%` }}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              <p className="font-medium truncate max-w-[200px]">{task.title}</p>
-                              <p className="text-muted-foreground">{task.status?.tag}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )
-                      })}
-                      {sprintTasks.length === 0 && (
-                        <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-                          No tasks in sprint
+                    {/* Sprint Velocity Chart */}
+                    <div className="mt-4">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Team Velocity</p>
+                      {velocityData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={140}>
+                          <BarChart data={velocityData} barSize={20} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis
+                              dataKey="name"
+                              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                              tickLine={false}
+                              axisLine={false}
+                              allowDecimals={false}
+                            />
+                            <RechartsTooltip
+                              contentStyle={{
+                                background: 'hsl(var(--popover))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: 8,
+                                fontSize: 11,
+                                color: 'hsl(var(--foreground))',
+                              }}
+                            />
+                            <Bar dataKey="done" stackId="sp" fill="#10b981" name="Done" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="review" stackId="sp" fill="#8b5cf6" name="Review" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="inProgress" stackId="sp" fill="#f59e0b" name="In Progress" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="todo" stackId="sp" fill="#71717a" name="To Do" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
+                          No tasks in sprint yet
                         </div>
                       )}
                     </div>

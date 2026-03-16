@@ -36,7 +36,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import {
   Dialog,
   DialogContent,
@@ -682,7 +683,10 @@ export default function InvoicingPage() {
       <div className="flex-1 overflow-auto p-6 space-y-6">
         {/* Top row */}
         <div className="flex items-center justify-between">
-          <BlurText text="Create, track, and manage invoices" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
+          <div className="flex items-center gap-4">
+            <BlurText text="Create, track, and manage invoices" delay={35} animateBy="words" className="text-sm text-muted-foreground" />
+            <PagePresenceStrip className="hidden xl:flex" />
+          </div>
           <div className="flex items-center gap-2">
             {filtered.length > 0 && (
               <Button

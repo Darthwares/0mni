@@ -54,7 +54,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
+import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -555,6 +556,7 @@ export default function CalendarPage() {
               />
             </div>
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <Download className="mr-1.5 size-3.5" />

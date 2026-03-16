@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -48,6 +48,7 @@ import { useSpacetimeDB } from 'spacetimedb/react'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import ShinyText from '@/components/reactbits/ShinyText'
 import BlurText from '@/components/reactbits/BlurText'
 
 export default function SettingsPage() {
@@ -299,6 +300,7 @@ export default function SettingsPage() {
           </h1>
           <BlurText text="Manage your account and platform preferences" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
         </div>
+        <PagePresenceStrip className="hidden xl:flex" />
       </div>
 
       <Tabs defaultValue="profile">

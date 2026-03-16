@@ -37,7 +37,7 @@ import {
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -489,6 +489,7 @@ export default function GoalsPage() {
             </GradientText>
           </h1>
           <BlurText text="Set objectives and track key results" delay={35} animateBy="words" className="text-xs text-muted-foreground" />
+          <PagePresenceStrip className="hidden xl:flex" />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative">

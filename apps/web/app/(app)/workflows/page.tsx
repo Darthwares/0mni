@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
+import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -813,6 +814,7 @@ export default function WorkflowsPage() {
             animateBy="words"
             className="text-sm text-muted-foreground"
           />
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={handleExportWorkflows}>
               <Download className="size-3.5" />Export

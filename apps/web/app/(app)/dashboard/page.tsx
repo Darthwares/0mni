@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { PagePresenceStrip } from '@/components/presence-bar'
 import { Input } from '@/components/ui/input'
 import {
   Tooltip,
@@ -553,6 +554,7 @@ export default function DashboardPage() {
             animateBy="words"
             className="text-sm text-muted-foreground mt-0.5"
           />
+          <PagePresenceStrip className="mt-2" />
         </div>
         <div className="hidden sm:flex items-center gap-2">
           {unreadCount > 0 && (

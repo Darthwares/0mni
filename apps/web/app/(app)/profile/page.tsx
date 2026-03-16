@@ -40,8 +40,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import GradientText from '@/components/reactbits/GradientText'
+import ShinyText from '@/components/reactbits/ShinyText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 const TIMEZONES = [
   'UTC',
@@ -242,6 +244,7 @@ export default function ProfilePage() {
                     </GradientText>
                   </h1>
                   <p className="text-muted-foreground">{me.role || 'Team Member'}</p>
+                  <PagePresenceStrip className="hidden xl:flex" />
                   <div className="flex items-center gap-2 mt-2">
                     <Badge variant="secondary">{me.department?.tag}</Badge>
                     <Badge

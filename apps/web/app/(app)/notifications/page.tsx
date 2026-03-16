@@ -44,7 +44,9 @@ import { exportCSV } from '@/lib/csv-export'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import ShinyText from '@/components/reactbits/ShinyText'
 import BlurText from '@/components/reactbits/BlurText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // ---- type helpers -----------------------------------------------------------
 
@@ -386,6 +388,7 @@ export default function NotificationsPage() {
               />
             </div>
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

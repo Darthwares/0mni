@@ -28,7 +28,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
+import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -264,6 +265,7 @@ export default function AgentStudioPage() {
             </h1>
             <BlurText text="Design, configure, and deploy AI employees for your organization" delay={35} animateBy="words" className="text-sm text-muted-foreground mt-0.5" />
           </div>
+          <PagePresenceStrip className="hidden xl:flex" />
         </div>
 
         {/* Stats */}

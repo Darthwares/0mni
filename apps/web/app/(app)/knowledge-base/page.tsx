@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
-import { PresenceBar } from '@/components/presence-bar'
+import { PresenceBar, PagePresenceStrip } from '@/components/presence-bar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +52,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { exportCSV } from '@/lib/csv-export'
+import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -674,6 +675,7 @@ export default function KnowledgeBasePage() {
           <Badge variant="secondary" className="text-xs">{orgArticles.length}</Badge>
         </div>
         <BlurText text="Create and share knowledge across your organization" delay={35} animateBy="words" className="text-xs text-muted-foreground ml-0.5 hidden lg:block" />
+        <PagePresenceStrip className="hidden xl:flex" />
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="outline"

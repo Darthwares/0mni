@@ -46,6 +46,8 @@ import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import { exportCSV } from '@/lib/csv-export'
+import ShinyText from '@/components/reactbits/ShinyText'
+import { PagePresenceStrip } from '@/components/presence-bar'
 
 // --- Types ---
 
@@ -249,6 +251,7 @@ function BoardListView({ boards, onOpenBoard, onNewBoard, onNewFromTemplate, onD
                 Whiteboard
               </GradientText>
             </h1>
+            <PagePresenceStrip className="hidden xl:flex" />
           </div>
           <BlurText text="Collaborate visually with your team" delay={35} animateBy="words" className="text-sm text-neutral-500 dark:text-neutral-400" />
         </div>

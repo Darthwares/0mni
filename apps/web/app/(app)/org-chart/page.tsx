@@ -411,9 +411,18 @@ function DepartmentSection({
           <Icon className="size-4 text-white" />
         </div>
         <div className="flex-1 text-left">
-          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{dept}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{dept}</p>
+            <span className="flex items-center gap-0.5 text-[10px] text-emerald-500 tabular-nums">
+              <Wifi className="size-2.5" />
+              {members.filter((m) => m.status?.tag === 'Online' || m.status?.tag === 'Busy' || m.status?.tag === 'InCall').length}
+            </span>
+          </div>
           <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
             {members.length} {members.length === 1 ? 'member' : 'members'}
+            {members.filter((m) => m.employeeType?.tag === 'AiAgent').length > 0 &&
+              ` · ${members.filter((m) => m.employeeType?.tag === 'AiAgent').length} AI`
+            }
           </p>
         </div>
         {expanded ? (
@@ -467,6 +476,18 @@ function DepartmentSection({
                     {person.role}
                   </p>
                 </div>
+                {person.skills?.length > 0 && (
+                  <div className="hidden md:flex items-center gap-1 shrink-0">
+                    {(person.skills as string[]).slice(0, 3).map((skill: string) => (
+                      <span key={skill} className="inline-flex items-center rounded-md bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 text-[9px] font-medium text-neutral-500 dark:text-neutral-400">
+                        {skill}
+                      </span>
+                    ))}
+                    {person.skills.length > 3 && (
+                      <span className="text-[9px] text-neutral-400">+{person.skills.length - 3}</span>
+                    )}
+                  </div>
+                )}
                 <span
                   className={`hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0 ${getDeptColor(dept)}`}
                 >
@@ -555,15 +576,32 @@ export default function OrgChartPage() {
   const uniqueDepts = new Set(orgEmployees.map((e) => e.department?.tag)).size
 
   const [deptFilter, setDeptFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'ai' | 'human'>('all')
 
   const deptNames = useMemo(
     () => departments.map((d) => d.dept).sort(),
     [departments]
   )
 
-  const filteredDepartments = useMemo(
-    () => deptFilter === 'all' ? departments : departments.filter((d) => d.dept === deptFilter),
-    [departments, deptFilter]
+  const filteredDepartments = useMemo(() => {
+    let depts = deptFilter === 'all' ? departments : departments.filter((d) => d.dept === deptFilter)
+    if (statusFilter !== 'all') {
+      depts = depts.map((d) => ({
+        ...d,
+        members: d.members.filter((m) => {
+          if (statusFilter === 'online') return m.status?.tag === 'Online' || m.status?.tag === 'Busy' || m.status?.tag === 'InCall'
+          if (statusFilter === 'ai') return m.employeeType?.tag === 'AiAgent'
+          if (statusFilter === 'human') return m.employeeType?.tag !== 'AiAgent'
+          return true
+        }),
+      })).filter((d) => d.members.length > 0)
+    }
+    return depts
+  }, [departments, deptFilter, statusFilter])
+
+  const filteredTotalCount = useMemo(
+    () => filteredDepartments.reduce((sum, d) => sum + d.members.length, 0),
+    [filteredDepartments],
   )
 
   const handleExportOrgChart = useCallback(() => {
@@ -736,37 +774,104 @@ export default function OrgChartPage() {
           </div>
         </div>
 
-        {/* Department Filter */}
-        {deptNames.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setDeptFilter('all')}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                deptFilter === 'all'
-                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
-            >
-              All ({totalCount})
-            </button>
-            {deptNames.map((dept) => {
-              const count = departments.find((d) => d.dept === dept)?.members.length ?? 0
-              const DeptIcon = DEPARTMENT_ICONS[dept]
-              return (
-                <button
-                  key={dept}
-                  onClick={() => setDeptFilter(deptFilter === dept ? 'all' : dept)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    deptFilter === dept
-                      ? (DEPARTMENT_COLORS[dept]?.replace('border-', 'ring-1 ring-') ?? 'bg-neutral-200 text-neutral-700')
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                  }`}
-                >
-                  {DeptIcon && <DeptIcon className="size-3" />}
-                  {dept} ({count})
-                </button>
-              )
-            })}
+        {/* Status Filter + Department Filter */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider mr-1">Filter</span>
+            {([
+              { key: 'all' as const, label: 'Everyone', icon: Users },
+              { key: 'online' as const, label: `Online (${onlineCount})`, icon: Wifi },
+              { key: 'ai' as const, label: `AI Agents (${aiCount})`, icon: Bot },
+              { key: 'human' as const, label: `Humans (${totalCount - aiCount})`, icon: Users },
+            ]).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  statusFilter === key
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Icon className="size-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+          {deptNames.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setDeptFilter('all')}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  deptFilter === 'all'
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                All ({totalCount})
+              </button>
+              {deptNames.map((dept) => {
+                const count = departments.find((d) => d.dept === dept)?.members.length ?? 0
+                const DeptIcon = DEPARTMENT_ICONS[dept]
+                return (
+                  <button
+                    key={dept}
+                    onClick={() => setDeptFilter(deptFilter === dept ? 'all' : dept)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      deptFilter === dept
+                        ? (DEPARTMENT_COLORS[dept]?.replace('border-', 'ring-1 ring-') ?? 'bg-neutral-200 text-neutral-700')
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                    }`}
+                  >
+                    {DeptIcon && <DeptIcon className="size-3" />}
+                    {dept} ({count})
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Department Distribution */}
+        {departments.length > 1 && deptFilter === 'all' && statusFilter === 'all' && (
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium uppercase tracking-wider mb-3">Department Distribution</p>
+            <div className="space-y-2">
+              {departments.map(({ dept, members }) => {
+                const pctWidth = totalCount > 0 ? (members.length / totalCount) * 100 : 0
+                const DeptIcon = DEPARTMENT_ICONS[dept] ?? Building2
+                const gradient = DEPARTMENT_BG[dept] ?? 'from-neutral-500 to-neutral-600'
+                const onlineInDept = members.filter((m) => m.status?.tag === 'Online' || m.status?.tag === 'Busy' || m.status?.tag === 'InCall').length
+                const aiInDept = members.filter((m) => m.employeeType?.tag === 'AiAgent').length
+                return (
+                  <button
+                    key={dept}
+                    onClick={() => setDeptFilter(deptFilter === dept ? 'all' : dept)}
+                    className="w-full flex items-center gap-3 group hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded-lg px-2 py-1.5 transition-colors"
+                  >
+                    <div className={`shrink-0 flex size-6 items-center justify-center rounded-md bg-gradient-to-br ${gradient}`}>
+                      <DeptIcon className="size-3 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{dept}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-neutral-400 tabular-nums">
+                          {aiInDept > 0 && <span className="flex items-center gap-0.5"><Bot className="size-2.5" />{aiInDept}</span>}
+                          <span className="flex items-center gap-0.5"><Wifi className="size-2.5 text-emerald-500" />{onlineInDept}</span>
+                          <span className="font-medium text-neutral-600 dark:text-neutral-300">{members.length}</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-700 ease-out`}
+                          style={{ width: `${pctWidth}%` }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 

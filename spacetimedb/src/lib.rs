@@ -5791,6 +5791,28 @@ pub fn update_objective_status(
 }
 
 #[spacetimedb::reducer]
+pub fn update_objective(
+    ctx: &ReducerContext,
+    objective_id: u64,
+    title: String,
+    description: String,
+    quarter: String,
+    department: String,
+) -> Result<(), String> {
+    let obj = ctx.db.objective().id().find(&objective_id)
+        .ok_or("Objective not found")?;
+    require_org_access(ctx, obj.org_id)?;
+    ctx.db.objective().id().update(Objective {
+        title,
+        description,
+        quarter,
+        department,
+        ..obj
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
 pub fn delete_objective(ctx: &ReducerContext, objective_id: u64) -> Result<(), String> {
     // Delete all key results and their check-ins first
     let krs: Vec<_> = ctx.db.key_result().iter()

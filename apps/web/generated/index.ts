@@ -239,6 +239,7 @@ import UpdateLeadStatusReducer from "./update_lead_status_reducer";
 import UpdateMeetingStatusReducer from "./update_meeting_status_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
+import UpdateObjectiveReducer from "./update_objective_reducer";
 import UpdateObjectiveStatusReducer from "./update_objective_status_reducer";
 import UpdateOrganizationReducer from "./update_organization_reducer";
 import UpdatePrStatusReducer from "./update_pr_status_reducer";
@@ -1399,6 +1400,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_meeting_status", UpdateMeetingStatusReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
   __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),
+  __reducerSchema("update_objective", UpdateObjectiveReducer),
   __reducerSchema("update_objective_status", UpdateObjectiveStatusReducer),
   __reducerSchema("update_organization", UpdateOrganizationReducer),
   __reducerSchema("update_pr_status", UpdatePrStatusReducer),

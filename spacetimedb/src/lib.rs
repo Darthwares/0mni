@@ -8577,3 +8577,555 @@ pub fn delete_saved_report(
     ctx.db.saved_report().id().delete(&report_id);
     Ok(())
 }
+
+// ============================================================================
+// MARKETING AGENCY
+// ============================================================================
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum MarketingProjectStatus {
+    Active,
+    Paused,
+    Completed,
+    Archived,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum AuditStatus {
+    Running,
+    Completed,
+    Failed,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum ContentPlatform {
+    Twitter,
+    LinkedIn,
+    Instagram,
+    Facebook,
+    TikTok,
+    YouTube,
+    Blog,
+    Email,
+}
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq)]
+pub enum ContentItemStatus {
+    Draft,
+    Scheduled,
+    Published,
+    Archived,
+}
+
+#[spacetimedb::table(accessor = marketing_project, public)]
+pub struct MarketingProject {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub name: String,
+    pub website_url: String,
+    pub description: String,
+    pub industry: Option<String>,
+    pub status: MarketingProjectStatus,
+    pub overall_score: Option<u32>,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = marketing_audit, public)]
+pub struct MarketingAudit {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub url: String,
+
+    // 6-dimension scores (0-100)
+    pub overall_score: u32,
+    pub content_messaging_score: u32,
+    pub conversion_score: u32,
+    pub seo_score: u32,
+    pub competitive_score: u32,
+    pub brand_trust_score: u32,
+    pub growth_strategy_score: u32,
+
+    // Findings per dimension
+    pub content_messaging_findings: String,
+    pub conversion_findings: String,
+    pub seo_findings: String,
+    pub competitive_findings: String,
+    pub brand_trust_findings: String,
+    pub growth_strategy_findings: String,
+
+    pub recommendations: Vec<String>,
+    pub status: AuditStatus,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = content_calendar_item, public)]
+pub struct ContentCalendarItem {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub platform: ContentPlatform,
+    pub scheduled_date: String,
+    pub day_number: u32,
+    pub title: String,
+    pub content: String,
+    pub hashtags: Vec<String>,
+    pub status: ContentItemStatus,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = email_sequence_item, public)]
+pub struct EmailSequenceItem {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub sequence_name: String,
+    pub sequence_type: String,
+    pub sequence_order: u32,
+    pub subject: String,
+    pub preview_text: String,
+    pub body: String,
+    pub cta_text: String,
+    pub cta_url: String,
+    pub delay_days: u32,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = ad_creative, public)]
+pub struct AdCreative {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub platform: String,
+    pub ad_type: String,
+    pub headline: String,
+    pub body: String,
+    pub cta: String,
+    pub target_audience: String,
+    pub estimated_cpc: Option<f32>,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = competitor_insight, public)]
+pub struct CompetitorInsight {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub competitor_name: String,
+    pub competitor_url: String,
+    pub strengths: Vec<String>,
+    pub weaknesses: Vec<String>,
+    pub opportunities: Vec<String>,
+    pub market_position: String,
+    pub threat_level: String,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = marketing_report, public)]
+pub struct MarketingReport {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+
+    pub org_id: u64,
+    pub project_id: u64,
+    pub report_type: String,
+    pub title: String,
+    pub content: String,
+    pub created_by: Identity,
+    pub created_at: Timestamp,
+}
+
+// ============================================================================
+// REDUCERS - MARKETING AGENCY
+// ============================================================================
+
+#[spacetimedb::reducer]
+pub fn create_marketing_project(
+    ctx: &ReducerContext,
+    org_id: u64,
+    name: String,
+    website_url: String,
+    description: String,
+    industry: Option<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.marketing_project().insert(MarketingProject {
+        id: 0,
+        org_id,
+        name,
+        website_url,
+        description,
+        industry,
+        status: MarketingProjectStatus::Active,
+        overall_score: None,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_marketing_project_status(
+    ctx: &ReducerContext,
+    project_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let project = ctx.db.marketing_project().id().find(&project_id)
+        .ok_or("Project not found")?;
+    require_org_access(ctx, project.org_id)?;
+    let status = match status_tag.as_str() {
+        "Active" => MarketingProjectStatus::Active,
+        "Paused" => MarketingProjectStatus::Paused,
+        "Completed" => MarketingProjectStatus::Completed,
+        "Archived" => MarketingProjectStatus::Archived,
+        _ => return Err("Invalid status".to_string()),
+    };
+    ctx.db.marketing_project().id().update(MarketingProject { status, ..project });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_marketing_project_score(
+    ctx: &ReducerContext,
+    project_id: u64,
+    score: u32,
+) -> Result<(), String> {
+    let project = ctx.db.marketing_project().id().find(&project_id)
+        .ok_or("Project not found")?;
+    require_org_access(ctx, project.org_id)?;
+    ctx.db.marketing_project().id().update(MarketingProject {
+        overall_score: Some(score),
+        ..project
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_marketing_project(
+    ctx: &ReducerContext,
+    project_id: u64,
+) -> Result<(), String> {
+    let project = ctx.db.marketing_project().id().find(&project_id)
+        .ok_or("Project not found")?;
+    require_org_access(ctx, project.org_id)?;
+    ctx.db.marketing_project().id().delete(&project_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_marketing_audit(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    url: String,
+    overall_score: u32,
+    content_messaging_score: u32,
+    conversion_score: u32,
+    seo_score: u32,
+    competitive_score: u32,
+    brand_trust_score: u32,
+    growth_strategy_score: u32,
+    content_messaging_findings: String,
+    conversion_findings: String,
+    seo_findings: String,
+    competitive_findings: String,
+    brand_trust_findings: String,
+    growth_strategy_findings: String,
+    recommendations: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.marketing_audit().insert(MarketingAudit {
+        id: 0,
+        org_id,
+        project_id,
+        url,
+        overall_score,
+        content_messaging_score,
+        conversion_score,
+        seo_score,
+        competitive_score,
+        brand_trust_score,
+        growth_strategy_score,
+        content_messaging_findings,
+        conversion_findings,
+        seo_findings,
+        competitive_findings,
+        brand_trust_findings,
+        growth_strategy_findings,
+        recommendations,
+        status: AuditStatus::Completed,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_marketing_audit(
+    ctx: &ReducerContext,
+    audit_id: u64,
+) -> Result<(), String> {
+    let audit = ctx.db.marketing_audit().id().find(&audit_id)
+        .ok_or("Audit not found")?;
+    require_org_access(ctx, audit.org_id)?;
+    ctx.db.marketing_audit().id().delete(&audit_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_content_calendar_item(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    platform_tag: String,
+    scheduled_date: String,
+    day_number: u32,
+    title: String,
+    content: String,
+    hashtags: Vec<String>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    let platform = match platform_tag.as_str() {
+        "Twitter" => ContentPlatform::Twitter,
+        "LinkedIn" => ContentPlatform::LinkedIn,
+        "Instagram" => ContentPlatform::Instagram,
+        "Facebook" => ContentPlatform::Facebook,
+        "TikTok" => ContentPlatform::TikTok,
+        "YouTube" => ContentPlatform::YouTube,
+        "Blog" => ContentPlatform::Blog,
+        "Email" => ContentPlatform::Email,
+        _ => ContentPlatform::Twitter,
+    };
+    ctx.db.content_calendar_item().insert(ContentCalendarItem {
+        id: 0,
+        org_id,
+        project_id,
+        platform,
+        scheduled_date,
+        day_number,
+        title,
+        content,
+        hashtags,
+        status: ContentItemStatus::Draft,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn update_content_item_status(
+    ctx: &ReducerContext,
+    item_id: u64,
+    status_tag: String,
+) -> Result<(), String> {
+    let item = ctx.db.content_calendar_item().id().find(&item_id)
+        .ok_or("Content item not found")?;
+    require_org_access(ctx, item.org_id)?;
+    let status = match status_tag.as_str() {
+        "Draft" => ContentItemStatus::Draft,
+        "Scheduled" => ContentItemStatus::Scheduled,
+        "Published" => ContentItemStatus::Published,
+        "Archived" => ContentItemStatus::Archived,
+        _ => return Err("Invalid status".to_string()),
+    };
+    ctx.db.content_calendar_item().id().update(ContentCalendarItem { status, ..item });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_content_calendar_item(
+    ctx: &ReducerContext,
+    item_id: u64,
+) -> Result<(), String> {
+    let item = ctx.db.content_calendar_item().id().find(&item_id)
+        .ok_or("Content item not found")?;
+    require_org_access(ctx, item.org_id)?;
+    ctx.db.content_calendar_item().id().delete(&item_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_email_sequence_item(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    sequence_name: String,
+    sequence_type: String,
+    sequence_order: u32,
+    subject: String,
+    preview_text: String,
+    body: String,
+    cta_text: String,
+    cta_url: String,
+    delay_days: u32,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.email_sequence_item().insert(EmailSequenceItem {
+        id: 0,
+        org_id,
+        project_id,
+        sequence_name,
+        sequence_type,
+        sequence_order,
+        subject,
+        preview_text,
+        body,
+        cta_text,
+        cta_url,
+        delay_days,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_email_sequence_item(
+    ctx: &ReducerContext,
+    item_id: u64,
+) -> Result<(), String> {
+    let item = ctx.db.email_sequence_item().id().find(&item_id)
+        .ok_or("Email item not found")?;
+    require_org_access(ctx, item.org_id)?;
+    ctx.db.email_sequence_item().id().delete(&item_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_ad_creative(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    platform: String,
+    ad_type: String,
+    headline: String,
+    body: String,
+    cta: String,
+    target_audience: String,
+    estimated_cpc: Option<f32>,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.ad_creative().insert(AdCreative {
+        id: 0,
+        org_id,
+        project_id,
+        platform,
+        ad_type,
+        headline,
+        body,
+        cta,
+        target_audience,
+        estimated_cpc,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_ad_creative(
+    ctx: &ReducerContext,
+    ad_id: u64,
+) -> Result<(), String> {
+    let ad = ctx.db.ad_creative().id().find(&ad_id)
+        .ok_or("Ad creative not found")?;
+    require_org_access(ctx, ad.org_id)?;
+    ctx.db.ad_creative().id().delete(&ad_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_competitor_insight(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    competitor_name: String,
+    competitor_url: String,
+    strengths: Vec<String>,
+    weaknesses: Vec<String>,
+    opportunities: Vec<String>,
+    market_position: String,
+    threat_level: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.competitor_insight().insert(CompetitorInsight {
+        id: 0,
+        org_id,
+        project_id,
+        competitor_name,
+        competitor_url,
+        strengths,
+        weaknesses,
+        opportunities,
+        market_position,
+        threat_level,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_competitor_insight(
+    ctx: &ReducerContext,
+    insight_id: u64,
+) -> Result<(), String> {
+    let insight = ctx.db.competitor_insight().id().find(&insight_id)
+        .ok_or("Competitor insight not found")?;
+    require_org_access(ctx, insight.org_id)?;
+    ctx.db.competitor_insight().id().delete(&insight_id);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn save_marketing_report(
+    ctx: &ReducerContext,
+    org_id: u64,
+    project_id: u64,
+    report_type: String,
+    title: String,
+    content: String,
+) -> Result<(), String> {
+    require_org_access(ctx, org_id)?;
+    ctx.db.marketing_report().insert(MarketingReport {
+        id: 0,
+        org_id,
+        project_id,
+        report_type,
+        title,
+        content,
+        created_by: ctx.sender(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn delete_marketing_report(
+    ctx: &ReducerContext,
+    report_id: u64,
+) -> Result<(), String> {
+    let report = ctx.db.marketing_report().id().find(&report_id)
+        .ok_or("Marketing report not found")?;
+    require_org_access(ctx, report.org_id)?;
+    ctx.db.marketing_report().id().delete(&report_id);
+    Ok(())
+}

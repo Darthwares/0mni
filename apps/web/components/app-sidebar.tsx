@@ -42,6 +42,7 @@ import {
   Contact,
   Wallet,
   Coffee,
+  Megaphone,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -119,6 +120,7 @@ const navSections = [
       { title: "Expenses", href: "/expenses", icon: Wallet },
       { title: "Contacts", href: "/contacts", icon: Contact },
       { title: "Goals & OKRs", href: "/goals", icon: Target },
+      { title: "Marketing", href: "/marketing", icon: Megaphone },
     ],
   },
   {

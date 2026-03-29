@@ -46,6 +46,21 @@ export const ActivityLog = __t.object("ActivityLog", {
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 
+export const AdCreative = __t.object("AdCreative", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  platform: __t.string(),
+  adType: __t.string(),
+  headline: __t.string(),
+  body: __t.string(),
+  cta: __t.string(),
+  targetAudience: __t.string(),
+  estimatedCpc: __t.option(__t.f32()),
+  createdAt: __t.timestamp(),
+});
+export type AdCreative = __Infer<typeof AdCreative>;
+
 export const AgentConfig = __t.object("AgentConfig", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -260,6 +275,14 @@ export const AudioFrameEvent = __t.object("AudioFrameEvent", {
 });
 export type AudioFrameEvent = __Infer<typeof AudioFrameEvent>;
 
+// The tagged union or sum type for the algebraic type `AuditStatus`.
+export const AuditStatus = __t.enum("AuditStatus", {
+  Running: __t.unit(),
+  Completed: __t.unit(),
+  Failed: __t.unit(),
+});
+export type AuditStatus = __Infer<typeof AuditStatus>;
+
 // The tagged union or sum type for the algebraic type `AutoSyncSource`.
 export const AutoSyncSource = __t.enum("AutoSyncSource", {
   Codebase: __t.unit(),
@@ -471,6 +494,21 @@ export const CodeRepository = __t.object("CodeRepository", {
 });
 export type CodeRepository = __Infer<typeof CodeRepository>;
 
+export const CompetitorInsight = __t.object("CompetitorInsight", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  competitorName: __t.string(),
+  competitorUrl: __t.string(),
+  strengths: __t.array(__t.string()),
+  weaknesses: __t.array(__t.string()),
+  opportunities: __t.array(__t.string()),
+  marketPosition: __t.string(),
+  threatLevel: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type CompetitorInsight = __Infer<typeof CompetitorInsight>;
+
 export const Contact = __t.object("Contact", {
   id: __t.u64(),
   orgId: __t.u64(),
@@ -513,6 +551,47 @@ export const ContactType = __t.enum("ContactType", {
   Personal: __t.unit(),
 });
 export type ContactType = __Infer<typeof ContactType>;
+
+export const ContentCalendarItem = __t.object("ContentCalendarItem", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  get platform() {
+    return ContentPlatform;
+  },
+  scheduledDate: __t.string(),
+  dayNumber: __t.u32(),
+  title: __t.string(),
+  content: __t.string(),
+  hashtags: __t.array(__t.string()),
+  get status() {
+    return ContentItemStatus;
+  },
+  createdAt: __t.timestamp(),
+});
+export type ContentCalendarItem = __Infer<typeof ContentCalendarItem>;
+
+// The tagged union or sum type for the algebraic type `ContentItemStatus`.
+export const ContentItemStatus = __t.enum("ContentItemStatus", {
+  Draft: __t.unit(),
+  Scheduled: __t.unit(),
+  Published: __t.unit(),
+  Archived: __t.unit(),
+});
+export type ContentItemStatus = __Infer<typeof ContentItemStatus>;
+
+// The tagged union or sum type for the algebraic type `ContentPlatform`.
+export const ContentPlatform = __t.enum("ContentPlatform", {
+  Twitter: __t.unit(),
+  LinkedIn: __t.unit(),
+  Instagram: __t.unit(),
+  Facebook: __t.unit(),
+  TikTok: __t.unit(),
+  YouTube: __t.unit(),
+  Blog: __t.unit(),
+  Email: __t.unit(),
+});
+export type ContentPlatform = __Infer<typeof ContentPlatform>;
 
 // The tagged union or sum type for the algebraic type `ContextType`.
 export const ContextType = __t.enum("ContextType", {
@@ -778,6 +857,23 @@ export const EmailMeta = __t.object("EmailMeta", {
   snoozedUntil: __t.option(__t.timestamp()),
 });
 export type EmailMeta = __Infer<typeof EmailMeta>;
+
+export const EmailSequenceItem = __t.object("EmailSequenceItem", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  sequenceName: __t.string(),
+  sequenceType: __t.string(),
+  sequenceOrder: __t.u32(),
+  subject: __t.string(),
+  previewText: __t.string(),
+  body: __t.string(),
+  ctaText: __t.string(),
+  ctaUrl: __t.string(),
+  delayDays: __t.u32(),
+  createdAt: __t.timestamp(),
+});
+export type EmailSequenceItem = __Infer<typeof EmailSequenceItem>;
 
 export const Employee = __t.object("Employee", {
   id: __t.identity(),
@@ -1149,6 +1245,70 @@ export const LeadStatus = __t.enum("LeadStatus", {
   Lost: __t.unit(),
 });
 export type LeadStatus = __Infer<typeof LeadStatus>;
+
+export const MarketingAudit = __t.object("MarketingAudit", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  url: __t.string(),
+  overallScore: __t.u32(),
+  contentMessagingScore: __t.u32(),
+  conversionScore: __t.u32(),
+  seoScore: __t.u32(),
+  competitiveScore: __t.u32(),
+  brandTrustScore: __t.u32(),
+  growthStrategyScore: __t.u32(),
+  contentMessagingFindings: __t.string(),
+  conversionFindings: __t.string(),
+  seoFindings: __t.string(),
+  competitiveFindings: __t.string(),
+  brandTrustFindings: __t.string(),
+  growthStrategyFindings: __t.string(),
+  recommendations: __t.array(__t.string()),
+  get status() {
+    return AuditStatus;
+  },
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type MarketingAudit = __Infer<typeof MarketingAudit>;
+
+export const MarketingProject = __t.object("MarketingProject", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  name: __t.string(),
+  websiteUrl: __t.string(),
+  description: __t.string(),
+  industry: __t.option(__t.string()),
+  get status() {
+    return MarketingProjectStatus;
+  },
+  overallScore: __t.option(__t.u32()),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type MarketingProject = __Infer<typeof MarketingProject>;
+
+// The tagged union or sum type for the algebraic type `MarketingProjectStatus`.
+export const MarketingProjectStatus = __t.enum("MarketingProjectStatus", {
+  Active: __t.unit(),
+  Paused: __t.unit(),
+  Completed: __t.unit(),
+  Archived: __t.unit(),
+});
+export type MarketingProjectStatus = __Infer<typeof MarketingProjectStatus>;
+
+export const MarketingReport = __t.object("MarketingReport", {
+  id: __t.u64(),
+  orgId: __t.u64(),
+  projectId: __t.u64(),
+  reportType: __t.string(),
+  title: __t.string(),
+  content: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type MarketingReport = __Infer<typeof MarketingReport>;
 
 export const MediaSettings = __t.object("MediaSettings", {
   id: __t.u32(),

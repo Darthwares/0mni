@@ -79,6 +79,7 @@ import CreateJobPostingReducer from "./create_job_posting_reducer";
 import CreateKbArticleReducer from "./create_kb_article_reducer";
 import CreateKeyResultReducer from "./create_key_result_reducer";
 import CreateLeadReducer from "./create_lead_reducer";
+import CreateMarketingProjectReducer from "./create_marketing_project_reducer";
 import CreateMeetingReducer from "./create_meeting_reducer";
 import CreateNotificationReducer from "./create_notification_reducer";
 import CreateObjectiveReducer from "./create_objective_reducer";
@@ -92,6 +93,7 @@ import CreateTaskLinkReducer from "./create_task_link_reducer";
 import CreateTicketReducer from "./create_ticket_reducer";
 import CreateWhiteboardBoardReducer from "./create_whiteboard_board_reducer";
 import CreateWorkflowReducer from "./create_workflow_reducer";
+import DeleteAdCreativeReducer from "./delete_ad_creative_reducer";
 import DeleteAgentConfigReducer from "./delete_agent_config_reducer";
 import DeleteAgentDeploymentReducer from "./delete_agent_deployment_reducer";
 import DeleteApprovalRequestReducer from "./delete_approval_request_reducer";
@@ -100,13 +102,16 @@ import DeleteCalEventReducer from "./delete_cal_event_reducer";
 import DeleteCandidateReducer from "./delete_candidate_reducer";
 import DeleteCannedResponseReducer from "./delete_canned_response_reducer";
 import DeleteCodeRepositoryReducer from "./delete_code_repository_reducer";
+import DeleteCompetitorInsightReducer from "./delete_competitor_insight_reducer";
 import DeleteContactReducer from "./delete_contact_reducer";
 import DeleteContactInteractionReducer from "./delete_contact_interaction_reducer";
+import DeleteContentCalendarItemReducer from "./delete_content_calendar_item_reducer";
 import DeleteDealReducer from "./delete_deal_reducer";
 import DeleteDocumentReducer from "./delete_document_reducer";
 import DeleteDocumentCommentReducer from "./delete_document_comment_reducer";
 import DeleteDriveItemReducer from "./delete_drive_item_reducer";
 import DeleteEmailLabelReducer from "./delete_email_label_reducer";
+import DeleteEmailSequenceItemReducer from "./delete_email_sequence_item_reducer";
 import DeleteExpenseReducer from "./delete_expense_reducer";
 import DeleteFormReducer from "./delete_form_reducer";
 import DeleteInterviewReducer from "./delete_interview_reducer";
@@ -116,6 +121,9 @@ import DeleteKbArticleReducer from "./delete_kb_article_reducer";
 import DeleteKeyResultReducer from "./delete_key_result_reducer";
 import DeleteKrCheckInReducer from "./delete_kr_check_in_reducer";
 import DeleteLeadReducer from "./delete_lead_reducer";
+import DeleteMarketingAuditReducer from "./delete_marketing_audit_reducer";
+import DeleteMarketingProjectReducer from "./delete_marketing_project_reducer";
+import DeleteMarketingReportReducer from "./delete_marketing_report_reducer";
 import DeleteMeetingReducer from "./delete_meeting_reducer";
 import DeleteMessageReducer from "./delete_message_reducer";
 import DeleteObjectiveReducer from "./delete_objective_reducer";
@@ -175,7 +183,13 @@ import ResolveDocumentCommentReducer from "./resolve_document_comment_reducer";
 import RespondToEventReducer from "./respond_to_event_reducer";
 import RestoreDocumentVersionReducer from "./restore_document_version_reducer";
 import RevokeInviteLinkReducer from "./revoke_invite_link_reducer";
+import SaveAdCreativeReducer from "./save_ad_creative_reducer";
+import SaveCompetitorInsightReducer from "./save_competitor_insight_reducer";
+import SaveContentCalendarItemReducer from "./save_content_calendar_item_reducer";
 import SaveDocumentVersionReducer from "./save_document_version_reducer";
+import SaveEmailSequenceItemReducer from "./save_email_sequence_item_reducer";
+import SaveMarketingAuditReducer from "./save_marketing_audit_reducer";
+import SaveMarketingReportReducer from "./save_marketing_report_reducer";
 import ScheduleInterviewReducer from "./schedule_interview_reducer";
 import SelectOrgReducer from "./select_org_reducer";
 import SendAudioFrameReducer from "./send_audio_frame_reducer";
@@ -218,6 +232,7 @@ import UpdateCandidateReducer from "./update_candidate_reducer";
 import UpdateCandidateStatusReducer from "./update_candidate_status_reducer";
 import UpdateChannelTopicReducer from "./update_channel_topic_reducer";
 import UpdateContactReducer from "./update_contact_reducer";
+import UpdateContentItemStatusReducer from "./update_content_item_status_reducer";
 import UpdateCustomerReducer from "./update_customer_reducer";
 import UpdateDealReducer from "./update_deal_reducer";
 import UpdateDealStageReducer from "./update_deal_stage_reducer";
@@ -238,6 +253,8 @@ import UpdateKbArticleReducer from "./update_kb_article_reducer";
 import UpdateKrProgressReducer from "./update_kr_progress_reducer";
 import UpdateLeadReducer from "./update_lead_reducer";
 import UpdateLeadStatusReducer from "./update_lead_status_reducer";
+import UpdateMarketingProjectScoreReducer from "./update_marketing_project_score_reducer";
+import UpdateMarketingProjectStatusReducer from "./update_marketing_project_status_reducer";
 import UpdateMeetingStatusReducer from "./update_meeting_status_reducer";
 import UpdateMemberRoleReducer from "./update_member_role_reducer";
 import UpdateNotificationPreferencesReducer from "./update_notification_preferences_reducer";
@@ -262,6 +279,7 @@ import WatchTaskReducer from "./watch_task_reducer";
 
 // Import all table schema definitions
 import ActivityLogRow from "./activity_log_table";
+import AdCreativeRow from "./ad_creative_table";
 import AgentConfigRow from "./agent_config_table";
 import AgentThoughtEventRow from "./agent_thought_event_table";
 import AiAgentDeploymentRow from "./ai_agent_deployment_table";
@@ -277,8 +295,10 @@ import CandidateRow from "./candidate_table";
 import CannedResponseRow from "./canned_response_table";
 import ChannelRow from "./channel_table";
 import CodeRepositoryRow from "./code_repository_table";
+import CompetitorInsightRow from "./competitor_insight_table";
 import ContactRow from "./contact_table";
 import ContactInteractionRow from "./contact_interaction_table";
+import ContentCalendarItemRow from "./content_calendar_item_table";
 import CustomerRow from "./customer_table";
 import DealRow from "./deal_table";
 import DocumentRow from "./document_table";
@@ -293,6 +313,7 @@ import DocumentViewRow from "./document_view_table";
 import DriveItemRow from "./drive_item_table";
 import EmailLabelRow from "./email_label_table";
 import EmailMetaRow from "./email_meta_table";
+import EmailSequenceItemRow from "./email_sequence_item_table";
 import EmployeeRow from "./employee_table";
 import EpicRow from "./epic_table";
 import ExpenseRow from "./expense_table";
@@ -308,6 +329,9 @@ import KbArticleRow from "./kb_article_table";
 import KeyResultRow from "./key_result_table";
 import KrCheckInRow from "./kr_check_in_table";
 import LeadRow from "./lead_table";
+import MarketingAuditRow from "./marketing_audit_table";
+import MarketingProjectRow from "./marketing_project_table";
+import MarketingReportRow from "./marketing_report_table";
 import MediaSettingsRow from "./media_settings_table";
 import MeetingRow from "./meeting_table";
 import MessageRow from "./message_table";
@@ -357,6 +381,17 @@ const tablesSchema = __schema({
       { name: 'activity_log_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ActivityLogRow),
+  ad_creative: __table({
+    name: 'ad_creative',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'ad_creative_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AdCreativeRow),
   agent_config: __table({
     name: 'agent_config',
     indexes: [
@@ -516,6 +551,17 @@ const tablesSchema = __schema({
       { name: 'code_repository_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CodeRepositoryRow),
+  competitor_insight: __table({
+    name: 'competitor_insight',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'competitor_insight_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CompetitorInsightRow),
   contact: __table({
     name: 'contact',
     indexes: [
@@ -538,6 +584,17 @@ const tablesSchema = __schema({
       { name: 'contact_interaction_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ContactInteractionRow),
+  content_calendar_item: __table({
+    name: 'content_calendar_item',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'content_calendar_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ContentCalendarItemRow),
   customer: __table({
     name: 'customer',
     indexes: [
@@ -692,6 +749,17 @@ const tablesSchema = __schema({
       { name: 'email_meta_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EmailMetaRow),
+  email_sequence_item: __table({
+    name: 'email_sequence_item',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'email_sequence_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, EmailSequenceItemRow),
   employee: __table({
     name: 'employee',
     indexes: [
@@ -857,6 +925,39 @@ const tablesSchema = __schema({
       { name: 'lead_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, LeadRow),
+  marketing_audit: __table({
+    name: 'marketing_audit',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'marketing_audit_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MarketingAuditRow),
+  marketing_project: __table({
+    name: 'marketing_project',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'marketing_project_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MarketingProjectRow),
+  marketing_report: __table({
+    name: 'marketing_report',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'marketing_report_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MarketingReportRow),
   media_settings: __table({
     name: 'media_settings',
     indexes: [
@@ -1266,6 +1367,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_kb_article", CreateKbArticleReducer),
   __reducerSchema("create_key_result", CreateKeyResultReducer),
   __reducerSchema("create_lead", CreateLeadReducer),
+  __reducerSchema("create_marketing_project", CreateMarketingProjectReducer),
   __reducerSchema("create_meeting", CreateMeetingReducer),
   __reducerSchema("create_notification", CreateNotificationReducer),
   __reducerSchema("create_objective", CreateObjectiveReducer),
@@ -1279,6 +1381,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_ticket", CreateTicketReducer),
   __reducerSchema("create_whiteboard_board", CreateWhiteboardBoardReducer),
   __reducerSchema("create_workflow", CreateWorkflowReducer),
+  __reducerSchema("delete_ad_creative", DeleteAdCreativeReducer),
   __reducerSchema("delete_agent_config", DeleteAgentConfigReducer),
   __reducerSchema("delete_agent_deployment", DeleteAgentDeploymentReducer),
   __reducerSchema("delete_approval_request", DeleteApprovalRequestReducer),
@@ -1287,13 +1390,16 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_candidate", DeleteCandidateReducer),
   __reducerSchema("delete_canned_response", DeleteCannedResponseReducer),
   __reducerSchema("delete_code_repository", DeleteCodeRepositoryReducer),
+  __reducerSchema("delete_competitor_insight", DeleteCompetitorInsightReducer),
   __reducerSchema("delete_contact", DeleteContactReducer),
   __reducerSchema("delete_contact_interaction", DeleteContactInteractionReducer),
+  __reducerSchema("delete_content_calendar_item", DeleteContentCalendarItemReducer),
   __reducerSchema("delete_deal", DeleteDealReducer),
   __reducerSchema("delete_document", DeleteDocumentReducer),
   __reducerSchema("delete_document_comment", DeleteDocumentCommentReducer),
   __reducerSchema("delete_drive_item", DeleteDriveItemReducer),
   __reducerSchema("delete_email_label", DeleteEmailLabelReducer),
+  __reducerSchema("delete_email_sequence_item", DeleteEmailSequenceItemReducer),
   __reducerSchema("delete_expense", DeleteExpenseReducer),
   __reducerSchema("delete_form", DeleteFormReducer),
   __reducerSchema("delete_interview", DeleteInterviewReducer),
@@ -1303,6 +1409,9 @@ const reducersSchema = __reducers(
   __reducerSchema("delete_key_result", DeleteKeyResultReducer),
   __reducerSchema("delete_kr_check_in", DeleteKrCheckInReducer),
   __reducerSchema("delete_lead", DeleteLeadReducer),
+  __reducerSchema("delete_marketing_audit", DeleteMarketingAuditReducer),
+  __reducerSchema("delete_marketing_project", DeleteMarketingProjectReducer),
+  __reducerSchema("delete_marketing_report", DeleteMarketingReportReducer),
   __reducerSchema("delete_meeting", DeleteMeetingReducer),
   __reducerSchema("delete_message", DeleteMessageReducer),
   __reducerSchema("delete_objective", DeleteObjectiveReducer),
@@ -1362,7 +1471,13 @@ const reducersSchema = __reducers(
   __reducerSchema("respond_to_event", RespondToEventReducer),
   __reducerSchema("restore_document_version", RestoreDocumentVersionReducer),
   __reducerSchema("revoke_invite_link", RevokeInviteLinkReducer),
+  __reducerSchema("save_ad_creative", SaveAdCreativeReducer),
+  __reducerSchema("save_competitor_insight", SaveCompetitorInsightReducer),
+  __reducerSchema("save_content_calendar_item", SaveContentCalendarItemReducer),
   __reducerSchema("save_document_version", SaveDocumentVersionReducer),
+  __reducerSchema("save_email_sequence_item", SaveEmailSequenceItemReducer),
+  __reducerSchema("save_marketing_audit", SaveMarketingAuditReducer),
+  __reducerSchema("save_marketing_report", SaveMarketingReportReducer),
   __reducerSchema("schedule_interview", ScheduleInterviewReducer),
   __reducerSchema("select_org", SelectOrgReducer),
   __reducerSchema("send_audio_frame", SendAudioFrameReducer),
@@ -1405,6 +1520,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_candidate_status", UpdateCandidateStatusReducer),
   __reducerSchema("update_channel_topic", UpdateChannelTopicReducer),
   __reducerSchema("update_contact", UpdateContactReducer),
+  __reducerSchema("update_content_item_status", UpdateContentItemStatusReducer),
   __reducerSchema("update_customer", UpdateCustomerReducer),
   __reducerSchema("update_deal", UpdateDealReducer),
   __reducerSchema("update_deal_stage", UpdateDealStageReducer),
@@ -1425,6 +1541,8 @@ const reducersSchema = __reducers(
   __reducerSchema("update_kr_progress", UpdateKrProgressReducer),
   __reducerSchema("update_lead", UpdateLeadReducer),
   __reducerSchema("update_lead_status", UpdateLeadStatusReducer),
+  __reducerSchema("update_marketing_project_score", UpdateMarketingProjectScoreReducer),
+  __reducerSchema("update_marketing_project_status", UpdateMarketingProjectStatusReducer),
   __reducerSchema("update_meeting_status", UpdateMeetingStatusReducer),
   __reducerSchema("update_member_role", UpdateMemberRoleReducer),
   __reducerSchema("update_notification_preferences", UpdateNotificationPreferencesReducer),

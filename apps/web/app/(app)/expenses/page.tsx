@@ -18,6 +18,7 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -491,7 +492,7 @@ export default function ExpensesPage() {
                         <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={34} outerRadius={54} paddingAngle={3} strokeWidth={0}>
                           {categoryPieData.map(d => <Cell key={d.name} fill={d.color} />)}
                         </Pie>
-                        <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, '']} />
+                        <RechartsTooltip {...chartTooltipProps} formatter={(v: number) => [`$${v.toLocaleString()}`, '']} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -529,10 +530,10 @@ export default function ExpensesPage() {
                       <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `$${v}`} />
-                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, 'Spent']} />
+                  <CartesianGrid {...chartGridProps} vertical={false} />
+                  <XAxis dataKey="label" {...chartAxisProps} />
+                  <YAxis {...chartAxisProps} tickFormatter={v => `$${v}`} />
+                  <RechartsTooltip {...chartTooltipProps} formatter={(v: number) => [`$${v.toLocaleString()}`, 'Spent']} />
                   <Area type="monotone" dataKey="amount" stroke="#f97316" strokeWidth={2} fill="url(#expenseGradient)" />
                 </AreaChart>
               </ResponsiveContainer>

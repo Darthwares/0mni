@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -506,7 +507,7 @@ export default function StandupsPage() {
                   <Pie data={moodPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value" stroke="none">
                     {moodPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  <RechartsTooltip {...chartTooltipProps} />
                 </RechartsPie>
               </ResponsiveContainer>
               <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -525,10 +526,10 @@ export default function StandupsPage() {
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">7-Day Participation</h3>
               <ResponsiveContainer width="100%" height={150}>
                 <BarChart data={dailyParticipationData} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                  <XAxis dataKey="name" {...chartAxisProps} />
+                  <YAxis {...chartAxisProps} allowDecimals={false} />
                   <RechartsTooltip
-                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    {...chartTooltipProps}
                     formatter={(v: number) => [`${v} people`, 'Submitted']}
                   />
                   <Bar dataKey="submitted" radius={[6, 6, 0, 0]} barSize={20} fill="url(#standupParticipationGrad)" />
@@ -552,7 +553,7 @@ export default function StandupsPage() {
                       <Pie data={blockerData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="count" stroke="none">
                         {blockerData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                       </Pie>
-                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <RechartsTooltip {...chartTooltipProps} />
                     </RechartsPie>
                   </ResponsiveContainer>
                   <div className="flex justify-center gap-4 mt-1">

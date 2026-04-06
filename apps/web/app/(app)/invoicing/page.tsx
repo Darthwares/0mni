@@ -36,6 +36,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -954,8 +955,7 @@ export default function InvoicingPage() {
                       ))}
                     </Pie>
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      {...chartTooltipProps}
                       formatter={(value: number, name: string) => [`${value} invoice${value !== 1 ? 's' : ''}`, name]}
                     />
                   </PieChart>
@@ -977,11 +977,10 @@ export default function InvoicingPage() {
               <div className="h-[150px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={revenueByStatus} barSize={28} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
+                    <XAxis dataKey="name" {...chartAxisProps} />
+                    <YAxis {...chartAxisProps} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      {...chartTooltipProps}
                       formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
                     />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -1001,11 +1000,10 @@ export default function InvoicingPage() {
                 <div className="h-[150px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={topClients} layout="vertical" barSize={14} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
-                      <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
-                      <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={80} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                      <XAxis type="number" {...chartAxisProps} tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} />
+                      <YAxis type="category" dataKey="name" {...chartAxisProps} width={80} />
                       <RechartsTooltip
-                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        {...chartTooltipProps}
                         formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
                       />
                       <Bar dataKey="value" radius={[0, 6, 6, 0]} fill="url(#invoiceClientGrad)" />

@@ -44,6 +44,7 @@ import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import BlurText from '@/components/reactbits/BlurText'
 import ShinyText from '@/components/reactbits/ShinyText'
 import { PagePresenceStrip } from '@/components/presence-bar'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 
 // ─── Action config ──────────────────────────────────────────────────────────
 

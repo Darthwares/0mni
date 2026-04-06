@@ -3,6 +3,7 @@
 import { useTable, useReducer as useSpacetimeReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { Badge } from '@/components/ui/badge'
@@ -672,7 +673,7 @@ export default function SupportPage() {
                     <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
                       {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -691,9 +692,9 @@ export default function SupportPage() {
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">By Priority</h3>
                 <ResponsiveContainer width="100%" height={140}>
                   <BarChart data={priorityBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={48} />
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <XAxis {...chartAxisProps} type="number" allowDecimals={false} />
+                    <YAxis {...chartAxisProps} type="category" dataKey="name" width={48} />
+                    <RechartsTooltip {...chartTooltipProps} />
                     <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14}>
                       {priorityBarData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Bar>
@@ -709,7 +710,7 @@ export default function SupportPage() {
                     <Pie data={categoryPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
                       {categoryPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">

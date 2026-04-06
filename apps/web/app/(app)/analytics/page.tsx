@@ -18,6 +18,7 @@ import BlurText from '@/components/reactbits/BlurText'
 import ShinyText from '@/components/reactbits/ShinyText'
 import { PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
@@ -188,7 +189,7 @@ function ChartTooltipContent({ active, payload, label, formatter }: any) {
   )
 }
 
-const CHART_GRID = { stroke: 'rgba(120,120,120,0.1)', strokeDasharray: '3 3' }
+const CHART_GRID = chartGridProps
 
 // ── page ───────────────────────────────────────────────────────────────────────
 
@@ -812,9 +813,9 @@ export default function AnalyticsPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={ticketTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                         <CartesianGrid {...CHART_GRID} />
-                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        <XAxis {...chartAxisProps} dataKey="name" interval="preserveStartEnd" />
+                        <YAxis {...chartAxisProps} allowDecimals={false} />
+                        <RechartsTooltip {...chartTooltipProps} />
                         <Bar dataKey="opened" name="Opened" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={16} />
                         <Bar dataKey="resolved" name="Resolved" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={16} />
                       </BarChart>
@@ -841,9 +842,9 @@ export default function AnalyticsPage() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid {...CHART_GRID} />
-                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        <XAxis {...chartAxisProps} dataKey="name" interval="preserveStartEnd" />
+                        <YAxis {...chartAxisProps} allowDecimals={false} />
+                        <RechartsTooltip {...chartTooltipProps} />
                         <Area type="monotone" dataKey="messages" name="Messages" stroke="#8b5cf6" strokeWidth={2} fill="url(#msgGrad)" dot={false} activeDot={{ r: 4, stroke: '#8b5cf6', strokeWidth: 2, fill: 'white' }} />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -1090,9 +1091,9 @@ export default function AnalyticsPage() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid {...CHART_GRID} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                      <RechartsTooltip content={<ChartTooltipContent />} />
+                      <XAxis {...chartAxisProps} dataKey="name" interval="preserveStartEnd" />
+                      <YAxis {...chartAxisProps} allowDecimals={false} />
+                      <RechartsTooltip {...chartTooltipProps} />
                       <Area type="monotone" dataKey="tasks" name="Tasks" stroke="#8b5cf6" strokeWidth={2} fill="url(#velocityGrad)" dot={false} activeDot={{ r: 4, stroke: '#8b5cf6', strokeWidth: 2, fill: 'white' }} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -1288,9 +1289,9 @@ export default function AnalyticsPage() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid {...CHART_GRID} />
-                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#a3a3a3' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`} />
-                      <RechartsTooltip content={<ChartTooltipContent formatter={(v: number) => `$${v.toLocaleString()}`} />} />
+                      <XAxis {...chartAxisProps} dataKey="name" interval="preserveStartEnd" />
+                      <YAxis {...chartAxisProps} tickFormatter={(v: number) => v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`} />
+                      <RechartsTooltip {...chartTooltipProps} formatter={(v: number) => `$${v.toLocaleString()}`} />
                       <Area type="monotone" dataKey="cumulative" name="Revenue" stroke="#10b981" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4, stroke: '#10b981', strokeWidth: 2, fill: 'white' }} />
                       <Area type="monotone" dataKey="daily" name="Daily" stroke="#3b82f6" strokeWidth={1.5} fill="none" dot={false} strokeDasharray="4 4" activeDot={{ r: 3, stroke: '#3b82f6', strokeWidth: 2, fill: 'white' }} />
                     </AreaChart>
@@ -1332,9 +1333,9 @@ export default function AnalyticsPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 40, left: 10, bottom: 4 }}>
                           <CartesianGrid {...CHART_GRID} horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                          <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={80} />
-                          <RechartsTooltip content={<ChartTooltipContent formatter={(v: number, _: any, entry: any) => entry?.payload?.value ? `${v} deals — $${entry.payload.value.toLocaleString()}` : v} />} />
+                          <XAxis {...chartAxisProps} type="number" allowDecimals={false} />
+                          <YAxis {...chartAxisProps} type="category" dataKey="name" width={80} />
+                          <RechartsTooltip {...chartTooltipProps} formatter={(v: number, _: any, entry: any) => entry?.payload?.value ? `${v} deals — $${entry.payload.value.toLocaleString()}` : v} />
                           <Bar dataKey="deals" name="Deals" radius={[0, 4, 4, 0]} maxBarSize={24}>
                             {chartData.map((entry, i) => (
                               <Cell key={i} fill={entry.fill} fillOpacity={0.85} />
@@ -1505,7 +1506,7 @@ export default function AnalyticsPage() {
                           {deptRadarData.some(d => d.ai > 0) && (
                             <Radar name="AI Agents" dataKey="ai" stroke="#a855f7" fill="#a855f7" fillOpacity={0.15} strokeWidth={1.5} strokeDasharray="4 3" />
                           )}
-                          <RechartsTooltip content={<ChartTooltipContent />} />
+                          <RechartsTooltip {...chartTooltipProps} />
                         </RadarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1514,9 +1515,9 @@ export default function AnalyticsPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={departments.map(([dept, data]) => ({ name: dept, total: data.total, ai: data.ai }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
                           <CartesianGrid {...CHART_GRID} />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                          <RechartsTooltip content={<ChartTooltipContent />} />
+                          <XAxis {...chartAxisProps} dataKey="name" />
+                          <YAxis {...chartAxisProps} allowDecimals={false} />
+                          <RechartsTooltip {...chartTooltipProps} />
                           <Bar dataKey="total" name="Total" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.8} />
                           <Bar dataKey="ai" name="AI" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={28} fillOpacity={0.5} />
                         </BarChart>

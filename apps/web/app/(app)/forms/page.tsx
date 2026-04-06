@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -513,7 +514,7 @@ export default function FormsPage() {
                     <Pie data={formStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
                       {formStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -535,7 +536,7 @@ export default function FormsPage() {
                     <Pie data={questionTypePieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
                       {questionTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -555,9 +556,9 @@ export default function FormsPage() {
                 {topFormsByResponses.length > 0 ? (
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={topFormsByResponses} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                      <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} width={70} />
-                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <XAxis type="number" {...chartAxisProps} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" {...chartAxisProps} width={70} />
+                      <RechartsTooltip {...chartTooltipProps} />
                       <Bar dataKey="responses" radius={[0, 6, 6, 0]} barSize={14} fill="url(#formsBarGrad)" />
                       <defs>
                         <linearGradient id="formsBarGrad" x1="0" y1="0" x2="1" y2="0">

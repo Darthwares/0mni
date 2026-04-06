@@ -60,6 +60,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -645,8 +646,8 @@ export default function EngineeringPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={bugSeverityDist} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                         <XAxis type="number" hide />
-                        <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} width={60} />
-                        <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                        <YAxis {...chartAxisProps} type="category" dataKey="name" width={60} />
+                        <RechartsTooltip {...chartTooltipProps} />
                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16}>
                           {bugSeverityDist.map(d => <Cell key={d.name} fill={d.color} />)}
                         </Bar>

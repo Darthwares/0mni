@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
@@ -715,7 +716,7 @@ export default function GoalsPage() {
                     <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value" stroke="none">
                       {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -734,10 +735,10 @@ export default function GoalsPage() {
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Dept. Avg Progress</h3>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={deptBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                    <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} unit="%" />
-                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={48} />
+                    <XAxis type="number" domain={[0, 100]} {...chartAxisProps} unit="%" />
+                    <YAxis type="category" dataKey="name" {...chartAxisProps} width={48} />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      {...chartTooltipProps}
                       formatter={(v: number, _: any, p: any) => [`${v}%`, p.payload.fullName]}
                     />
                     <Bar dataKey="progress" radius={[0, 6, 6, 0]} barSize={16}>
@@ -752,10 +753,10 @@ export default function GoalsPage() {
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Quarter Comparison</h3>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={quarterBarData} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <XAxis dataKey="name" {...chartAxisProps} />
+                    <YAxis {...chartAxisProps} allowDecimals={false} />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      {...chartTooltipProps}
                       formatter={(v: number, name: string) => [name === 'count' ? `${v} objectives` : `${v}%`, name === 'count' ? 'Objectives' : 'Avg Progress']}
                     />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={18} fill="url(#goalsCountGrad)" />

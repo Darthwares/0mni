@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { exportCSV } from '@/lib/csv-export'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, PieChart, Pie, Tooltip as RechartsTooltip } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -776,7 +777,7 @@ export default function ContactsPage() {
                       <Pie data={typeDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={28} outerRadius={46} paddingAngle={3} strokeWidth={0}>
                         {typeDistribution.map(d => <Cell key={d.name} fill={d.color} />)}
                       </Pie>
-                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <RechartsTooltip {...chartTooltipProps} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -799,9 +800,9 @@ export default function ContactsPage() {
                 <div className="h-[120px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={topCompanies} margin={{ top: 0, right: 4, left: -16, bottom: 0 }}>
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <XAxis dataKey="name" {...chartAxisProps} />
+                      <YAxis {...chartAxisProps} allowDecimals={false} />
+                      <RechartsTooltip {...chartTooltipProps} />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="url(#contactBarGrad)" barSize={28} />
                       <defs>
                         <linearGradient id="contactBarGrad" x1="0" y1="0" x2="0" y2="1">

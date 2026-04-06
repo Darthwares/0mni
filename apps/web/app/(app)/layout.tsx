@@ -21,6 +21,7 @@ import { usePathname } from "next/navigation"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
 import { useNotificationManager } from "@/hooks/use-notification-manager"
+import { ConnectionStatus } from "@/components/connection-status"
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -97,6 +98,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                   </BreadcrumbList>
                 </Breadcrumb>
                 <div className="ml-auto hidden md:flex items-center gap-3">
+                  <ConnectionStatus />
                   <PresenceBar />
                 </div>
               </header>

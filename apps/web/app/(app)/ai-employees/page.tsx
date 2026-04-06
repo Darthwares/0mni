@@ -38,6 +38,7 @@ import CountUp from '@/components/reactbits/CountUp'
 import BlurText from '@/components/reactbits/BlurText'
 import ShinyText from '@/components/reactbits/ShinyText'
 import { PagePresenceStrip } from '@/components/presence-bar'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import {
   Bot,
   Brain,
@@ -669,7 +670,7 @@ export default function AIEmployeesPage() {
                   <Pie data={agentStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
                     {agentStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                  <RechartsTooltip {...chartTooltipProps} />
                 </RechartsPie>
               </ResponsiveContainer>
               <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -689,9 +690,9 @@ export default function AIEmployeesPage() {
               {deptBarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={deptBarData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                    <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={56} />
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number, _: any, p: any) => [`${v} agents`, p.payload.fullName]} />
+                    <XAxis type="number" {...chartAxisProps} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" {...chartAxisProps} width={56} />
+                    <RechartsTooltip {...chartTooltipProps} formatter={(v: number, _: any, p: any) => [`${v} agents`, p.payload.fullName]} />
                     <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={14}>
                       {deptBarData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Bar>
@@ -712,7 +713,7 @@ export default function AIEmployeesPage() {
                       <Pie data={taskStatusPieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey="value" stroke="none">
                         {taskStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                       </Pie>
-                      <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                      <RechartsTooltip {...chartTooltipProps} />
                     </RechartsPie>
                   </ResponsiveContainer>
                   <div className="flex flex-wrap justify-center gap-3 mt-1">

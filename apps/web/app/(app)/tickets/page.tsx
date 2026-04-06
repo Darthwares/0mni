@@ -115,6 +115,7 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
   AreaChart, Area,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 
 // ---- Types ------------------------------------------------------------------
 
@@ -1848,28 +1849,16 @@ export default function TicketsPage() {
                       {velocityData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={140}>
                           <BarChart data={velocityData} barSize={20} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <CartesianGrid {...chartGridProps} vertical={false} />
                             <XAxis
                               dataKey="name"
-                              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                              tickLine={false}
-                              axisLine={false}
+                              {...chartAxisProps}
                             />
                             <YAxis
-                              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                              tickLine={false}
-                              axisLine={false}
+                              {...chartAxisProps}
                               allowDecimals={false}
                             />
-                            <RechartsTooltip
-                              contentStyle={{
-                                background: 'hsl(var(--popover))',
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: 8,
-                                fontSize: 11,
-                                color: 'hsl(var(--foreground))',
-                              }}
-                            />
+                            <RechartsTooltip {...chartTooltipProps} />
                             <Bar dataKey="done" stackId="sp" fill="#10b981" name="Done" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="review" stackId="sp" fill="#8b5cf6" name="Review" radius={[0, 0, 0, 0]} />
                             <Bar dataKey="inProgress" stackId="sp" fill="#f59e0b" name="In Progress" radius={[0, 0, 0, 0]} />

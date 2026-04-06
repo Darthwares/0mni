@@ -23,14 +23,14 @@ import {
 } from "@/components/ui/sidebar"
 import { useTable, useSpacetimeDB } from "spacetimedb/react"
 import { tables } from "@/generated"
-import { useAuth } from "react-oidc-context"
+import { useOmniAuth } from "@/hooks/use-omni-auth"
 import Link from "next/link"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
   const [allEmployees] = useTable(tables.employee)
   const { identity } = useSpacetimeDB()
-  const auth = useAuth()
+  const { user: oidcUser, signOut } = useOmniAuth()
 
   const me = identity
     ? allEmployees.find((e) => e.id.toHexString() === identity.toHexString())
@@ -38,8 +38,8 @@ export function NavUser() {
 
   const displayName = me?.name && !me.name.startsWith("user-")
     ? me.name
-    : auth.user?.profile?.name ?? "User"
-  const email = me?.email ?? auth.user?.profile?.email ?? ""
+    : oidcUser?.profile?.name ?? "User"
+  const email = me?.email ?? oidcUser?.profile?.email ?? ""
   const initials = displayName
     .split(" ")
     .map((n: string) => n[0])
@@ -95,7 +95,7 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => auth.signoutRedirect()}>
+              <DropdownMenuItem onClick={() => signOut()}>
                 <LogOut className="mr-2 size-4" />
                 Sign out
               </DropdownMenuItem>

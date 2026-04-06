@@ -6,6 +6,7 @@ import { tables, reducers } from '@/generated'
 import { useOrg } from '@/components/org-context'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { exportCSV } from '@/lib/csv-export'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { Separator } from '@/components/ui/separator'
 import { PresenceBar } from '@/components/presence-bar'
 import { Badge } from '@/components/ui/badge'
@@ -106,7 +107,7 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-const CHART_GRID = { stroke: 'rgba(120,120,120,0.1)', strokeDasharray: '3 3' }
+const CHART_GRID = chartGridProps
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
@@ -562,9 +563,9 @@ function TaskCompletionChart({ tasks, employees }: { tasks: any[]; employees: an
           <ResponsiveContainer width="100%" height="100%">
             <RechartsBarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
               <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <RechartsTooltip content={<ChartTooltip />} />
+              <XAxis {...chartAxisProps} dataKey="name" />
+              <YAxis {...chartAxisProps} allowDecimals={false} />
+              <RechartsTooltip {...chartTooltipProps} />
               <Bar dataKey="Completed" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
               <Bar dataKey="In Progress" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
               <Bar dataKey="Other" stackId="a" fill="#d4d4d4" radius={[4, 4, 0, 0]} />
@@ -619,9 +620,9 @@ function TicketResolutionChart({ tickets }: { tickets: any[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <RechartsBarChart data={statusData.map(s => ({ name: s.status, count: s.count, fill: s.hex }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
               <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <RechartsTooltip content={<ChartTooltip />} />
+              <XAxis {...chartAxisProps} dataKey="name" />
+              <YAxis {...chartAxisProps} allowDecimals={false} />
+              <RechartsTooltip {...chartTooltipProps} />
               <Bar dataKey="count" name="Tickets" radius={[4, 4, 0, 0]} maxBarSize={32}>
                 {statusData.map((s, i) => <Cell key={i} fill={s.hex} fillOpacity={0.85} />)}
               </Bar>
@@ -635,7 +636,7 @@ function TicketResolutionChart({ tickets }: { tickets: any[] }) {
                 cx="50%" cy="50%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value">
                 {statusData.filter(s => s.count > 0).map((s, i) => <Cell key={i} fill={s.hex} />)}
               </Pie>
-              <RechartsTooltip content={<ChartTooltip />} />
+              <RechartsTooltip {...chartTooltipProps} />
             </RechartsPieChart>
           </ResponsiveContainer>
         </div>
@@ -738,9 +739,9 @@ function HeadcountChart({ employees }: { employees: any[] }) {
             <ResponsiveContainer width="100%" height="100%">
               <RechartsBarChart data={depts.map(([dept, d]) => ({ name: dept.length > 10 ? dept.slice(0, 10) + '…' : dept, Human: d.human, AI: d.ai }))} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <RechartsTooltip content={<ChartTooltip />} />
+                <XAxis {...chartAxisProps} dataKey="name" />
+                <YAxis {...chartAxisProps} allowDecimals={false} />
+                <RechartsTooltip {...chartTooltipProps} />
                 <Bar dataKey="Human" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={24} fillOpacity={0.85} />
                 <Bar dataKey="AI" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={24} fillOpacity={0.75} />
               </RechartsBarChart>
@@ -799,9 +800,9 @@ function ActivitySummaryChart({ activity }: { activity: any[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <RechartsBarChart data={actionData.map(([action, count]) => ({ name: action, count }))} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
               <CartesianGrid {...CHART_GRID} horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={80} />
-              <RechartsTooltip content={<ChartTooltip />} />
+              <XAxis {...chartAxisProps} type="number" allowDecimals={false} />
+              <YAxis {...chartAxisProps} type="category" dataKey="name" width={80} />
+              <RechartsTooltip {...chartTooltipProps} />
               <Bar dataKey="count" name="Events" radius={[0, 4, 4, 0]} maxBarSize={20}>
                 {actionData.map((_, i) => <Cell key={i} fill={actionHexColors[i % actionHexColors.length]} fillOpacity={0.8} />)}
               </Bar>
@@ -945,9 +946,9 @@ function CustomReportChart({ report, tasks, tickets, leads, candidates, employee
           <ResponsiveContainer width="100%" height="100%">
             <RechartsBarChart data={bars.map(b => ({ name: b.name.length > 14 ? b.name.slice(0, 14) + '…' : b.name, count: b.count }))} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
               <CartesianGrid {...CHART_GRID} horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#a3a3a3' }} tickLine={false} axisLine={false} width={90} />
-              <RechartsTooltip content={<ChartTooltip />} />
+              <XAxis {...chartAxisProps} type="number" allowDecimals={false} />
+              <YAxis {...chartAxisProps} type="category" dataKey="name" width={90} />
+              <RechartsTooltip {...chartTooltipProps} />
               <Bar dataKey="count" name={groupLabel} radius={[0, 4, 4, 0]} maxBarSize={20}>
                 {bars.map((b, i) => <Cell key={i} fill={b.hex} fillOpacity={0.85} />)}
               </Bar>

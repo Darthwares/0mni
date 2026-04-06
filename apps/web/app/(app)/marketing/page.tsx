@@ -97,6 +97,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -1273,7 +1274,7 @@ Schedule a strategy workshop to prioritize the recommendations above and build a
                             <PolarAngleAxis dataKey="dimension" tick={{ fill: '#a3a3a3', fontSize: 12 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#737373', fontSize: 10 }} />
                             <Radar name="Score" dataKey="score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.25} strokeWidth={2} />
-                            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
+                            <RechartsTooltip {...chartTooltipProps} />
                           </RadarChart>
                         </ResponsiveContainer>
                       ) : (
@@ -1432,7 +1433,7 @@ Schedule a strategy workshop to prioritize the recommendations above and build a
                                 <Cell key={i} fill={entry.fill} />
                               ))}
                             </Pie>
-                            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
+                            <RechartsTooltip {...chartTooltipProps} />
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="flex flex-wrap gap-2 justify-center mt-2">
@@ -1452,10 +1453,10 @@ Schedule a strategy workshop to prioritize the recommendations above and build a
                       <CardContent>
                         <ResponsiveContainer width="100%" height={200}>
                           <BarChart data={contentStatusData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#525252" strokeOpacity={0.2} />
-                            <XAxis dataKey="name" tick={{ fill: '#a3a3a3', fontSize: 12 }} />
-                            <YAxis tick={{ fill: '#a3a3a3', fontSize: 12 }} />
-                            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
+                            <CartesianGrid {...chartGridProps} />
+                            <XAxis dataKey="name" {...chartAxisProps} />
+                            <YAxis {...chartAxisProps} />
+                            <RechartsTooltip {...chartTooltipProps} />
                             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                               {contentStatusData.map((entry, i) => (
                                 <Cell key={i} fill={STATUS_BAR_COLORS[entry.name] ?? '#737373'} />

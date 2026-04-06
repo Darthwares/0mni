@@ -85,6 +85,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -849,8 +850,7 @@ export default function SalesPage() {
                         ))}
                       </Pie>
                       <RechartsTooltip
-                        contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        {...chartTooltipProps}
                         formatter={(value: number, name: string) => [`${value} lead${value !== 1 ? 's' : ''}`, name]}
                       />
                     </PieChart>
@@ -879,12 +879,11 @@ export default function SalesPage() {
               <div className="h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stageValueData} barSize={22} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} interval={0} angle={-20} textAnchor="end" height={35} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} unit="K" />
+                    <CartesianGrid {...chartGridProps} vertical={false} />
+                    <XAxis {...chartAxisProps} dataKey="name" interval={0} angle={-20} textAnchor="end" height={35} />
+                    <YAxis {...chartAxisProps} unit="K" />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      {...chartTooltipProps}
                       formatter={(value: number, name: string, props: any) => [`$${value}K (${props.payload.count} deals)`, 'Value']}
                     />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -909,11 +908,10 @@ export default function SalesPage() {
               <div className="h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={sourceBarData} barSize={20} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <XAxis {...chartAxisProps} dataKey="name" />
+                    <YAxis {...chartAxisProps} allowDecimals={false} />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      {...chartTooltipProps}
                       formatter={(value: number, name: string, props: any) => {
                         if (name === 'leads') return [`${value} leads (${props.payload.rate}% conv)`, 'Total']
                         return [`${value} converted`, 'Won']

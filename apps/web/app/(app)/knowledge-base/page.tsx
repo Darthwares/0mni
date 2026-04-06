@@ -64,6 +64,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import ShinyText from '@/components/reactbits/ShinyText'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -800,8 +801,7 @@ export default function KnowledgeBasePage() {
                           ))}
                         </Pie>
                         <RechartsTooltip
-                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          {...chartTooltipProps}
                           formatter={(value: number, name: string) => [`${value} article${value !== 1 ? 's' : ''}`, name]}
                         />
                       </PieChart>
@@ -827,12 +827,11 @@ export default function KnowledgeBasePage() {
                   {topViewedArticles.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topViewedArticles} layout="vertical" barSize={14} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                        <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                        <YAxis type="category" dataKey="title" tickLine={false} axisLine={false} width={90} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                        <CartesianGrid {...chartGridProps} horizontal={false} />
+                        <XAxis type="number" {...chartAxisProps} />
+                        <YAxis type="category" dataKey="title" {...chartAxisProps} width={90} />
                         <RechartsTooltip
-                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          {...chartTooltipProps}
                         />
                         <Bar dataKey="views" radius={[0, 6, 6, 0]} fill="url(#kbViewsGrad)" />
                         <defs>

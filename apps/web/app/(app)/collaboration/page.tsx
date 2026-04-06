@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { exportCSV } from '@/lib/csv-export'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import {
   Hash,
   Lock,
@@ -826,7 +827,7 @@ export default function CollaborationPage() {
                     <Pie data={docTypePieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
                       {docTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -854,7 +855,7 @@ export default function CollaborationPage() {
                     <Pie data={meetingTypePieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
                       {meetingTypePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
@@ -882,7 +883,7 @@ export default function CollaborationPage() {
                     <Pie data={meetingStatusPieData} cx="50%" cy="50%" innerRadius={36} outerRadius={56} paddingAngle={3} dataKey="value" stroke="none">
                       {meetingStatusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                     </Pie>
-                    <RechartsTooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <RechartsTooltip {...chartTooltipProps} />
                   </RechartsPie>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">

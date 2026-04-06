@@ -29,6 +29,7 @@ import BlurText from '@/components/reactbits/BlurText'
 import ShinyText from '@/components/reactbits/ShinyText'
 import { PagePresenceStrip } from '@/components/presence-bar'
 import { exportCSV } from '@/lib/csv-export'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import { Button } from '@/components/ui/button'
 import {
   Users,
@@ -638,11 +639,7 @@ export default function PeoplePage() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                      formatter={(value: number, name: string) => [value, name]}
-                    />
+                    <RechartsTooltip {...chartTooltipProps} formatter={(value: number, name: string) => [value, name]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -667,11 +664,7 @@ export default function PeoplePage() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                      formatter={(value: number, name: string) => [`${value} member${value !== 1 ? 's' : ''}`, name]}
-                    />
+                    <RechartsTooltip {...chartTooltipProps} formatter={(value: number, name: string) => [`${value} member${value !== 1 ? 's' : ''}`, name]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -691,13 +684,9 @@ export default function PeoplePage() {
               <div className="h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={deptBarData} barSize={20} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} interval={0} angle={-30} textAnchor="end" height={40} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                    <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                      formatter={(value: number) => [`${value} people`, 'Count']}
-                    />
+                    <XAxis {...chartAxisProps} dataKey="name" interval={0} angle={-30} textAnchor="end" height={40} />
+                    <YAxis {...chartAxisProps} allowDecimals={false} />
+                    <RechartsTooltip {...chartTooltipProps} formatter={(value: number) => [`${value} people`, 'Count']} />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                       {deptBarData.map((entry, i) => (
                         <Cell key={i} fill={entry.fill} />

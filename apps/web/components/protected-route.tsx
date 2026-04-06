@@ -1,39 +1,57 @@
 'use client'
 
-import { useAuth } from 'react-oidc-context'
+import { useOmniAuth } from '@/hooks/use-omni-auth'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const auth = useAuth()
+  const { isAuthenticated, isLoading, isReady, connectionState, error } = useOmniAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
-      auth.signinRedirect()
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/login')
     }
-  }, [auth.isLoading, auth.isAuthenticated, auth])
+  }, [isLoading, isAuthenticated, router])
 
-  if (auth.isLoading) {
+  // Still loading OIDC state
+  if (isLoading) {
+    return <AuthShell message="Checking authentication..." />
+  }
+
+  // Not authenticated — redirecting to login
+  if (!isAuthenticated) {
+    return <AuthShell message="Redirecting to login..." />
+  }
+
+  // Authenticated but SpacetimeDB not ready yet — block children
+  // This prevents useSpacetimeDB() calls before SpacetimeDBProvider exists
+  if (!isReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">Ω</span>
-          </div>
-          <div className="animate-pulse">
-            <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Checking authentication...
-            </p>
-          </div>
-        </div>
-      </div>
+      <AuthShell
+        message={
+          connectionState === 'error'
+            ? 'Connection error — retrying...'
+            : 'Connecting...'
+        }
+      />
     )
   }
 
-  if (!auth.isAuthenticated) {
-    return null
-  }
-
   return <>{children}</>
+}
+
+function AuthShell({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-neutral-950">
+      <div className="text-center">
+        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/20">
+          <span className="text-white font-mono font-bold text-lg">0</span>
+        </div>
+        <div className="animate-pulse">
+          <p className="text-sm font-medium text-neutral-400">{message}</p>
+        </div>
+      </div>
+    </div>
+  )
 }

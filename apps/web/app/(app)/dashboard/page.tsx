@@ -43,6 +43,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -961,13 +962,9 @@ export default function DashboardPage() {
               <div className="h-24">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={weeklyVelocity} barSize={20} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                    <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                      formatter={(value: number) => [`${value} completed`, 'Tasks']}
-                    />
+                    <XAxis {...chartAxisProps} dataKey="label" />
+                    <YAxis {...chartAxisProps} allowDecimals={false} />
+                    <RechartsTooltip {...chartTooltipProps} formatter={(value: number) => [`${value} completed`, 'Tasks']} />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="url(#velocityGrad)" />
                     <defs>
                       <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1044,11 +1041,7 @@ export default function DashboardPage() {
                             <Cell key={i} fill={entry.color} />
                           ))}
                         </Pie>
-                        <RechartsTooltip
-                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                          formatter={(value: number, name: string) => [`${value} task${value !== 1 ? 's' : ''}`, name]}
-                        />
+                        <RechartsTooltip {...chartTooltipProps} formatter={(value: number, name: string) => [`${value} task${value !== 1 ? 's' : ''}`, name]} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

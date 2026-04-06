@@ -81,6 +81,7 @@ import {
   Funnel,
   LabelList,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import CountUp from '@/components/reactbits/CountUp'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
@@ -737,11 +738,10 @@ export default function RecruitmentPage() {
                   <div className="h-[160px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={funnelData} barSize={20} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                        <XAxis {...chartAxisProps} dataKey="name" />
+                        <YAxis {...chartAxisProps} allowDecimals={false} />
                         <RechartsTooltip
-                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          {...chartTooltipProps}
                           formatter={(value: number, name: string) => [`${value} candidate${value !== 1 ? 's' : ''}`, 'Count']}
                         />
                         <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -766,8 +766,7 @@ export default function RecruitmentPage() {
                           ))}
                         </Pie>
                         <RechartsTooltip
-                          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                          {...chartTooltipProps}
                           formatter={(value: number, name: string) => [value, name]}
                         />
                       </PieChart>
@@ -797,8 +796,7 @@ export default function RecruitmentPage() {
                               ))}
                             </Pie>
                             <RechartsTooltip
-                              contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                              itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                              {...chartTooltipProps}
                               formatter={(value: number, name: string) => [value, name]}
                             />
                           </PieChart>

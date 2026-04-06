@@ -35,6 +35,7 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine,
   PieChart, Pie, Cell,
 } from 'recharts'
+import { chartTooltipProps, chartAxisProps, chartGridProps } from '@/lib/chart-theme'
 import GradientText from '@/components/reactbits/GradientText'
 import SpotlightCard from '@/components/reactbits/SpotlightCard'
 import CountUp from '@/components/reactbits/CountUp'
@@ -925,13 +926,12 @@ export default function TimeTrackingPage() {
               <div className="h-[180px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={weeklyData} barSize={28} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} unit="h" />
+                    <CartesianGrid {...chartGridProps} vertical={false} />
+                    <XAxis dataKey="label" {...chartAxisProps} />
+                    <YAxis {...chartAxisProps} unit="h" />
                     <RechartsTooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                      {...chartTooltipProps}
                       formatter={(value: number) => [`${value.toFixed(1)}h`, 'Hours']}
-                      cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
                     />
                     <ReferenceLine y={8} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: '8h goal', position: 'right', fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
                     <Bar dataKey="hours" radius={[6, 6, 0, 0]} fill="url(#weeklyGradient)" />
@@ -977,7 +977,7 @@ export default function TimeTrackingPage() {
                             ))}
                           </Pie>
                           <RechartsTooltip
-                            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                            {...chartTooltipProps}
                             formatter={(value: number) => [`${value.toFixed(1)}h`, '']}
                           />
                         </PieChart>
